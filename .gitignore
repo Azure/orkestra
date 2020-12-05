@@ -1,3 +1,10 @@
+
+.settings/
+.vscode/
+tsconfig.json
+jsconfig.json
+
+### Go ###
 # Binaries for programs and plugins
 *.exe
 *.exe~
@@ -5,11 +12,55 @@
 *.so
 *.dylib
 
-# Test binary, built with `go test -c`
+# Test binary, build with `go test -c`
 *.test
 
-# Output of the go coverage tool, specifically when used with LiteIDE
 *.out
+.glide/
 
-# Dependency directories (remove the comment below to include it)
-# vendor/
+#dlv binaries
+debug
+
+### Vim ###
+# Swap
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+[._]s[a-rt-v][a-z]
+[._]ss[a-gi-z]
+[._]sw[a-p]
+
+# IntelliJ / Goland
+.idea/
+
+# Emacs
+*~
+*#*
+
+/bin/
+build/
+.dev/
+.env
+_dist/
+
+creds.json
+screenlog.*
+vendor/
+demo/bin/
+certificates
+
+## Ignore test coverage files
+coverage.json
+coverage.txt
+coverage.xml
+coverage/
+report.xml
+testoutput.txt
+
+# macOS files
+.DS_Store
+
+# Certificates etc
+*.pem
+./certs/
+commit_logs
+bootstrap.yaml
