@@ -1,4 +1,5 @@
-Orkestra
+Azure Orkestra
+
 Copyright (c) Microsoft Corporation.
 
 MIT License
