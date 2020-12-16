@@ -29,16 +29,23 @@ Complex application require intelligent release orchestration and lifecycle mana
 - **Works with any CD** - use with any existing CD solution out there, including FluxCD and ArgoCD.
 - **Built for GitOps** - describe your desired group of applications and manage them from a single version-controlled declarative file.
 
-## Comparisons
+## Contributing
 
-### Spinnaker, ArgoCD, FluxCD
+For instructions about setting up your environment to develop and extend the operator, please see
+[contributing.md](https://github.com/azure/orkestra/blob/main/docs/CONTRIBUTING.md)
 
-TODO
+This project welcomes contributions and suggestions.  Most contributions require you to agree to a
+Contributor License Agreement (CLA) declaring that you have the right to, and actually do, grant us
+the rights to use your contribution. For details, visit https://cla.microsoft.com.
 
-### Helmfile
+When you submit a pull request, a CLA-bot will automatically determine whether you need to provide
+a CLA and decorate the PR appropriately (e.g., label, comment). Simply follow the instructions
+provided by the bot. You will only need to do this once across all repos using our CLA.
 
-TODO
+This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/).
+For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or
+contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
 
-### Helmsman
+### Reporting security issues and security bugs
 
-TODO
+For instructions on reporting security issues and bugs, please see [security.md](https://github.com/azure/orkestra/blob/main/docs/SECURITY.md)
