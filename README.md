@@ -1,33 +1,33 @@
 # Orkestra
 
-Orkestra is a cloud-native release orchestration platform that allows you to manage the lifecycle and release of a group of Helm Charts (k8s applications) using Kubernetes CRDs. 
-It choreographs complicated application releases, with soft and hard dependencies on other applications/charts, with relative ease using DAG-based workflows. 
+Orkestra is a cloud-native release orchestration platform that allows you to manage the lifecycle and orchestrate the release of a group of Kubernetes applications, packaged as [Helm](https://helm.sh/) Charts using declarative, Kubernetes Custom Resource Objects.
+Orkestra works by generating dependency driven DAG workflows to orchestrate the release of multiple applications within a cluster, and optionally multiple microservice types within an application ([helm dependencies](https://helm.sh/docs/helm/helm_dependency/)) in the parent application chart.
 
 ## Overview
 
 ### What is it?
-Orkestra allows for deterministic, sequenced deployment of applications (Helm Charts) by leveraging the popular and mature open-source framework like Argo (Workflows). By making use of Weavework's Flux HelmOperator to automate the helm operation, Orkestra provides a robust, idempotent solution for installation, upgrades, and rollbacks.
-Additionally, and optionally, it can also sequence the installation of sub-charts (dependencies) of the parent application, using the same DAG-based Argo workflow.
+
+Orkestra allows for the deterministic and ordered deployment of applications (Helm Charts) by leveraging popular and mature open-source frameworks like [Argo](https://argoproj.github.io/argo/) (Workflows) and [Flux Helm Operator](https://github.com/fluxcd/helm-operator).
 
 ### What problem does it solve?
 
-Complex application require intelligent release orchestration and lifecycle management. The following scenarios present the need for a robust automation platform that oversees the process of releasing a complex set of applications as a single product.
+Complex application oftentimes require **intelligent** release orchestration and lifecycle management which is not provided by Helm itself
+
+#### Example
 
 **Continuous Deployment of mission-critical applications** - like 5G core network functions
-- Least Disruption and limiting the blast radius: Mission-critical services must be upgraded in isolation to provide the least disruptive upgrades/rollback
-- Non-critical and/or orthogonal application upgrades can be done in parallel.
 
-**Applications have both soft and hard dependencies**
-- Most legacy enterprise applications are not built for but are merely adapted to Kubernetes.
-    - No readiness probes - applications (or deployment) do not proactively check for dependencies like DBs, Servers, etc. before going into an operationally "ready" state.
+- Network Function applications rely on a rich ecosystem of **infrastructure** and **PaaS** (platform-as-a-service) components to be running on the cluster before they can be deployed.
+
+- Lifecycle Management of infrastructure applications must be carried out independent of application groups.
 
 ## Features
 
-- **Built for Kubernetes** - controllers built using the Kubernetes Operators pattern
-- **Easy to use** - familiar declarative spec using Custom Resource Definitions
+- **Built for Kubernetes** - custom controllers built using the [kubebuilder](https://github.com/kubernetes-sigs/kubebuilder) project
+- **Easy to use** - familiar declarative spec using Kubernetes [Custom Resource Definitions](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/)
 - **Dependency management** - DAG-based workflows for groups of application charts and their sub-charts using Argo Workflow
-- **Works with any CD** - use with any existing CD solution out there, including FluxCD and ArgoCD.
-- **Built for GitOps** - describe your desired group of applications and manage them from a single version-controlled declarative file.
+- **Works with any Continous Deployment system** - use with any existing CD solution out there, including [FluxCD](https://fluxcd.io/) and [ArgoCD](https://argoproj.github.io/argo-cd/).
+- **Built for GitOps** - describe your desired set of applications (and dependencies) declaratively and manage them from a version-controlled repository.
 
 ## Contributing
 
