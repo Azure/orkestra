@@ -1,7 +1,7 @@
 # Orkestra
 
 Orkestra is a cloud-native release orchestration platform that allows you to manage the lifecycle and orchestrate the release of a group of Kubernetes applications, packaged as [Helm](https://helm.sh/) Charts using declarative, Kubernetes Custom Resource Objects.
-Orkestra works by generating dependency driven DAG workflows to orchestrate the release of multiple applications within a cluster, and optionally multiple microservice types within an application ([helm dependecies](https://helm.sh/docs/helm/helm_dependency/)) in the parent application chart.
+Orkestra works by generating dependency driven DAG workflows to orchestrate the release of multiple applications within a cluster, and optionally multiple microservice types within an application ([helm dependencies](https://helm.sh/docs/helm/helm_dependency/)) in the parent application chart.
 
 ## Overview
 
