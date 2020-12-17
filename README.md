@@ -32,7 +32,7 @@ Complex application oftentimes require **intelligent** release orchestration and
 ## Contributing
 
 For instructions about setting up your environment to develop and extend the operator, please see
-[contributing.md](https://github.com/azure/orkestra/blob/main/docs/CONTRIBUTING.md)
+[contributing.md](https://github.com/Azure/Orkestra/blob/main/CONTRIBUTING.md)
 
 This project welcomes contributions and suggestions.  Most contributions require you to agree to a
 Contributor License Agreement (CLA) declaring that you have the right to, and actually do, grant us
@@ -48,4 +48,4 @@ contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additio
 
 ### Reporting security issues and security bugs
 
-For instructions on reporting security issues and bugs, please see [security.md](https://github.com/azure/orkestra/blob/main/docs/SECURITY.md)
+For instructions on reporting security issues and bugs, please see [security.md](https://github.com/Azure/Orkestra/blob/main/SECURITY.md)
