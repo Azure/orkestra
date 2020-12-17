@@ -48,4 +48,4 @@ contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additio
 
 ### Reporting security issues and security bugs
 
-For instructions on reporting security issues and bugs, please see [security.md](https://github.com/azure/orkestra/blob/main/docs/SECURITY.md)
+For instructions on reporting security issues and bugs, please see [security.md](https://github.com/Azure/Orkestra/blob/main/SECURITY.md)
