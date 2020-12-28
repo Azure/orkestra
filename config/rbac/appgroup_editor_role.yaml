@@ -1,0 +1,24 @@
+# permissions for end users to edit applicationgroups.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: applicationgroup-editor-role
+rules:
+- apiGroups:
+  - orkestra.azure.microsoft.com
+  resources:
+  - applicationgroups
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - orkestra.azure.microsoft.com
+  resources:
+  - applicationgroups/status
+  verbs:
+  - get

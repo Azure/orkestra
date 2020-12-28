@@ -1,3 +1,10 @@
 domain: azure.microsoft.com
 repo: github.com/Azure/Orkestra
+resources:
+- group: orkestra
+  kind: Application
+  version: v1alpha1
+- group: orkestra
+  kind: ApplicationGroup
+  version: v1alpha1
 version: "2"
