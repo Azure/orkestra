@@ -166,6 +166,17 @@ spec:
               description: SkipCRDs will mark this Helm release to skip the creation
                 of CRDs during a Helm 3 installation.
               type: boolean
+            subcharts:
+              items:
+                properties:
+                  dependencies:
+                    items:
+                      type: string
+                    type: array
+                  name:
+                    type: string
+                type: object
+              type: array
             targetNamespace:
               description: TargetNamespace overrides the targeted namespace for the
                 Helm release. The default namespace equals to the namespace of the

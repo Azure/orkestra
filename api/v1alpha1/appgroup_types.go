@@ -9,10 +9,10 @@ import (
 
 // ApplicationGroupSpec defines the desired state of ApplicationGroup
 type ApplicationGroupSpec struct {
-	Applications []ApplicationsDAG `json:"applications,omitempty"`
+	Applications []DAG `json:"applications,omitempty"`
 }
 
-type ApplicationsDAG struct {
+type DAG struct {
 	Name         string   `json:"name,omitempty"`
 	Dependencies []string `json:"dependencies,omitempty"`
 }

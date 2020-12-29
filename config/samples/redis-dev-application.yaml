@@ -11,6 +11,7 @@ spec:
     repo: "https://charts.bitnami.com/bitnami"
     name: redis
     version: 12.2.3
+  subcharts: []
   # Overlay Values
   values:
     global:

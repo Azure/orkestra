@@ -12,10 +12,10 @@ spec:
     repo: "https://charts.bitnami.com/bitnami"
     name: kafka
     version: 12.4.1
-    dependencies:
-      # subchart ordering
-      - name: zookeeper
-        dependencies: []
+  subcharts:
+    # subchart ordering
+    - name: zookeeper
+      dependencies: []
   # Overlay Values
   values:
     global:

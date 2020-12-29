@@ -36,7 +36,7 @@ spec:
         spec:
           description: ApplicationGroupSpec defines the desired state of ApplicationGroup
           properties:
-            foo:
+            applications:
               items:
                 properties:
                   dependencies:
