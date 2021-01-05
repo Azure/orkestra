@@ -1,0 +1,37 @@
+@startuml
+
+title ""Reversing on Failure""
+
+' skinparams
+skinparam sequenceArrowThickness 3
+
+' define all participants
+actor admin as "**ArgoCD** / **FluxCD**"
+control orkestra as "**Orkestra**\nController"
+control argo as "**Argo Workflows**\nController"
+control helmop as "**HelmOperator**\nController"
+
+activate argo
+== Active Workflow ==
+...
+
+
+argo -> helmop:**[Submit]** Dependency ""HelmRelease"" CR
+...
+helmop --X argo:**[Status]** Failure
+deactivate argo
+
+orkestra -> argo: **[Reverse]** Workflow DAG
+activate argo
+    loop #lightyellow Application "node" in Application Group DAG
+        'Each dependency in Application dependency DAG
+        loop #lightyellow Dependency "node" in Application dependency DAG
+            argo -> helmop:**[Delete]** Dependency ""HelmRelease"" CR
+            helmop --> argo:**[Status]** Dependency Release Deleted
+        end loop
+        argo ->helmop : **[Delete]** Application ""HelmRelease"" CR
+        helmop --> argo:**[Status]** Application Release Deleted
+    end loop
+return ""Workflow.Status : //Completed//""
+orkestra --> admin : ""ApplicationGroup.Status : //Failed//""\n""Application.Status : //Failed//""
+@enduml
