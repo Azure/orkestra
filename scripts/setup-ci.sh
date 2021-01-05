@@ -1,3 +1,6 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
+
 #!/bin/sh
 
 # To use envtest is required to have etcd, kube-apiserver and kubetcl binaries installed locally.
