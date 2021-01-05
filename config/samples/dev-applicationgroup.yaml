@@ -1,0 +1,14 @@
+apiVersion: orkestra.azure.microsoft.com/v1alpha1
+kind: ApplicationGroup
+metadata:
+  name: dev
+spec:
+  applications:
+    - name: kafka-dev
+      dependencies:
+        - redis-dev
+    - name: redis-dev
+# TODO (nitishm) - define these fields using Argo Workflow spec
+#  strategy:
+#    rollout:
+#    backout:

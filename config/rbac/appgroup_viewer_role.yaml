@@ -1,0 +1,20 @@
+# permissions for end users to view applicationgroups.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: applicationgroup-viewer-role
+rules:
+- apiGroups:
+  - orkestra.azure.microsoft.com
+  resources:
+  - applicationgroups
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - orkestra.azure.microsoft.com
+  resources:
+  - applicationgroups/status
+  verbs:
+  - get
