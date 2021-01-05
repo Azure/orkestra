@@ -1,0 +1,48 @@
+# Starter pipeline
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+
+trigger:
+  - main
+
+pr:
+  branches:
+    include:
+      - main
+
+jobs:
+  - job: orkestra
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+      - task: GoTool@0
+        displayName: Setup Go 1.15.2
+        inputs:
+          version: '1.15.2'
+
+      - task: Go@0
+        displayName: Setup Go dependencies
+        inputs:
+          command: 'get'
+          arguments: '-d'
+          workingDirectory: '$(System.DefaultWorkingDirectory)'
+
+      - task: Bash@3
+        name: "setup_kubebuilder"
+        inputs:
+          targetType: 'filePath'
+          filePath: '$(System.DefaultWorkingDirectory)/scripts/setup-ci.sh'
+
+      - script: |
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.33.0
+          export PATH=$PATH:$(go env GOPATH)/bin
+          golangci-lint --version
+          golangci-lint run
+
+        displayName: 'Code Scan using golangci-lint'
+
+      - script: |
+          make test
+
+        displayName: 'Run tests'

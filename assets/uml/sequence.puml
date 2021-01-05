@@ -1,0 +1,67 @@
+@startuml
+
+title ""Submitting an Application Group""
+
+' skinparams
+skinparam sequenceArrowThickness 3
+
+' options
+autonumber
+
+' define all participants
+box Kubernetes Cluster #white
+actor admin as "**ArgoCD** / **FluxCD**"
+control orkestra as "**Orkestra**\nController"
+control argo as "**Argo Workflows**\nController"
+control helmop as "**HelmOperator**\nController"
+entity harbor as "**Staging**\nHelm Registry"
+end box
+
+entity helm as "**Primary**\nHelm Registry"
+
+admin -> orkestra: **[Submit]** ""Application"" CRs
+admin -> orkestra: **[Submit]** ""ApplicationGroup"" CR
+
+activate orkestra
+
+loop #lightyellow ""Application"" in ""ApplicationGroup""
+    orkestra -> helm: **[Pull]** Application Helm Chart
+    note left #pink
+        Controller gets the ""Application"" CR object
+        and parses the chart info from the retrieved object
+    end note
+    helm --> orkestra: Helm Artifact
+    opt #lightgrey application dependencies local to chart
+        note over orkestra #pink
+            //only// if dependencies are packaged locally
+        end note
+        orkestra -> harbor: **[Push]** Dependency Charts
+    end
+end
+
+orkestra -> argo: **[Submit]** Workflow DAG
+activate argo
+    'Each Application node in ApplicationGroup DAG
+    loop #lightyellow Application "node" in Application Group DAG
+        alt #lightgrey No dependency DAG
+            autonumber 7
+            argo -> helmop:**[Submit]** Application ""HelmRelease"" CR
+            helmop -> "Application Namespace" **: **[Install/Upgrade]** Application chart
+            helmop --> argo:**[Status]** Installed
+        else With dependency DAG
+            autonumber 7
+            'Each dependency in Application dependency DAG
+            loop #lightyellow Dependency "node" in Application dependency DAG
+                argo -> helmop:**[Submit]** Dependency ""HelmRelease"" CR
+                helmop -> "Application Namespace": **[Install/Upgrade]** Dependency chart
+                helmop --> argo:**[Status]** Installed
+            end loop
+            argo -> helmop:**[Submit] **Application ""HelmRelease"" CR with dependencies set to ""**nil**""
+            helmop -> "Application Namespace": **[Install/Upgrade]** Application chart
+            helmop --> argo:**[Status]** Installed
+        end
+    end loop
+return ""Workflow.Status : //Completed// ""
+return ""ApplicationGroup.Status"" : //Ready//\n""Application.Status"" : //Ready//
+
+@enduml

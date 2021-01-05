@@ -7,7 +7,7 @@ Orkestra works by generating dependency driven DAG workflows to orchestrate the 
 
 ### What is it?
 
-Orkestra renders a DAG based workflow for deploying applications to a Kubernetes cluster by leveraging popular and mature open-source frameworks like [Argo](https://argoproj.github.io/argo/) (Workflows) and [Flux Helm Operator](https://github.com/fluxcd/helm-operator).
+Orkestra renders a DAG based workflow for deploying applications to a Kubernetes cluster by leveraging popular and mature open-source frameworks like [Argo](https://argoproj.github.io/argo/) (Workflows), [Flux Helm Operator](https://github.com/fluxcd/helm-operator) and *optionally* [Harbor](https://goharbor.io/).
 
 ### What problems does it solve?
 
@@ -19,9 +19,17 @@ Take, for example, **Continuous Deployment of mission-critical applications** - 
 
 ## How it works
 
+To solve the complex application orchestration problem Orkestra builds a [Directed Acyclic Graph](https://en.wikipedia.org/wiki/Directed_acyclic_graph) using the application, and it's dependencies and submits it to Argo Workflow. The Workflow nodes use [`workflow-executor`](https://argoproj.github.io/argo/workflow-executors/) nodes to deploy a [`HelmRelease`](https://docs.fluxcd.io/projects/helm-operator/en/stable/references/helmrelease-custom-resource/#helm.fluxcd.io/v1.HelmReleaseSpec) object into the cluster. This `HelmRelease` object signals Flux's HelmOperator to perform a "Helm Action" on the referenced chart.
+
 <p align="center"><img src="./assets/orkestra-core.png" width="750x" /></p>
 
-To solve the complex application orchestration problem Orkestra builds a [Directed Acyclic Graph](https://en.wikipedia.org/wiki/Directed_acyclic_graph) using the application, and it's dependencies and submits it to Argo Workflow. The Workflow nodes use [`workflow-executor`](https://argoproj.github.io/argo/workflow-executors/) nodes to deploy a [`HelmRelease`](https://docs.fluxcd.io/projects/helm-operator/en/stable/references/helmrelease-custom-resource/#helm.fluxcd.io/v1.HelmReleaseSpec) object into the cluster. This `HelmRelease` object signals Flux's HelmOperator to perform a "Helm Action" on the referenced chart.
+1. Submit `Application` and `ApplicationGroup` CRs
+2. For each `Application` in `ApplicationGroup` download Helm chart from “primary” Helm Registry
+3. (*optional) For each dependency in the `Application` chart, if dependency chart is embedded in `charts/` directory, push to ”staging” Helm Registry (Harbor).
+4. Generate and submit Argo Workflow DAG
+5. (Executor nodes only) Submit and probe deployment state of `HelmRelease CR.
+6. Fetch and deploy Helm charts referred to by each `HelmRelease` CR to the Kubernetes cluster.
+   (*optional) Embedded subcharts are fetched from the “staging” registry instead of the “primary/remote” registry.
 
 ## Features
 
