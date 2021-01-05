@@ -31,6 +31,10 @@ To solve the complex application orchestration problem Orkestra builds a [Direct
 6. Fetch and deploy Helm charts referred to by each `HelmRelease` CR to the Kubernetes cluster.
    (*optional) Embedded subcharts are fetched from the “staging” registry instead of the “primary/remote” registry.
 
+## Sequence Diagram
+
+See [sequence diagrams](./docs/SEQUENCE.md)
+
 ## Features
 
 - **Built for Kubernetes** - custom controller built using the [kubebuilder](https://github.com/kubernetes-sigs/kubebuilder) project
