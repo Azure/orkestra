@@ -4,16 +4,45 @@
 # https://aka.ms/yaml
 
 trigger:
-- main
+  - main
 
-pool:
-  vmImage: 'ubuntu-latest'
+pr:
+  branches:
+    include:
+      - main
 
-steps:
-- script: echo Hello, world!
-  displayName: 'Run a one-line script'
+jobs:
+  - job: orkestra
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+      - task: GoTool@0
+        displayName: Setup Go 1.15.2
+        inputs:
+          version: '1.15.2'
 
-- script: |
-    echo Add other tasks to build, test, and deploy your project.
-    echo See https://aka.ms/yaml
-  displayName: 'Run a multi-line script'
+      - task: Go@0
+        displayName: Setup Go dependencies
+        inputs:
+          command: 'get'
+          arguments: '-d'
+          workingDirectory: '$(System.DefaultWorkingDirectory)'
+
+      - task: Bash@3
+        name: "setup_kubebuilder"
+        inputs:
+          targetType: 'filePath'
+          filePath: '$(System.DefaultWorkingDirectory)/scripts/setup-ci.sh'
+
+      - script: |
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.33.0
+          export PATH=$PATH:$(go env GOPATH)/bin
+          golangci-lint --version
+          golangci-lint run
+
+        displayName: 'Code Scan using golangci-lint'
+
+      - script: |
+          make test
+
+        displayName: 'Run tests'
