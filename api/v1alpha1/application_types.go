@@ -19,10 +19,16 @@ type ApplicationSpec struct {
 	helmopv1.HelmReleaseSpec `json:",inline"`
 }
 
+// ChartStatus denotes the current status of the Application Reconcilation
+type ChartStatus struct {
+	Ready bool   `json:"ready"`
+	Error string `json:"error,omitempty"`
+}
+
 // ApplicationStatus defines the observed state of Application
 type ApplicationStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	Name        string      `json:"name,omitempty"`
+	ChartStatus ChartStatus `json:"status"`
 }
 
 // +kubebuilder:object:root=true
