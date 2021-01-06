@@ -16,6 +16,7 @@ type ApplicationSpec struct {
 	// Namespace to which the HelmRelease object will be deployed
 	Namespace                string `json:"namespace"`
 	Subcharts                []DAG  `json:"subcharts,omitempty"`
+	GroupName                string `json:"groupname"`
 	helmopv1.HelmReleaseSpec `json:",inline"`
 }
 

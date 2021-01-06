@@ -53,7 +53,7 @@ func (r *ApplicationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error)
 	requeue, err = r.reconcile(logr, &application)
 	if err != nil {
 		logr.Error(err, "failed to reconcile application instance")
-		return ctrl.Result{}, err
+		return ctrl.Result{Requeue: requeue}, err
 	}
 
 	return ctrl.Result{Requeue: requeue}, nil
@@ -71,7 +71,13 @@ func (r *ApplicationReconciler) updateStatusAndEvent(ctx context.Context, app or
 		errStr = err.Error()
 	}
 
-	app.Status = orkestrav1alpha1.ApplicationStatus{}
+	app.Status = orkestrav1alpha1.ApplicationStatus{
+		Name: app.Name,
+		ChartStatus: orkestrav1alpha1.ChartStatus{
+			Ready: !requeue,
+			Error: errStr,
+		},
+	}
 
 	_ = r.Status().Update(ctx, &app)
 
