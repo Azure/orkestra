@@ -19,7 +19,7 @@ type ApplicationSpec struct {
 	helmopv1.HelmReleaseSpec `json:",inline"`
 }
 
-// ChartStatus denotes the current status of the Application Reconcilation
+// ChartStatus denotes the current status of the Application Reconciliation
 type ChartStatus struct {
 	Ready bool   `json:"ready"`
 	Error string `json:"error,omitempty"`
