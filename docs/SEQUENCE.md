@@ -16,23 +16,25 @@
 
 **Step 5** : Push all dependencies to the "Staging" registry.
 
-**Step 6** : Generate and submit the Argo `Workflow` custom resource to the Kubernetes cluster. The `Workflow` resource defines the Application Dependency and Application Group DAGs.
+**Step 6** : Push Application chart without dependencies to "Staging" registry
+
+**Step 7** : Generate and submit the Argo `Workflow` custom resource to the Kubernetes cluster. The `Workflow` resource defines the Application Dependency and Application Group DAGs.
 
 *For each "application" node in the "application group" DAG*
 
 **(conditional)** - *If "application" node has no dependencies DAG*
 
-**Step 7, 8 & 9** - Submit the `HelmRelease` object referring to the "application" chart info via the Argo `executor` leaf node .
+**Step 8, 9 & 10** - Submit the `HelmRelease` object referring to the "application" chart info via the Argo `executor` leaf node .
 
 **(conditional)** - *Else "application" node has a dependencies DAG*
 
 *For each dependency (subchart) in Application dependencies DAG*
 
-**Step 7, 8, 9** - Submit the `HelmRelease` object referring to the "dependency" chart info via the Argo `executor` leaf node and wait for the `HelmRelease` `obj.Status` to be in a desirable state . Here the "dependency" chart could either be hosted outside the cluster by a public/private registry or be found in the "staging" registry (see Step 3 & 4 > conditional). 
+**Step 8, 9, 10** - Submit the `HelmRelease` object referring to the "dependency" chart info via the Argo `executor` leaf node and wait for the `HelmRelease` `obj.Status` to be in a desirable state . Here the "dependency" chart could either be hosted outside the cluster by a public/private registry or be found in the "staging" registry (see Step 3 & 4 > conditional). 
 
-**Step 10, 11, 12** -  Submit the `HelmRelease` object referring to the "application" chart info via the Argo `executor` leaf node. 
+**Step 11, 12, 13** -  Submit the `HelmRelease` object referring to the "application" chart info via the Argo `executor` leaf node. 
 
-**Step 13 & 14** - Status of the submitted CRs is continuously monitored by the Orkestra and CD controller.
+**Step 14 & 15** - Status of the submitted CRs is continuously monitored by the Orkestra and CD controller.
 
 ## Flow reversal on DAG node failure
 

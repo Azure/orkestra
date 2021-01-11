@@ -37,6 +37,7 @@ loop #lightyellow ""Application"" in ""ApplicationGroup""
         end note
         orkestra -> harbor: **[Push]** Dependency Charts
     end
+    orkestra -> harbor: **[Push]** Application chart minus dependencies
 end
 
 orkestra -> argo: **[Submit]** Workflow DAG
@@ -44,12 +45,12 @@ activate argo
     'Each Application node in ApplicationGroup DAG
     loop #lightyellow Application "node" in Application Group DAG
         alt #lightgrey No dependency DAG
-            autonumber 7
+            autonumber 8
             argo -> helmop:**[Submit]** Application ""HelmRelease"" CR
             helmop -> "Application Namespace" **: **[Install/Upgrade]** Application chart
             helmop --> argo:**[Status]** Installed
         else With dependency DAG
-            autonumber 7
+            autonumber 8
             'Each dependency in Application dependency DAG
             loop #lightyellow Dependency "node" in Application dependency DAG
                 argo -> helmop:**[Submit]** Dependency ""HelmRelease"" CR
