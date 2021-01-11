@@ -6,11 +6,13 @@ import (
 )
 
 func (r *ApplicationReconciler) reconcile(l logr.Logger, application *orkestrav1alpha1.Application) (bool, error) {
-	logr := l.WithValues("application", application.Name, "group", application.Spec.GroupName)
+	logr := l.WithValues("application", application.Name, "group", application.Spec.GroupId)
 	if application.Status.ChartStatus.Ready {
 		logr.Info("application already in ready state")
 		return false, nil
 	}
+
+	ch := application.Spec.ChartPullSecret
 
 	return false, nil
 }

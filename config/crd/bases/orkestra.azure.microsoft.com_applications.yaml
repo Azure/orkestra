@@ -97,7 +97,7 @@ spec:
               description: Force will mark this Helm release to `--force` upgrades.
                 This forces the resource updates through delete/recreate if needed.
               type: boolean
-            groupname:
+            groupId:
               type: string
             helmVersion:
               description: 'HelmVersion is the version of Helm to target. If not supplied,
@@ -296,7 +296,7 @@ spec:
               type: boolean
           required:
           - chart
-          - groupname
+          - groupId
           - namespace
           type: object
         status:
