@@ -3,10 +3,14 @@ module github.com/Azure/Orkestra
 go 1.13
 
 require (
+	github.com/argoproj/argo v2.5.2+incompatible
 	github.com/fluxcd/helm-operator v1.2.0
+	github.com/go-delve/delve v1.5.1 // indirect
 	github.com/go-logr/logr v0.1.0
+	github.com/google/go-cmp v0.4.0
 	github.com/onsi/ginkgo v1.11.0
 	github.com/onsi/gomega v1.8.1
+	k8s.io/api v0.17.4
 	k8s.io/apimachinery v0.17.4
 	k8s.io/client-go v11.0.0+incompatible
 	sigs.k8s.io/controller-runtime v0.5.0
