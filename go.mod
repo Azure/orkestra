@@ -3,12 +3,13 @@ module github.com/Azure/Orkestra
 go 1.13
 
 require (
+	github.com/chartmuseum/helm-push v0.9.0
 	github.com/fluxcd/helm-operator v1.2.0
 	github.com/go-logr/logr v0.1.0
 	github.com/onsi/ginkgo v1.11.0
 	github.com/onsi/gomega v1.8.1
-	helm.sh/helm/v3 v3.1.2
-	k8s.io/apimachinery v0.17.4
+	helm.sh/helm/v3 v3.3.4
+	k8s.io/apimachinery v0.18.8
 	k8s.io/client-go v11.0.0+incompatible
 	sigs.k8s.io/controller-runtime v0.5.0
 )

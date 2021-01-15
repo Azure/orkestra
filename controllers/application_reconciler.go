@@ -14,11 +14,24 @@ func (r *ApplicationReconciler) reconcile(l logr.Logger, application *orkestrav1
 		return false, nil
 	}
 
-	_, err := registry.Fetch(application.Spec.HelmReleaseSpec, "", logr)
+	chartLocation, err := registry.Fetch(application.Spec.HelmReleaseSpec, "", logr)
 	if err != nil {
 		logr.Error(err, "unable to fetch chart")
 		return false, fmt.Errorf("unable to fetch the chart: %w", err)
 	}
 
-	return false, nil
+	ch, err := registry.Load(chartLocation, false, logr)
+	if err != nil {
+		logr.Error(err, "unable to load chart")
+		return false, fmt.Errorf("unable to load the chart: %w", err)
+	}
+	var artifactoryUrl string
+
+	err = registry.PushToStaging(ch, artifactoryUrl, logr)
+	if err != nil {
+		logr.Error(err, "unable to load chart")
+		return false, fmt.Errorf("unable to push to harbour : %w", err)
+	}
+
+	return false, err
 }

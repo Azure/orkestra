@@ -5,10 +5,13 @@ import (
 	helmopv1 "github.com/fluxcd/helm-operator/pkg/apis/helm.fluxcd.io/v1"
 	"github.com/go-logr/logr"
 	"helm.sh/helm/v3/pkg/action"
+	"helm.sh/helm/v3/pkg/chart"
+	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/cli"
-	"log"
+	_ "log"
 	"os"
 	"path"
+	"strings"
 )
 
 func Fetch(helmReleaseSpec helmopv1.HelmReleaseSpec, location string, logr logr.Logger) (string, error) {
@@ -16,7 +19,7 @@ func Fetch(helmReleaseSpec helmopv1.HelmReleaseSpec, location string, logr logr.
 
 	settings := cli.New()
 	helmDriver := "memory"
-	if err := actionCfg.Init(settings.RESTClientGetter(), settings.Namespace(), helmDriver, Debug); err != nil {
+	if err := actionCfg.Init(settings.RESTClientGetter(), settings.Namespace(), helmDriver, logr.Info); err != nil {
 		logr.Error(err, "unable to initialize action configuration")
 		return "", fmt.Errorf("unable to initialize action configuration: %w", err)
 	}
@@ -71,8 +74,38 @@ func Fetch(helmReleaseSpec helmopv1.HelmReleaseSpec, location string, logr logr.
 	return chartLocation, err
 }
 
-// Debug used to give output in a structured manner for all helm related registry operation
-func Debug(format string, v ...interface{}) {
-	format = fmt.Sprintf("[debug] %s\n", format)
-	_ = log.Output(2, fmt.Sprintf(format, v...))
+func Load(chartLocation string, cleanup bool, logr logr.Logger) (*chart.Chart, error) {
+	actionConfig := new(action.Configuration)
+	client := action.NewInstall(actionConfig)
+
+	cp, err := client.ChartPathOptions.LocateChart(fmt.Sprint(chartLocation), settings)
+
+	if err != nil {
+		logr.Error(err, "failed to locate chart in specified directory")
+		return nil, fmt.Errorf("failed to locate chart in specified directory: %w", err)
+	}
+
+	var chartRequested *chart.Chart
+
+	if strings.Contains(chartLocation, ".tgz") {
+		chartRequested, err = loader.LoadFile(cp)
+	} else {
+		chartRequested, err = loader.Load(cp)
+	}
+
+	if err != nil {
+		logr.Error(err, "failed to load chart")
+		return nil, fmt.Errorf("failed to load chart: %w", err)
+	}
+
+	if !(chartRequested.Metadata.Type == "application" || chartRequested.Metadata.Type == "") {
+		return nil, fmt.Errorf("%s charts are not installable", chartRequested.Metadata.Type)
+	}
+
+	if cleanup {
+		defer os.RemoveAll(chartLocation)
+	}
+
+	return chartRequested, err
+
 }
