@@ -27,7 +27,7 @@ func (r *ApplicationReconciler) reconcile(l logr.Logger, application *orkestrav1
 	}
 	var artifactoryUrl string
 
-	err = registry.PushToStaging(ch, artifactoryUrl, logr)
+	err = registry.PushToStaging(ch, artifactoryUrl, logr,"test","test","test")
 	if err != nil {
 		logr.Error(err, "unable to load chart")
 		return false, fmt.Errorf("unable to push to harbour : %w", err)

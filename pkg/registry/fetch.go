@@ -78,6 +78,8 @@ func Load(chartLocation string, cleanup bool, logr logr.Logger) (*chart.Chart, e
 	actionConfig := new(action.Configuration)
 	client := action.NewInstall(actionConfig)
 
+	settings := cli.New()
+
 	cp, err := client.ChartPathOptions.LocateChart(fmt.Sprint(chartLocation), settings)
 
 	if err != nil {
