@@ -27,11 +27,11 @@ func TestNewConfigurer(t *testing.T) {
 				Ctrl: &Controller{
 					Registries: map[string]*registry.Config{
 						"registry-1": {
-							Hostname: strToStrPtr("https://registry-1.acme.com:443"),
+							Hostname: StrToStrPtr("https://registry-1.acme.com:443"),
 							Auth:     registry.NewBasicAuth("admin", "admin"),
 						},
 						"registry-2": {
-							Hostname: strToStrPtr("http://registry-2.acme.com"),
+							Hostname: StrToStrPtr("http://registry-2.acme.com"),
 							Staging:  true,
 						},
 					},
@@ -54,6 +54,6 @@ func TestNewConfigurer(t *testing.T) {
 	}
 }
 
-func strToStrPtr(s string) *string {
+func StrToStrPtr(s string) *string {
 	return &s
 }
