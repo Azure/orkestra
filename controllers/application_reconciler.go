@@ -14,7 +14,9 @@ func (r *ApplicationReconciler) reconcile(l logr.Logger, application *orkestrav1
 		return false, nil
 	}
 
-	chartLocation, err := registry.Fetch(application.Spec.HelmReleaseSpec, "", logr)
+	var cfg *registry.Config
+
+	chartLocation, err := registry.Fetch(application.Spec.HelmReleaseSpec, "", logr, cfg)
 	if err != nil {
 		logr.Error(err, "unable to fetch chart")
 		return false, fmt.Errorf("unable to fetch the chart: %w", err)

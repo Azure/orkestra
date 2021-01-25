@@ -13,7 +13,7 @@ import (
 	"strings"
 )
 
-func Fetch(helmReleaseSpec helmopv1.HelmReleaseSpec, location string, logr logr.Logger) (string, error) {
+func Fetch(helmReleaseSpec helmopv1.HelmReleaseSpec, location string, logr logr.Logger, cfg *Config) (string, error) {
 	actionCfg := new(action.Configuration)
 
 	settings := cli.New()
@@ -26,9 +26,9 @@ func Fetch(helmReleaseSpec helmopv1.HelmReleaseSpec, location string, logr logr.
 	var chartLocation string
 	pullInstance := action.NewPull()
 	pullInstance.Settings = settings
-	if helmReleaseSpec.ChartPullSecret != nil {
-		// todo(kushthedude): do we want to create a config
-		logr.Info("found chartPullSecret")
+	if cfg.Auth != nil {
+		pullInstance.ChartPathOptions.Username = cfg.Auth.Username
+		pullInstance.ChartPathOptions.Password = cfg.Auth.Password
 	}
 	var err error
 	if location == "" {
