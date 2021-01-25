@@ -16,13 +16,20 @@ type ApplicationSpec struct {
 	// Namespace to which the HelmRelease object will be deployed
 	Namespace                string `json:"namespace"`
 	Subcharts                []DAG  `json:"subcharts,omitempty"`
+	GroupID                  string `json:"groupID"`
 	helmopv1.HelmReleaseSpec `json:",inline"`
+}
+
+// ChartStatus denotes the current status of the Application Reconciliation
+type ChartStatus struct {
+	Ready bool   `json:"ready"`
+	Error string `json:"error,omitempty"`
 }
 
 // ApplicationStatus defines the observed state of Application
 type ApplicationStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	Name        string      `json:"name,omitempty"`
+	ChartStatus ChartStatus `json:"status"`
 }
 
 // +kubebuilder:object:root=true

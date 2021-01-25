@@ -1,0 +1,11 @@
+registries:
+  # Basic Auth
+  registry-1:
+    hostname: https://registry-1.acme.com:443
+    auth:
+      username: admin
+      password: admin
+  # No Auth
+  registry-2:
+    hostname: http://registry-2.acme.com
+    staging: true

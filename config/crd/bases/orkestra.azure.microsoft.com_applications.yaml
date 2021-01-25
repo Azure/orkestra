@@ -97,6 +97,8 @@ spec:
               description: Force will mark this Helm release to `--force` upgrades.
                 This forces the resource updates through delete/recreate if needed.
               type: boolean
+            groupID:
+              type: string
             helmVersion:
               description: 'HelmVersion is the version of Helm to target. If not supplied,
                 the lowest _enabled Helm version_ will be targeted. Valid HelmVersion
@@ -294,10 +296,27 @@ spec:
               type: boolean
           required:
           - chart
+          - groupID
           - namespace
           type: object
         status:
           description: ApplicationStatus defines the observed state of Application
+          properties:
+            name:
+              type: string
+            status:
+              description: ChartStatus denotes the current status of the Application
+                Reconciliation
+              properties:
+                error:
+                  type: string
+                ready:
+                  type: boolean
+              required:
+              - ready
+              type: object
+          required:
+          - status
           type: object
       type: object
   version: v1alpha1
