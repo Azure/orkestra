@@ -6,6 +6,7 @@ metadata:
 spec:
   # Namespace to which the HelmRelease object is deployed
   namespace: "default"
+  groupID: "dev"
   # HelmRelease spec fields
   # https://docs.fluxcd.io/projects/helm-operator/en/1.0.0-rc9/references/helmrelease-custom-resource.html#helmrelease-custom-resource
   chart:
@@ -23,6 +24,9 @@ spec:
     zookeeper:
       enable: true
   targetNamespace: "kafka-dev-ns"
+status:
+  status:
+    ready: true
 
 
 
