@@ -6,6 +6,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -30,12 +31,32 @@ type ApplicationReconciler struct {
 // +kubebuilder:rbac:groups=orkestra.azure.microsoft.com,resources=applications/status,verbs=get;update;patch
 
 func (r *ApplicationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	_ = context.Background()
-	_ = r.Log.WithValues("application", req.NamespacedName)
+	var requeue bool
+	var err error
+	var application orkestrav1alpha1.Application
 
-	// your logic here
+	ctx := context.Background()
+	logr := r.Log.WithValues("application", req.NamespacedName)
 
-	return ctrl.Result{}, nil
+	if err := r.Get(ctx, req.NamespacedName, &application); err != nil {
+		if errors.IsNotFound(err) {
+			return ctrl.Result{}, nil
+		}
+		logr.Error(err, "unable to fetch Application")
+		return ctrl.Result{}, err
+	}
+
+	if application.Status.ChartStatus.Ready {
+		return ctrl.Result{}, nil
+	}
+
+	requeue, err = r.reconcile(logr, &application)
+	if err != nil {
+		logr.Error(err, "failed to reconcile application instance")
+		return ctrl.Result{Requeue: requeue}, err
+	}
+
+	return ctrl.Result{Requeue: requeue}, nil
 }
 
 func (r *ApplicationReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -50,7 +71,13 @@ func (r *ApplicationReconciler) updateStatusAndEvent(ctx context.Context, app or
 		errStr = err.Error()
 	}
 
-	app.Status = orkestrav1alpha1.ApplicationStatus{}
+	app.Status = orkestrav1alpha1.ApplicationStatus{
+		Name: app.Name,
+		ChartStatus: orkestrav1alpha1.ChartStatus{
+			Ready: !requeue,
+			Error: errStr,
+		},
+	}
 
 	_ = r.Status().Update(ctx, &app)
 
