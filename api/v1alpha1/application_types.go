@@ -28,8 +28,8 @@ type ChartStatus struct {
 
 // ApplicationStatus defines the observed state of Application
 type ApplicationStatus struct {
-	Name        string      `json:"name,omitempty"`
-	ChartStatus ChartStatus `json:"status"`
+	Name        string `json:"name,omitempty"`
+	ChartStatus `json:",inline"`
 }
 
 // +kubebuilder:object:root=true

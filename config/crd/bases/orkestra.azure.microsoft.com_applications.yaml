@@ -306,21 +306,14 @@ spec:
           status:
             description: ApplicationStatus defines the observed state of Application
             properties:
+              error:
+                type: string
               name:
                 type: string
-              status:
-                description: ChartStatus denotes the current status of the Application
-                  Reconciliation
-                properties:
-                  error:
-                    type: string
-                  ready:
-                    type: boolean
-                required:
-                - ready
-                type: object
+              ready:
+                type: boolean
             required:
-            - status
+            - ready
             type: object
         type: object
     served: true
