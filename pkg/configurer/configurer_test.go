@@ -32,7 +32,7 @@ func TestNewConfigurer(t *testing.T) {
 						},
 						"registry-2": {
 							Hostname: strToStrPtr("http://registry-2.acme.com"),
-							Staging: true,
+							Staging:  true,
 						},
 					},
 				},
@@ -57,4 +57,3 @@ func TestNewConfigurer(t *testing.T) {
 func strToStrPtr(s string) *string {
 	return &s
 }
-

@@ -11,11 +11,10 @@ import (
 func TestPushToStaging(t *testing.T) {
 	type args struct {
 		ch             *chart.Chart
-		artifactoryURL string
 		logr           logr.Logger
 		username       string
 		password       string
-		repoName       string
+		artifactoryURL string
 	}
 	tests := []struct {
 		name    string
@@ -26,7 +25,7 @@ func TestPushToStaging(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := PushToStaging(tt.args.ch, tt.args.artifactoryURL, tt.args.logr, tt.args.username, tt.args.password, tt.args.repoName); (err != nil) != tt.wantErr {
+			if err := PushToStaging(tt.args.ch, tt.args.logr, tt.args.username, tt.args.password, tt.args.artifactoryURL); (err != nil) != tt.wantErr {
 				t.Errorf("PushToStaging() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -38,7 +37,7 @@ func Test_pushChart(t *testing.T) {
 		ch       *chart.Chart
 		username string
 		password string
-		repoUrl  string
+		repoURL  string
 	}
 	tests := []struct {
 		name    string
@@ -50,7 +49,7 @@ func Test_pushChart(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := pushChart(tt.args.ch, tt.args.username, tt.args.password, tt.args.repoUrl)
+			got, err := pushChart(tt.args.ch, tt.args.username, tt.args.password, tt.args.repoURL)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("pushChart() error = %v, wantErr %v", err, tt.wantErr)
 				return

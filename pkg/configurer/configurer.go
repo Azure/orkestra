@@ -4,6 +4,7 @@ import (
 	"github.com/Azure/Orkestra/pkg/registry"
 	"github.com/spf13/viper"
 )
+
 const (
 	defaultConfig = "/etc/controller/config.yaml"
 )

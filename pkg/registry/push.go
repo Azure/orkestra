@@ -15,27 +15,30 @@ import (
 	"regexp"
 )
 
-func PushToStaging(ch *chart.Chart, artifactoryURL string, logr logr.Logger,username string, password string, repoName string) error {
+func PushToStaging(ch *chart.Chart, logr logr.Logger, username, password, artifactoryURL string) error {
 	if ch.Dependencies() == nil {
 		logr.Info("No embedded subcharts found")
 		return nil
 	}
 	for _, subChart := range ch.Dependencies() {
 		resp, err := pushChart(subChart, username, password, artifactoryURL)
-		if resp.StatusCode != 200 || err != nil{
-			logr.Error(err,"unable to push chart to the upstream repository")
+		if resp.StatusCode != 200 || err != nil {
+			logr.Error(err, "unable to push chart to the upstream repository")
 		}
 	}
 	return nil
 }
 
-func pushChart(ch *chart.Chart, username string, password string, repoUrl string) (*http.Response, error) {
+func pushChart(ch *chart.Chart, username, password, repoURL string) (*http.Response, error) {
 	var repo *helm.Repo
 	var err error
 
-	if regexp.MustCompile(`^https?://`).MatchString(repoUrl) {
-		repo, err = helm.TempRepoFromURL(repoUrl)
-		repoUrl = repo.Config.URL
+	if regexp.MustCompile(`^https?://`).MatchString(repoURL) {
+		repo, err = helm.TempRepoFromURL(repoURL)
+		if err != nil {
+			return nil, err
+		}
+		repoURL = repo.Config.URL
 	}
 	client, err := cm.NewClient(
 		cm.URL(repo.Config.URL),
@@ -62,7 +65,7 @@ func pushChart(ch *chart.Chart, username string, password string, repoUrl string
 		return nil, err
 	}
 
-	fmt.Printf("Pushing %s to %s...\n", filepath.Base(chartPackagePath), repoUrl)
+	fmt.Printf("Pushing %s to %s...\n", filepath.Base(chartPackagePath), repoURL)
 	resp, err := client.UploadChartPackage(chartPackagePath, true)
 	if err != nil {
 		return nil, err

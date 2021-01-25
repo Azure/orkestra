@@ -8,7 +8,7 @@ import (
 )
 
 func (r *ApplicationReconciler) reconcile(l logr.Logger, application *orkestrav1alpha1.Application) (bool, error) {
-	logr := l.WithValues("application", application.Name, "group", application.Spec.GroupId)
+	logr := l.WithValues("application", application.Name, "group", application.Spec.GroupID)
 	if application.Status.ChartStatus.Ready {
 		logr.Info("application already in ready state")
 		return false, nil
@@ -25,12 +25,12 @@ func (r *ApplicationReconciler) reconcile(l logr.Logger, application *orkestrav1
 		logr.Error(err, "unable to load chart")
 		return false, fmt.Errorf("unable to load the chart: %w", err)
 	}
-	var artifactoryUrl string
+	var artifactoryURL string
 
-	err = registry.PushToStaging(ch, artifactoryUrl, logr,"test","test","test")
+	err = registry.PushToStaging(ch, logr, "test", "test", artifactoryURL)
 	if err != nil {
 		logr.Error(err, "unable to load chart")
-		return false, fmt.Errorf("unable to push to harbour : %w", err)
+		return false, fmt.Errorf("unable to push to staging : %w", err)
 	}
 
 	return false, err

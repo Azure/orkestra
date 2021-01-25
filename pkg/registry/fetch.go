@@ -8,7 +8,6 @@ import (
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/cli"
-	_ "log"
 	"os"
 	"path"
 	"strings"
@@ -29,6 +28,7 @@ func Fetch(helmReleaseSpec helmopv1.HelmReleaseSpec, location string, logr logr.
 	pullInstance.Settings = settings
 	if helmReleaseSpec.ChartPullSecret != nil {
 		// todo(kushthedude): do we want to create a config
+		logr.Info("found chartPullSecret")
 	}
 	var err error
 	if location == "" {
@@ -109,5 +109,4 @@ func Load(chartLocation string, cleanup bool, logr logr.Logger) (*chart.Chart, e
 	}
 
 	return chartRequested, err
-
 }
