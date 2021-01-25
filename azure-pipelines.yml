@@ -5,11 +5,13 @@
 
 trigger:
   - main
+  - dev
 
 pr:
   branches:
     include:
       - main
+      - dev
 
 jobs:
   - job: orkestra
