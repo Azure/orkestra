@@ -5,11 +5,13 @@
 
 trigger:
   - main
+  - dev
 
 pr:
   branches:
     include:
       - main
+      - dev
 
 jobs:
   - job: orkestra
@@ -32,7 +34,13 @@ jobs:
         name: "setup_kubebuilder"
         inputs:
           targetType: 'filePath'
-          filePath: '$(System.DefaultWorkingDirectory)/scripts/setup-ci.sh'
+          filePath: '$(System.DefaultWorkingDirectory)/scripts/setup-kubebuilder.sh'
+
+      - task: Bash@3
+        name: "setup_required_dependencies"
+        inputs:
+          targetType: 'filePath'
+          filePath: '$(System.DefaultWorkingDirectory)/scripts/setup-envtest.sh'
 
       - script: |
           curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.33.0

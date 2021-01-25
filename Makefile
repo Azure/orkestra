@@ -62,6 +62,11 @@ docker-build: test
 docker-push:
 	docker push ${IMG}
 
+# setup kubebuilder
+setup-kubebuilder:
+	bash scripts/setup-envtest.sh;
+	bash scripts/setup-kubebuilder.sh
+
 # find or download controller-gen
 # download controller-gen if necessary
 controller-gen:
