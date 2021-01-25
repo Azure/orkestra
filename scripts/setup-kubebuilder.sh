@@ -1,10 +1,7 @@
-# Copyright (c) Microsoft Corporation.
-# Licensed under the MIT License.
-
 #!/bin/sh
 
-# To use envtest is required to have etcd, kube-apiserver and kubetcl binaries installed locally.
-# This script will create the setup ci required deps for testenv
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT License.
 
 
 os=$(go env GOOS)
