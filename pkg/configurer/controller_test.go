@@ -1,9 +1,10 @@
 package configurer
 
 import (
-	"github.com/Azure/Orkestra/pkg/registry"
 	"reflect"
 	"testing"
+
+	"github.com/Azure/Orkestra/pkg/registry"
 )
 
 func TestController_RegistryConfig(t *testing.T) {

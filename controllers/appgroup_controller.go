@@ -30,7 +30,7 @@ type ApplicationGroupReconciler struct {
 
 	Engine workflow.Engine
 
-	// WorkflowNS is the namespace to where the generate Argo Workflow object is deploed
+	// WorkflowNS is the namespace to which (generated) Argo Workflow object is deployed
 	WorkflowNS string
 
 	// Recorder generates kubernetes events

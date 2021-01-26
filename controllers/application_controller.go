@@ -16,6 +16,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	orkestrav1alpha1 "github.com/Azure/Orkestra/api/v1alpha1"
+	"github.com/Azure/Orkestra/pkg/registry"
+)
+
+const (
+	appNameKey = "appgroup"
 )
 
 // ApplicationReconciler reconciles a Application object
@@ -23,6 +28,9 @@ type ApplicationReconciler struct {
 	client.Client
 	Log    logr.Logger
 	Scheme *runtime.Scheme
+
+	// RegistryClient interacts with the helm registries to pull and push charts
+	RegistryClient *registry.Client
 
 	// Recorder generates kubernetes events
 	Recorder record.EventRecorder
@@ -37,21 +45,30 @@ func (r *ApplicationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error)
 	var application orkestrav1alpha1.Application
 
 	ctx := context.Background()
-	logr := r.Log.WithValues("application", req.NamespacedName)
+	logr := r.Log.WithValues(appNameKey, req.NamespacedName.Name)
 
 	if err := r.Get(ctx, req.NamespacedName, &application); err != nil {
 		if errors.IsNotFound(err) {
+			logr.V(3).Info("skip reconciliation since Appllication instance not found on the cluster")
 			return ctrl.Result{}, nil
 		}
-		logr.Error(err, "unable to fetch Application")
+		logr.Error(err, "unable to fetch Application instance")
 		return ctrl.Result{}, err
 	}
 
-	if application.Status.ChartStatus.Ready {
-		return ctrl.Result{}, nil
+	logr = logr.WithValues("status-ready", application.Status.ChartStatus.Ready, "status-error", application.Status.ChartStatus.Error)
+
+	if application.Status.Ready {
+		logr.V(3).Info("skip reconciling since Application has already been successfully reconciled")
+		return ctrl.Result{Requeue: false}, nil
 	}
 
-	requeue, err = r.reconcile(logr, &application)
+	// info log if status error is not nil on reconciling
+	if application.Status.Error != "" {
+		logr.V(3).Info("reconciling Application instance previously in error state")
+	}
+
+	requeue, err = r.reconcile(ctx, logr, &application)
 	if err != nil {
 		logr.Error(err, "failed to reconcile application instance")
 		return ctrl.Result{Requeue: requeue}, err
