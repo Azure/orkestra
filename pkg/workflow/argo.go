@@ -40,11 +40,11 @@ type argo struct {
 }
 
 // Argo is blah blah
-func Argo(scheme *runtime.Scheme, c client.Client, r string) *argo {
+func Argo(scheme *runtime.Scheme, c client.Client, stagingRepoURL string) *argo {
 
 	return &argo{
 		cli:            c,
-		stagingRepoURL: r,
+		stagingRepoURL: stagingRepoURL,
 	}
 }
 

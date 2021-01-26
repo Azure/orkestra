@@ -6,21 +6,21 @@ import (
 )
 
 const (
-	defaultConfig = "/etc/controller/config.yaml"
+	defaultConfigPath = "/etc/controller/config.yaml"
 )
 
 type Configurer struct {
-	cfg  *viper.Viper
+	v    *viper.Viper
 	Ctrl *Controller
 }
 
-func NewConfigurer(loc string) (*Configurer, error) {
+func NewConfigurer(cfgPath string) (*Configurer, error) {
 	v := viper.New()
-	if loc == "" {
-		loc = defaultConfig
+	if cfgPath == "" {
+		cfgPath = defaultConfigPath
 	}
 
-	v.SetConfigFile(loc)
+	v.SetConfigFile(cfgPath)
 	err := v.ReadInConfig()
 	if err != nil {
 		return nil, err
@@ -36,7 +36,7 @@ func NewConfigurer(loc string) (*Configurer, error) {
 	}
 
 	return &Configurer{
-		cfg:  v,
+		v:    v,
 		Ctrl: ctrlCfg,
 	}, nil
 }

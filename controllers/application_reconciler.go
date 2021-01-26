@@ -29,8 +29,8 @@ func (r *ApplicationReconciler) reconcile(ctx context.Context, l logr.Logger, ap
 
 	// If Dependencies - extract subchart and push each to staging registry
 	if !isDependenciesEmbedded(appCh) {
-		// TODO (nitishm) : Pass staging repo URL from r.Cfg
-		stagingRepoURL := ""
+		stagingRepoURL := r.StagingRepoURL
+
 		if appCh.Dependencies() != nil {
 			for _, sc := range appCh.Dependencies() {
 				err := r.RegistryClient.PushChart(ll, stagingRepoURL, sc)

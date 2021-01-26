@@ -16,6 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	orkestrav1alpha1 "github.com/Azure/Orkestra/api/v1alpha1"
+	"github.com/Azure/Orkestra/pkg/configurer"
 	"github.com/Azure/Orkestra/pkg/registry"
 )
 
@@ -29,8 +30,14 @@ type ApplicationReconciler struct {
 	Log    logr.Logger
 	Scheme *runtime.Scheme
 
+	// Cfg is the controller configuration that gives access to the helm registry configuration (and more as we add options to configure the controller)
+	Cfg *configurer.Controller
+
 	// RegistryClient interacts with the helm registries to pull and push charts
 	RegistryClient *registry.Client
+
+	// StagingRepoURL is the repository used for staging artifacts before being deployed using the HelmRelease object
+	StagingRepoURL string
 
 	// Recorder generates kubernetes events
 	Recorder record.EventRecorder

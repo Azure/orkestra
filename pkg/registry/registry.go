@@ -14,7 +14,7 @@ const (
 	defaultTargetDir = "/etc/orkestra/charts/pull/"
 )
 
-type helmConfig struct {
+type helmActionConfig struct {
 	pull *action.Pull
 	push *chartmuseum.Client
 }
@@ -22,19 +22,22 @@ type helmConfig struct {
 type Client struct {
 	l logr.InfoLogger
 	// cfg stores the helm pull and push configurations
-	cfg helmConfig
+	cfg helmActionConfig
 	// TargetDir is the location where the downloaded chart is saved
 	TargetDir string
+
+	registries map[string]*Config
 }
 
 // Client is the constructor for the registry client
-func NewClient(opts ...Option) (*Client, error) {
+func NewClient(registries map[string]*Config, opts ...Option) (*Client, error) {
 	c := &Client{
 		TargetDir: defaultTargetDir,
-		cfg: helmConfig{
+		cfg: helmActionConfig{
 			pull: action.NewPull(),
 			push: &chartmuseum.Client{},
 		},
+		registries: registries,
 	}
 
 	for _, opt := range opts {

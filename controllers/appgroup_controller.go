@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/Azure/Orkestra/pkg/configurer"
 	"github.com/Azure/Orkestra/pkg/workflow"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -28,6 +29,8 @@ type ApplicationGroupReconciler struct {
 	Log    logr.Logger
 	Scheme *runtime.Scheme
 
+	// Cfg is the controller configuration that gives access to the helm registry configuration (and more as we add options to configure the controller)
+	Cfg    *configurer.Controller
 	Engine workflow.Engine
 
 	// WorkflowNS is the namespace to which (generated) Argo Workflow object is deployed

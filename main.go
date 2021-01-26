@@ -7,6 +7,7 @@ import (
 	"flag"
 	"os"
 
+	"github.com/Azure/Orkestra/pkg/configurer"
 	"github.com/Azure/Orkestra/pkg/registry"
 	"github.com/Azure/Orkestra/pkg/workflow"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -18,6 +19,10 @@ import (
 	orkestrav1alpha1 "github.com/Azure/Orkestra/api/v1alpha1"
 	"github.com/Azure/Orkestra/controllers"
 	// +kubebuilder:scaffold:imports
+)
+
+const (
+	stagingRepoURLEnv = "STAGING_REPO_URL"
 )
 
 var (
@@ -35,10 +40,14 @@ func init() {
 func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
+	var configPath string
+	var stagingRepoURL string
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
+	flag.StringVar(&configPath, "config", "", "The path to the controller config file")
+	flag.StringVar(&stagingRepoURL, "staging-registry", "", "The URL for the helm registry used for staging artifacts (ENV - STAGING_REPO_URL). NOTE: Flag overrides env value")
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
@@ -55,11 +64,25 @@ func main() {
 		os.Exit(1)
 	}
 
-	// TODO (nitishm): Read and populate the config object
+	if stagingRepoURL == "" {
+		if s := os.Getenv(stagingRepoURLEnv); s != "" {
+			stagingRepoURL = s
+		} else {
+			setupLog.Error(err, "staging repo URL must be set")
+			os.Exit(1)
+		}
+	}
 
-	rc, err := registry.NewClient()
+	cfg, err := configurer.NewConfigurer(configPath)
 	if err != nil {
-		setupLog.Error(err, "unable to create new registry client")
+		setupLog.Error(err, "unable to create new configurer instance", "controller", "config")
+		os.Exit(1)
+	}
+
+	// TODO (nitishm) : options should be passed in through go flags & controller config.
+	rc, err := registry.NewClient(cfg.Ctrl.Registries)
+	if err != nil {
+		setupLog.Error(err, "unable to create new registry client", "controller", "registry-client")
 		os.Exit(1)
 	}
 
@@ -67,18 +90,20 @@ func main() {
 		Client:         mgr.GetClient(),
 		Log:            ctrl.Log.WithName("controllers").WithName("Application"),
 		Scheme:         mgr.GetScheme(),
+		Cfg:            cfg.Ctrl,
 		RegistryClient: rc,
+		StagingRepoURL: stagingRepoURL,
 		Recorder:       mgr.GetEventRecorderFor("application-controller"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Application")
 		os.Exit(1)
 	}
 	if err = (&controllers.ApplicationGroupReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("ApplicationGroup"),
-		Scheme: mgr.GetScheme(),
-		// FIXME: Staging repo URL should come from env or flag
-		Engine:   workflow.Argo(scheme, mgr.GetClient(), ""),
+		Client:   mgr.GetClient(),
+		Log:      ctrl.Log.WithName("controllers").WithName("ApplicationGroup"),
+		Scheme:   mgr.GetScheme(),
+		Cfg:      cfg.Ctrl,
+		Engine:   workflow.Argo(scheme, mgr.GetClient(), stagingRepoURL),
 		Recorder: mgr.GetEventRecorderFor("appgroup-controller"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ApplicationGroup")

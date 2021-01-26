@@ -3,12 +3,13 @@ package configurer
 import (
 	"errors"
 	"fmt"
+
 	"github.com/Azure/Orkestra/pkg/registry"
 )
 
 var (
 	errEmptyKey         = errors.New("key cannot be an empty string")
-	errEmptyRegistries  = errors.New("registries map cannot be empty")
+	errEmptyRegistries  = errors.New("registries map cannot be nil or empty")
 	errRegistryNotFound = errors.New("registry entry not found in registries map")
 )
 

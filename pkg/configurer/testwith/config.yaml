@@ -1,11 +1,17 @@
 registries:
   # Basic Auth
-  registry-1:
-    hostname: https://registry-1.acme.com:443
-    auth:
-      username: admin
-      password: admin
-  # No Auth
-  registry-2:
-    hostname: http://registry-2.acme.com
-    staging: true
+  primary:
+   	url: https://primary-repo.acme.com/
+		username: "admin"
+		password: "password"
+		accessToken: eyJpc3MiOiJodHRwczovL2V4YW1wbGUuYXV0aDAuY29tLyIsImF1ZCI6Imh0dHBzOi8vYXBpLmV4YW1wbGUuY29tL2NhbGFuZGFyL3YxLyIsInN1YiI6InVzcl8xMjMiLCJpYXQiOjE0NTg3ODU3OTYsImV4cCI6MTQ1ODg3MjE5Nn0
+		authHeader: "alternateAuthTokenHeader"
+		caFile: "/path/to/ca/cert"
+		certFile: "/path/to/certfile"
+		keyFile: "path/to/keyfile"
+		insecureSkipVerify: true
+
+  #No Auth
+  another-primary:
+    url: https://another-primary-repo.acme.com/
+		insecureSkipVerify: true
