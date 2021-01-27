@@ -70,14 +70,13 @@ var _ = BeforeSuite(func(done Done) {
 	Expect(err).ToNot(HaveOccurred())
 	Expect(k8sClient).ToNot(BeNil())
 	err = (&ApplicationReconciler{
-		Client: k8sManager.GetClient(),
-		Log: ctrl.Log.WithName("controllers").WithName("AppGroup"),
-		Scheme: scheme.Scheme,
-		Recorder:  k8sManager.GetEventRecorderFor("appgroup-controller"),
+		Client:   k8sManager.GetClient(),
+		Log:      ctrl.Log.WithName("controllers").WithName("AppGroup"),
+		Scheme:   scheme.Scheme,
+		Recorder: k8sManager.GetEventRecorderFor("appgroup-controller"),
 	}).SetupWithManager(k8sManager)
 
 	Expect(err).ToNot(HaveOccurred())
-
 
 	go func() {
 		err = k8sManager.Start(ctrl.SetupSignalHandler())
