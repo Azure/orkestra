@@ -22,8 +22,9 @@ type DAG struct {
 
 // ApplicationGroupStatus defines the observed state of ApplicationGroup
 type ApplicationGroupStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	Applications []ApplicationStatus `json:"status,omitempty"`
+	Ready        bool                `json:"ready"`
+	Error        string              `json:"error,omitempty"`
 }
 
 // +kubebuilder:object:root=true

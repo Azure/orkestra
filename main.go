@@ -7,6 +7,7 @@ import (
 	"flag"
 	"os"
 
+	"github.com/Azure/Orkestra/pkg/workflow"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -54,9 +55,10 @@ func main() {
 	}
 
 	if err = (&controllers.ApplicationReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("Application"),
-		Scheme: mgr.GetScheme(),
+		Client:   mgr.GetClient(),
+		Log:      ctrl.Log.WithName("controllers").WithName("Application"),
+		Scheme:   mgr.GetScheme(),
+		Recorder: mgr.GetEventRecorderFor("application-controller"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Application")
 		os.Exit(1)
@@ -65,6 +67,9 @@ func main() {
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("ApplicationGroup"),
 		Scheme: mgr.GetScheme(),
+		// FIXME: Staging repo URL should come from env or flag
+		Engine:   workflow.Argo(scheme, mgr.GetClient(), ""),
+		Recorder: mgr.GetEventRecorderFor("appgroup-controller"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ApplicationGroup")
 		os.Exit(1)
