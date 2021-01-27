@@ -5,8 +5,6 @@ import (
 	"github.com/Azure/Orkestra/pkg/registry"
 	"reflect"
 	"testing"
-
-
 )
 
 func TestController_RegistryConfig(t *testing.T) {
@@ -55,7 +53,7 @@ func TestController_RegistryConfig(t *testing.T) {
 					"registry-1": {
 						Hostname: StrToStrPtr("https://registry-1.acme.com:443"),
 						Auth:     registry.NewBasicAuth("admin", "admin"),
-						Staging: true,
+						Staging:  true,
 					},
 				},
 			},
