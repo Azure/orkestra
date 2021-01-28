@@ -7,8 +7,7 @@ Orkestra works by generating dependency driven DAG workflows to orchestrate the 
 
 ### What is it?
 
-Orkestra renders a DAG based workflow for deploying applications to a Kubernetes cluster by leveraging popular and mature open-source frameworks like [Argo](https://argoproj.github.io/argo/) (Workflows), [Flux Helm Operator](https://github.com/fluxcd/helm-operator) and *optionally* [Harbor](https://goharbor.io/).
-
+Orkestra renders a DAG based workflow for deploying applications to a Kubernetes cluster by leveraging popular and mature open-source frameworks like [Argo](https://argoproj.github.io/argo/) (Workflows), [Flux Helm Operator](https://github.com/fluxcd/helm-operator) and [Chart-museum](https://chartmuseum.com/)
 ### What problems does it solve?
 
 Complex applications oftentimes require **intelligent** release orchestration and lifecycle management which is not provided by Helm itself. 
@@ -25,7 +24,7 @@ To solve the complex application orchestration problem Orkestra builds a [Direct
 
 1. Submit `Application` and `ApplicationGroup` CRs
 2. For each `Application` in `ApplicationGroup` download Helm chart from “primary” Helm Registry
-3. (*optional) For each dependency in the `Application` chart, if dependency chart is embedded in `charts/` directory, push to ”staging” Helm Registry (Harbor).
+3. (*optional) For each dependency in the `Application` chart, if dependency chart is embedded in `charts/` directory, push to ”staging” Helm Registry (Chart-museum).
 4. Generate and submit Argo Workflow DAG
 5. (Executor nodes only) Submit and probe deployment state of `HelmRelease CR.
 6. Fetch and deploy Helm charts referred to by each `HelmRelease` CR to the Kubernetes cluster.
