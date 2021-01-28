@@ -8,6 +8,7 @@ require (
 	github.com/fluxcd/helm-operator v1.2.0
 	github.com/go-delve/delve v1.5.1 // indirect
 	github.com/go-logr/logr v0.1.0
+	github.com/gofrs/flock v0.7.1
 	github.com/golang/protobuf v1.4.3 // indirect
 	github.com/google/go-cmp v0.5.2
 	github.com/onsi/ginkgo v1.14.0
@@ -20,11 +21,14 @@ require (
 	golang.org/x/text v0.3.4 // indirect
 	google.golang.org/genproto v0.0.0-20201109203340-2640f1f9cdfb // indirect
 	google.golang.org/grpc v1.33.2 // indirect
+	gopkg.in/yaml.v2 v2.3.0
 	helm.sh/helm/v3 v3.3.4
 	k8s.io/api v0.17.5
 	k8s.io/apimachinery v0.17.5
 	k8s.io/client-go v11.0.0+incompatible
+	k8s.io/helm v2.16.12+incompatible
 	sigs.k8s.io/controller-runtime v0.4.0
+	sigs.k8s.io/yaml v1.1.0
 )
 
 // Hack to import helm-operator package

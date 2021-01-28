@@ -40,7 +40,7 @@ func (r *ApplicationGroupReconciler) reconcile(ctx context.Context, l logr.Logge
 	// It assists in accounting for the status of all Applications in the app group
 	appReadinessMatrix := populateReadinessMatrix(appGroup.Spec.Applications)
 	// Cache the application objects to pass into the generate function for workflow gen
-	appObjCache := make([]*orkestrav1alpha1.Application, len(appGroup.Spec.Applications))
+	appObjCache := make([]*orkestrav1alpha1.Application, 0, len(appGroup.Spec.Applications))
 
 	// Lookup each application in the App group to check if status is ready or errored
 	for _, application := range appGroup.Spec.Applications {
@@ -62,7 +62,7 @@ func (r *ApplicationGroupReconciler) reconcile(ctx context.Context, l logr.Logge
 		}
 		status := obj.Status
 
-		if !status.ChartStatus.Ready || status.ChartStatus.Error != "" {
+		if !status.Application.Ready || status.Application.Error != "" {
 			ll.V(1).Info("application not in Ready state or in Error state - requeueing")
 			return true, nil
 		}
@@ -76,7 +76,8 @@ func (r *ApplicationGroupReconciler) reconcile(ctx context.Context, l logr.Logge
 		if !entryExists(obj.Name, appGroup.Status.Applications) {
 			appStatus := orkestrav1alpha1.ApplicationStatus{
 				Name:        obj.Name,
-				ChartStatus: obj.Status.ChartStatus,
+				Application: obj.Status.Application,
+				Subcharts:   obj.Status.Subcharts,
 			}
 			appGroup.Status.Applications = append(appGroup.Status.Applications, appStatus)
 		}

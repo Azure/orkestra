@@ -14,22 +14,26 @@ import (
 // ApplicationSpec defines the desired state of Application
 type ApplicationSpec struct {
 	// Namespace to which the HelmRelease object will be deployed
-	Namespace                string `json:"namespace"`
-	Subcharts                []DAG  `json:"subcharts,omitempty"`
-	GroupID                  string `json:"groupID"`
+	Namespace string `json:"namespace"`
+	Subcharts []DAG  `json:"subcharts,omitempty"`
+	GroupID   string `json:"groupID"`
+	// ChartRepoNickname is used to lookup the repository config in the registeries config map
+	ChartRepoNickname        string `json:"repo"`
 	helmopv1.HelmReleaseSpec `json:",inline"`
 }
 
 // ChartStatus denotes the current status of the Application Reconciliation
 type ChartStatus struct {
-	Ready bool   `json:"ready"`
-	Error string `json:"error,omitempty"`
+	Ready  bool   `json:"ready,omitempty"`
+	Error  string `json:"error,omitempty"`
+	Staged bool   `json:"staged,omitempty"`
 }
 
 // ApplicationStatus defines the observed state of Application
 type ApplicationStatus struct {
-	Name        string `json:"name,omitempty"`
-	ChartStatus `json:",inline"`
+	Name        string                 `json:"name"`
+	Application ChartStatus            `json:"application"`
+	Subcharts   map[string]ChartStatus `json:"subcharts"`
 }
 
 // +kubebuilder:object:root=true

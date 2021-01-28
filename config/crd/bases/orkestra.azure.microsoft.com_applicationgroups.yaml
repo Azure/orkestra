@@ -59,14 +59,36 @@ spec:
                 items:
                   description: ApplicationStatus defines the observed state of Application
                   properties:
-                    error:
-                      type: string
+                    application:
+                      description: ChartStatus denotes the current status of the Application
+                        Reconciliation
+                      properties:
+                        error:
+                          type: string
+                        ready:
+                          type: boolean
+                        staged:
+                          type: boolean
+                      type: object
                     name:
                       type: string
-                    ready:
-                      type: boolean
+                    subcharts:
+                      additionalProperties:
+                        description: ChartStatus denotes the current status of the
+                          Application Reconciliation
+                        properties:
+                          error:
+                            type: string
+                          ready:
+                            type: boolean
+                          staged:
+                            type: boolean
+                        type: object
+                      type: object
                   required:
-                  - ready
+                  - application
+                  - name
+                  - subcharts
                   type: object
                 type: array
             required:

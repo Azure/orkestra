@@ -228,7 +228,6 @@ func generateAppDAGTemplates(apps []*v1alpha1.Application, repo string) ([]v1alp
 		hr.Name = app.Name
 		hr.Spec = app.Spec.HelmReleaseSpec
 
-		// TODO (nitishm)
 		// FIXME: Do not assume application chart will get pushed to the staging registry for every application
 		// Application charts that do not specify subchart dependencies should generate the HelmRelease with the
 		// RepoURL pointing to the primary chart
@@ -259,8 +258,8 @@ func generateSubchartDAGTasks(app *v1alpha1.Application, repo string) ([]v1alpha
 		return nil, fmt.Errorf("repo arg must be a valid non-empty string")
 	}
 
-	// TODO (nitishm)
-	// TBD: Should this be set to nil if no subcharts are found??
+	// XXX (nitishm)
+	// Should this be set to nil if no subcharts are found??
 	tasks := make([]v1alpha12.DAGTask, 0, len(app.Spec.Subcharts))
 
 	for _, sc := range app.Spec.Subcharts {
