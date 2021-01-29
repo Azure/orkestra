@@ -4,14 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"os"
 	"strings"
 
 	"github.com/chartmuseum/helm-push/pkg/chartmuseum"
+	"github.com/chartmuseum/helm-push/pkg/helm"
 	"github.com/go-logr/logr"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart"
-	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/cli"
 )
 
@@ -60,6 +59,8 @@ type Client struct {
 
 // NewClient is the constructor for the registry client
 func NewClient(l logr.InfoLogger, registries map[string]*Config, opts ...Option) (*Client, error) {
+	// TODO (nitishm) : Check if TargetDir exists.
+	// If not, then create it.
 	cm, err := chartmuseum.NewClient()
 	if err != nil {
 		return nil, err
@@ -113,61 +114,6 @@ func (c *Client) init() error {
 	return nil
 }
 
-func (c *Client) PullChart(l logr.Logger, repoKey, chartName, version string) (string, *chart.Chart, error) {
-	l.WithValues("repo-key", repoKey, "chart-name", chartName, "chart-version", version)
-
-	l.V(3).Info("pulling chart")
-
-	rCfg, err := c.registries.RegistryConfig(repoKey)
-	if err != nil {
-		l.Error(err, "failed to find registry with provided key in registries map")
-		return "", nil, fmt.Errorf("failed to find registry with repoKey %s Name %s Version %s in registries map : %w", repoKey, chartName, version, err)
-	}
-
-	c.cfg.pull.Username = rCfg.Username
-	c.cfg.pull.Password = rCfg.Password
-	c.cfg.pull.CaFile = rCfg.CaFile
-	c.cfg.pull.CaFile = rCfg.CaFile
-	c.cfg.pull.CertFile = rCfg.CertFile
-	c.cfg.pull.KeyFile = rCfg.KeyFile
-
-	filePath := fmt.Sprintf("%s/%s-%s.tgz", c.TargetDir, chartName, version)
-
-	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		l.V(3).Info("chart artifact not found in target directory - downloading")
-		_, err = c.cfg.pull.Run(chartURL(rCfg.URL, chartName, version))
-		if err != nil {
-			l.Error(err, "failed to pull chart from repo")
-			return "", nil, fmt.Errorf("failed to pull chart from repoKey %s Name %s Version %s in registries map : %w", repoKey, chartName, version, err)
-		}
-	} else {
-		l.V(3).Info("chart artifact found in target directory - skip downloading")
-	}
-
-	c.cfg.pull.ChartPathOptions.LocateChart(filePath, c.cfg.pull.Settings)
-
-	var ch *chart.Chart
-
-	ch, err = loader.LoadFile(filePath)
-
-	if err != nil {
-		l.Error(err, "failed to load chart")
-		return "", nil, fmt.Errorf("failed to load chart: %w", err)
-	}
-
-	if !(ch.Metadata.Type == "application" || ch.Metadata.Type == "") {
-		return "", nil, fmt.Errorf("%s charts are not installable", ch.Metadata.Type)
-	}
-
-	return filePath, ch, nil
-}
-
-// TODO (nitishm) Implement me
-func (c *Client) PushChart(l logr.Logger, repoName string, ch *chart.Chart) error {
-	l.Info("pushing chart")
-	return nil
-}
-
 func chartURL(repo, chart, version string) string {
 	s := fmt.Sprintf("%s/%s-%s.tgz",
 		strings.Trim(repo, "/"),
@@ -180,4 +126,8 @@ func chartURL(repo, chart, version string) string {
 		return s
 	}
 	return ""
+}
+
+func SaveChartPackage(ch *chart.Chart, dir string) (string, error) {
+	return helm.CreateChartPackage(&helm.Chart{V3: ch}, dir)
 }

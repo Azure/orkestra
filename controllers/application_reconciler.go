@@ -7,6 +7,7 @@ import (
 	"os"
 
 	orkestrav1alpha1 "github.com/Azure/Orkestra/api/v1alpha1"
+	"github.com/Azure/Orkestra/pkg/registry"
 	"github.com/go-logr/logr"
 	"helm.sh/helm/v3/pkg/chart"
 )
@@ -50,10 +51,18 @@ func (r *ApplicationReconciler) reconcile(ctx context.Context, l logr.Logger, ap
 
 				if err := sc.Validate(); err != nil {
 					cs.Error = err.Error()
-					ll.Error(err, "failed to validate application subcharchart for staging registry")
+					ll.Error(err, "failed to validate application subchart for staging registry")
 					return false, fmt.Errorf("failed to validate application subchart for staging registry : %w", err)
 				}
-				err := r.RegistryClient.PushChart(ll, stagingRepoName, sc)
+
+				path, err := registry.SaveChartPackage(sc, r.TargetDir)
+				if err != nil {
+					cs.Error = err.Error()
+					ll.Error(err, "failed to save subchart package as tgz")
+					return false, fmt.Errorf("failed to save subchart package as tgz : %w", err)
+				}
+
+				err = r.RegistryClient.PushChart(ll, stagingRepoName, path, sc)
 				if err != nil {
 					cs.Error = err.Error()
 					ll.Error(err, "failed to push application subchart to staging registry")
@@ -76,7 +85,8 @@ func (r *ApplicationReconciler) reconcile(ctx context.Context, l logr.Logger, ap
 			return false, fmt.Errorf("failed to validate application chart for staging registry : %w", err)
 		}
 
-		err := r.RegistryClient.PushChart(ll, stagingRepoName, appCh)
+		path := r.TargetDir + "/" + appCh.Name() + "-" + appCh.Metadata.Version + ".tgz"
+		err := r.RegistryClient.PushChart(ll, stagingRepoName, path, appCh)
 		if err != nil {
 			application.Status.Application.Error = err.Error()
 			ll.Error(err, "failed to push modified application chart to staging registry")

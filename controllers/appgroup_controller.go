@@ -94,7 +94,7 @@ func (r *ApplicationGroupReconciler) updateStatusAndEvent(ctx context.Context, g
 		errStr = err.Error()
 	}
 
-	grp.Status = orkestrav1alpha1.ApplicationGroupStatus{}
+	grp.Status.Error = errStr
 
 	_ = r.Status().Update(ctx, &grp)
 
