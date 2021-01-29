@@ -39,6 +39,9 @@ type ApplicationReconciler struct {
 	// StagingRepoName is the nickname for the repository used for staging artifacts before being deployed using the HelmRelease object
 	StagingRepoName string
 
+	// TargetDir to stage the charts before pushing
+	TargetDir string
+
 	// Recorder generates kubernetes events
 	Recorder record.EventRecorder
 }

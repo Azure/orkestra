@@ -102,6 +102,7 @@ func main() {
 		Cfg:             cfg.Ctrl,
 		RegistryClient:  rc,
 		StagingRepoName: stagingRepoName,
+		TargetDir:       tempChartStoreTargetDir,
 		Recorder:        mgr.GetEventRecorderFor("application-controller"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Application")
