@@ -1,22 +1,23 @@
 package registry
 
-// Config type stores the Authentication type and Artifactory URL for the upstream/staging artifactory
+// Config struct captures the configuration fields as per the repoAddOptions - https://github.com/helm/helm/blob/v3.1.2/cmd/helm/repo_add.go#L39
 type Config struct {
-	Hostname *string        `yaml:"hostname"`
-	Auth     *BasicHTTPAuth `yaml:"auth"`
-	Staging  bool           `yaml:"staging,omitempty"`
-}
+	URL      string `yaml:"url" json:"url,omitempty"`
+	Username string `yaml:"username" json:"username,omitempty"`
+	Password string `yaml:"password" json:"password,omitempty"`
 
-// BasicHttpAuth stores the credentials for authentication with upstream/staging artifactory
-type BasicHTTPAuth struct {
-	Username string `yaml:"username"`
-	Password string `yaml:"password"`
-}
+	AuthHeader         string `yaml:"authHeader" json:"auth_header,omitempty"`
+	CaFile             string `yaml:"caFile" json:"ca_file,omitempty"`
+	CertFile           string `yaml:"certFile" json:"cert_file,omitempty"`
+	KeyFile            string `yaml:"keyFile" json:"key_file,omitempty"`
+	InsecureSkipVerify bool   `yaml:"insecureSkipVerify" json:"insecure_skip_verify,omitempty"`
 
-// NewBasicAuth is constructor init for HTTP Basic Auth type
-func NewBasicAuth(usr, pwd string) *BasicHTTPAuth {
-	return &BasicHTTPAuth{
-		Username: usr,
-		Password: pwd,
-	}
+	// TODO (nitishm) : Add these fields to the config.yaml as and when use case arrives
+	// See https://github.com/helm/helm/blob/v3.2.1/pkg/action/install.go#L106-L116
+	// Keyring  string // --keyring
+	// Verify   bool   // --verify
+	// Version  string // --version
+
+	// XXX (nitishm) : Is this required? Since it is not part of the repoAddOption in the helm go package
+	AccessToken string `yaml:"accessToken" json:"access_token,omitempty"`
 }

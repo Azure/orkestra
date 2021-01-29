@@ -5,11 +5,12 @@ metadata:
   name: redis-dev
 spec:
   namespace: "default"
+  repo: bitnami
   groupID: "dev"
   # HelmRelease spec fields
   # https://docs.fluxcd.io/projects/helm-operator/en/1.0.0-rc9/references/helmrelease-custom-resource.html#helmrelease-custom-resource
   chart:
-    repo: "https://charts.bitnami.com/bitnami"
+    repository: "https://charts.bitnami.com/bitnami"
     name: redis
     version: 12.2.3
   subcharts: []
@@ -22,9 +23,6 @@ spec:
       persistence:
         size: "4Gi"
   targetNamespace: "redis-dev-ns"
-status:
-  status:
-    ready: true
 
 
 

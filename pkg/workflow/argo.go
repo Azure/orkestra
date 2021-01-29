@@ -40,11 +40,11 @@ type argo struct {
 }
 
 // Argo is blah blah
-func Argo(scheme *runtime.Scheme, c client.Client, r string) *argo {
+func Argo(scheme *runtime.Scheme, c client.Client, stagingRepoURL string) *argo {
 
 	return &argo{
 		cli:            c,
-		stagingRepoURL: r,
+		stagingRepoURL: stagingRepoURL,
 	}
 }
 
@@ -201,12 +201,12 @@ func generateAppDAGTemplates(apps []*v1alpha1.Application, repo string) ([]v1alp
 	ts := make([]v1alpha12.Template, 0, len(apps))
 
 	for _, app := range apps {
-		t := v1alpha12.Template{
-			Name: app.Name,
-		}
-
 		// Create Subchart DAG only when the application chart has dependencies
 		if len(app.Spec.Subcharts) > 0 {
+			t := v1alpha12.Template{
+				Name: app.Name,
+			}
+
 			t.DAG = &v1alpha12.DAGTemplate{}
 			tasks, err := generateSubchartDAGTasks(app, repo)
 			if err != nil {
@@ -214,6 +214,8 @@ func generateAppDAGTemplates(apps []*v1alpha1.Application, repo string) ([]v1alp
 			}
 
 			t.DAG.Tasks = tasks
+
+			ts = append(ts, t)
 		}
 
 		hr := helmopv1.HelmRelease{
@@ -226,7 +228,6 @@ func generateAppDAGTemplates(apps []*v1alpha1.Application, repo string) ([]v1alp
 		hr.Name = app.Name
 		hr.Spec = app.Spec.HelmReleaseSpec
 
-		// TODO (nitishm)
 		// FIXME: Do not assume application chart will get pushed to the staging registry for every application
 		// Application charts that do not specify subchart dependencies should generate the HelmRelease with the
 		// RepoURL pointing to the primary chart
@@ -246,13 +247,19 @@ func generateAppDAGTemplates(apps []*v1alpha1.Application, repo string) ([]v1alp
 			},
 		}
 
-		ts = append(ts, t, tStaging)
+		ts = append(ts, tStaging)
 	}
 
 	return ts, nil
 }
 
 func generateSubchartDAGTasks(app *v1alpha1.Application, repo string) ([]v1alpha12.DAGTask, error) {
+	if repo == "" {
+		return nil, fmt.Errorf("repo arg must be a valid non-empty string")
+	}
+
+	// XXX (nitishm)
+	// Should this be set to nil if no subcharts are found??
 	tasks := make([]v1alpha12.DAGTask, 0, len(app.Spec.Subcharts))
 
 	for _, sc := range app.Spec.Subcharts {

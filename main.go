@@ -7,6 +7,8 @@ import (
 	"flag"
 	"os"
 
+	"github.com/Azure/Orkestra/pkg/configurer"
+	"github.com/Azure/Orkestra/pkg/registry"
 	"github.com/Azure/Orkestra/pkg/workflow"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -17,6 +19,10 @@ import (
 	orkestrav1alpha1 "github.com/Azure/Orkestra/api/v1alpha1"
 	"github.com/Azure/Orkestra/controllers"
 	// +kubebuilder:scaffold:imports
+)
+
+const (
+	stagingRepoNameEnv = "STAGING_REPO_NAME"
 )
 
 var (
@@ -34,10 +40,19 @@ func init() {
 func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
+	var configPath string
+	var stagingRepoName string
+	var tempChartStoreTargetDir string
+	var cleanup bool
+
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
+	flag.StringVar(&configPath, "config", "", "The path to the controller config file")
+	flag.StringVar(&stagingRepoName, "staging-repo-name", "", "The nickname for the helm registry used for staging artifacts (ENV - STAGING_REPO_URL). NOTE: Flag overrides env value")
+	flag.StringVar(&tempChartStoreTargetDir, "chart-store-path", "", "The temporary storage path for the downloaded and staged chart artifacts")
+	flag.BoolVar(&cleanup, "cleanup", false, "cleanup the pull/downloaded charts from the temporary storage path")
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
@@ -54,21 +69,57 @@ func main() {
 		os.Exit(1)
 	}
 
+	if stagingRepoName == "" {
+		if s := os.Getenv(stagingRepoNameEnv); s != "" {
+			stagingRepoName = s
+		} else {
+			setupLog.Error(err, "staging repo URL must be set")
+			os.Exit(1)
+		}
+	}
+
+	cfg, err := configurer.NewConfigurer(configPath)
+	if err != nil {
+		setupLog.Error(err, "unable to create new configurer instance", "controller", "config")
+		os.Exit(1)
+	}
+
+	cfg.Ctrl.Cleanup = cleanup
+
+	rc, err := registry.NewClient(
+		ctrl.Log.Logger, cfg.Ctrl.Registries,
+		registry.TargetDir(tempChartStoreTargetDir),
+	)
+	if err != nil {
+		setupLog.Error(err, "unable to create new registry client", "controller", "registry-client")
+		os.Exit(1)
+	}
+
 	if err = (&controllers.ApplicationReconciler{
-		Client:   mgr.GetClient(),
-		Log:      ctrl.Log.WithName("controllers").WithName("Application"),
-		Scheme:   mgr.GetScheme(),
-		Recorder: mgr.GetEventRecorderFor("application-controller"),
+		Client:          mgr.GetClient(),
+		Log:             ctrl.Log.WithName("controllers").WithName("Application"),
+		Scheme:          mgr.GetScheme(),
+		Cfg:             cfg.Ctrl,
+		RegistryClient:  rc,
+		StagingRepoName: stagingRepoName,
+		Recorder:        mgr.GetEventRecorderFor("application-controller"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Application")
 		os.Exit(1)
 	}
+
+	sCfg, err := cfg.Ctrl.RegistryConfig(stagingRepoName)
+	if err != nil {
+		setupLog.Error(err, "unable to find staging repo configuration", "controller", "registry-config")
+		os.Exit(1)
+	}
+
 	if err = (&controllers.ApplicationGroupReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("ApplicationGroup"),
-		Scheme: mgr.GetScheme(),
-		// FIXME: Staging repo URL should come from env or flag
-		Engine:   workflow.Argo(scheme, mgr.GetClient(), ""),
+		Client:   mgr.GetClient(),
+		Log:      ctrl.Log.WithName("controllers").WithName("ApplicationGroup"),
+		Scheme:   mgr.GetScheme(),
+		Cfg:      cfg.Ctrl,
+		Engine:   workflow.Argo(scheme, mgr.GetClient(), sCfg.URL),
 		Recorder: mgr.GetEventRecorderFor("appgroup-controller"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ApplicationGroup")
