@@ -7,7 +7,6 @@ import (
 	"os"
 
 	orkestrav1alpha1 "github.com/Azure/Orkestra/api/v1alpha1"
-	"github.com/Azure/Orkestra/pkg/registry"
 	"github.com/go-logr/logr"
 	"helm.sh/helm/v3/pkg/chart"
 )
@@ -63,6 +62,7 @@ func (r *ApplicationReconciler) reconcile(ctx context.Context, l logr.Logger, ap
 				}
 
 				err = r.RegistryClient.PushChart(ll, stagingRepoName, path, sc)
+
 				if err != nil {
 					cs.Error = err.Error()
 					ll.Error(err, "failed to push application subchart to staging registry")
