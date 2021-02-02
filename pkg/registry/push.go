@@ -11,8 +11,8 @@ import (
 	"helm.sh/helm/v3/pkg/chart"
 )
 
-// TODO (nitishm) Implement me
-func (c *Client) PushChart(l logr.Logger, repoKey string, pkgPath string, ch *chart.Chart) error {
+// PushChart pushes the chart to the repository specified by the repoKey. The repository setting is fetched from the associated registry config file
+func (c *Client) PushChart(l logr.Logger, repoKey, pkgPath string, ch *chart.Chart) error {
 	chartName := ch.Name()
 	version := ch.Metadata.Version
 
@@ -36,6 +36,10 @@ func (c *Client) PushChart(l logr.Logger, repoKey string, pkgPath string, ch *ch
 		chartmuseum.KeyFile(rCfg.KeyFile),
 		chartmuseum.InsecureSkipVerify(rCfg.InsecureSkipVerify),
 	)
+	if err != nil {
+		l.Error(err, "failed to create new helm push client")
+		return fmt.Errorf("failed to create new helm push client : %w", err)
+	}
 
 	resp, err := c.cfg.push.UploadChartPackage(pkgPath, true)
 	if err != nil {

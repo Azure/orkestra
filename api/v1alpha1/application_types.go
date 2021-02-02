@@ -14,11 +14,14 @@ import (
 // ApplicationSpec defines the desired state of Application
 type ApplicationSpec struct {
 	// Namespace to which the HelmRelease object will be deployed
-	Namespace string `json:"namespace"`
+	Namespace string `json:"namespace,omitempty"`
 	Subcharts []DAG  `json:"subcharts,omitempty"`
-	GroupID   string `json:"groupID"`
-	// ChartRepoNickname is used to lookup the repository config in the registeries config map
-	ChartRepoNickname        string `json:"repo"`
+	GroupID   string `json:"groupID,omitempty"`
+	// ChartRepoNickname is used to lookup the repository config in the registries config map
+	ChartRepoNickname string `json:"repo,omitempty"`
+	// XXX (nitishm) : Workaround for https://github.com/kubernetes/kubernetes/issues/98683
+	Overlays string `json:"overlays,omitempty"`
+
 	helmopv1.HelmReleaseSpec `json:",inline"`
 }
 

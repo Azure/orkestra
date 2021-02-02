@@ -49,7 +49,10 @@ func NewConfigurer(cfgPath string) (*Configurer, error) {
 		return nil, err
 	}
 
-	setupRegistryRepos(ctrlCfg.Registries)
+	err = setupRegistryRepos(ctrlCfg.Registries)
+	if err != nil {
+		return nil, err
+	}
 
 	return &Configurer{
 		v:    v,
@@ -72,7 +75,7 @@ func setupRegistryRepos(registries map[string]*registry.Config) error {
 	defer cancel()
 	locked, err := fileLock.TryLockContext(lockCtx, time.Second)
 	if err == nil && locked {
-		defer fileLock.Unlock()
+		defer fileLock.Unlock() //nolint:errcheck
 	}
 	if err != nil {
 		return err

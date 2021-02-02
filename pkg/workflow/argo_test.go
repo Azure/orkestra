@@ -90,9 +90,10 @@ func Test_subchartValues(t *testing.T) {
 	}
 }
 
-func Test_generateSubchartDAGTasks(t *testing.T) {
+func Test_generateSubchartAndAppDAGTasks(t *testing.T) {
 	type args struct {
-		app *v1alpha1.Application
+		app      *v1alpha1.Application
+		targetNS string
 	}
 	tests := []struct {
 		name    string
@@ -153,6 +154,7 @@ func Test_generateSubchartDAGTasks(t *testing.T) {
 			want: []v1alpha12.DAGTask{
 				{
 					Name:         "subchart-3",
+					Template:     "helmrelease-executor",
 					Dependencies: []string{"subchart-2"},
 					Arguments: v1alpha12.Arguments{
 						Parameters: []v1alpha12.Parameter{
@@ -190,6 +192,7 @@ func Test_generateSubchartDAGTasks(t *testing.T) {
 				},
 				{
 					Name:         "subchart-2",
+					Template:     "helmrelease-executor",
 					Dependencies: []string{"subchart-1"},
 					Arguments: v1alpha12.Arguments{
 						Parameters: []v1alpha12.Parameter{
@@ -226,7 +229,8 @@ func Test_generateSubchartDAGTasks(t *testing.T) {
 					},
 				},
 				{
-					Name: "subchart-1",
+					Name:     "subchart-1",
+					Template: "helmrelease-executor",
 					Arguments: v1alpha12.Arguments{
 						Parameters: []v1alpha12.Parameter{
 							{
@@ -253,6 +257,52 @@ func Test_generateSubchartDAGTasks(t *testing.T) {
 													"keyG": "valueG",
 												},
 												"subchart-1-key": "subchart-1-value",
+											},
+										},
+									},
+								})),
+							},
+						},
+					},
+				},
+				{
+					Name:         "application",
+					Template:     "helmrelease-executor",
+					Dependencies: []string{"subchart-3", "subchart-2", "subchart-1"},
+					Arguments: v1alpha12.Arguments{
+						Parameters: []v1alpha12.Parameter{
+							{
+								Name: helmReleaseArg,
+								Value: strToStrPtr(hrToYAML(helmopv1.HelmRelease{
+									TypeMeta: v1.TypeMeta{
+										Kind:       "HelmRelease",
+										APIVersion: "helm.fluxcd.io/v1",
+									},
+									ObjectMeta: v1.ObjectMeta{
+										Name: "application",
+									},
+									Spec: helmopv1.HelmReleaseSpec{
+										ChartSource: helmopv1.ChartSource{
+											RepoChartSource: &helmopv1.RepoChartSource{
+												RepoURL: "http://stagingrepo",
+												Name:    "appchart",
+												Version: "1.0.0",
+											},
+										},
+										Values: helmopv1.HelmValues{
+											Data: map[string]interface{}{
+												"global": map[string]interface{}{
+													"keyG": "valueG",
+												},
+												"subchart-1": map[string]interface{}{
+													"subchart-1-key": "subchart-1-value",
+												},
+												"subchart-2": map[string]interface{}{
+													"subchart-2-key": "subchart-2-value",
+												},
+												"subchart-3": map[string]interface{}{
+													"subchart-3-key": "subchart-3-value",
+												},
 											},
 										},
 									},
@@ -317,6 +367,7 @@ func Test_generateSubchartDAGTasks(t *testing.T) {
 			want: []v1alpha12.DAGTask{
 				{
 					Name:         "subchart-3",
+					Template:     "helmrelease-executor",
 					Dependencies: []string{"subchart-2", "subchart-1"},
 					Arguments: v1alpha12.Arguments{
 						Parameters: []v1alpha12.Parameter{
@@ -353,7 +404,8 @@ func Test_generateSubchartDAGTasks(t *testing.T) {
 					},
 				},
 				{
-					Name: "subchart-2",
+					Name:     "subchart-2",
+					Template: "helmrelease-executor",
 					Arguments: v1alpha12.Arguments{
 						Parameters: []v1alpha12.Parameter{
 							{
@@ -389,7 +441,8 @@ func Test_generateSubchartDAGTasks(t *testing.T) {
 					},
 				},
 				{
-					Name: "subchart-1",
+					Name:     "subchart-1",
+					Template: "helmrelease-executor",
 					Arguments: v1alpha12.Arguments{
 						Parameters: []v1alpha12.Parameter{
 							{
@@ -424,6 +477,52 @@ func Test_generateSubchartDAGTasks(t *testing.T) {
 						},
 					},
 				},
+				{
+					Name:         "application",
+					Template:     "helmrelease-executor",
+					Dependencies: []string{"subchart-3", "subchart-2", "subchart-1"},
+					Arguments: v1alpha12.Arguments{
+						Parameters: []v1alpha12.Parameter{
+							{
+								Name: helmReleaseArg,
+								Value: strToStrPtr(hrToYAML(helmopv1.HelmRelease{
+									TypeMeta: v1.TypeMeta{
+										Kind:       "HelmRelease",
+										APIVersion: "helm.fluxcd.io/v1",
+									},
+									ObjectMeta: v1.ObjectMeta{
+										Name: "application",
+									},
+									Spec: helmopv1.HelmReleaseSpec{
+										ChartSource: helmopv1.ChartSource{
+											RepoChartSource: &helmopv1.RepoChartSource{
+												RepoURL: "http://stagingrepo",
+												Name:    "appchart",
+												Version: "1.0.0",
+											},
+										},
+										Values: helmopv1.HelmValues{
+											Data: map[string]interface{}{
+												"global": map[string]interface{}{
+													"keyG": "valueG",
+												},
+												"subchart-1": map[string]interface{}{
+													"subchart-1-key": "subchart-1-value",
+												},
+												"subchart-2": map[string]interface{}{
+													"subchart-2-key": "subchart-2-value",
+												},
+												"subchart-3": map[string]interface{}{
+													"subchart-3-key": "subchart-3-value",
+												},
+											},
+										},
+									},
+								})),
+							},
+						},
+					},
+				},
 			},
 			wantErr: false,
 		},
@@ -431,7 +530,7 @@ func Test_generateSubchartDAGTasks(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := generateSubchartDAGTasks(tt.args.app, "http://stagingrepo")
+			got, err := generateSubchartAndAppDAGTasks(tt.args.app, "http://stagingrepo", tt.args.targetNS)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("generateSubchartDAGTasks() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -506,6 +605,7 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 							{
 								Name:         "subchart-3",
 								Dependencies: []string{"subchart-2", "subchart-1"},
+								Template:     "helmrelease-executor",
 								Arguments: v1alpha12.Arguments{
 									Parameters: []v1alpha12.Parameter{
 										{
@@ -540,7 +640,8 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 								},
 							},
 							{
-								Name: "subchart-2",
+								Name:     "subchart-2",
+								Template: "helmrelease-executor",
 								Arguments: v1alpha12.Arguments{
 									Parameters: []v1alpha12.Parameter{
 										{
@@ -575,7 +676,8 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 								},
 							},
 							{
-								Name: "subchart-1",
+								Name:     "subchart-1",
+								Template: "helmrelease-executor",
 								Arguments: v1alpha12.Arguments{
 									Parameters: []v1alpha12.Parameter{
 										{
@@ -609,40 +711,42 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 									},
 								},
 							},
-						},
-					},
-				},
-				{
-					Name: "application",
-					Arguments: v1alpha12.Arguments{
-						Parameters: []v1alpha12.Parameter{
 							{
-								Name: helmReleaseArg,
-								Value: strToStrPtr(hrToYAML(helmopv1.HelmRelease{
-									TypeMeta: v1.TypeMeta{
-										Kind:       "HelmRelease",
-										APIVersion: "helm.fluxcd.io/v1",
-									},
-									ObjectMeta: v1.ObjectMeta{
-										Name: "application",
-									},
-									Spec: helmopv1.HelmReleaseSpec{
-										Values: helmopv1.HelmValues{
-											Data: map[string]interface{}{
-												"global": map[string]interface{}{
-													"keyG": "valueG",
+								Name:         "application",
+								Template:     "helmrelease-executor",
+								Dependencies: []string{"subchart-3", "subchart-2", "subchart-1"},
+								Arguments: v1alpha12.Arguments{
+									Parameters: []v1alpha12.Parameter{
+										{
+											Name: helmReleaseArg,
+											Value: strToStrPtr(hrToYAML(helmopv1.HelmRelease{
+												TypeMeta: v1.TypeMeta{
+													Kind:       "HelmRelease",
+													APIVersion: "helm.fluxcd.io/v1",
 												},
-											},
-										},
-										ChartSource: helmopv1.ChartSource{
-											RepoChartSource: &helmopv1.RepoChartSource{
-												RepoURL: "http://stagingrepo",
-												Name:    "appchart",
-												Version: "1.0.0",
-											},
+												ObjectMeta: v1.ObjectMeta{
+													Name: "application",
+												},
+												Spec: helmopv1.HelmReleaseSpec{
+													ChartSource: helmopv1.ChartSource{
+														RepoChartSource: &helmopv1.RepoChartSource{
+															RepoURL: "http://stagingrepo",
+															Name:    "appchart",
+															Version: "1.0.0",
+														},
+													},
+													Values: helmopv1.HelmValues{
+														Data: map[string]interface{}{
+															"global": map[string]interface{}{
+																"keyG": "valueG",
+															},
+														},
+													},
+												},
+											})),
 										},
 									},
-								})),
+								},
 							},
 						},
 					},
@@ -682,35 +786,43 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 			want: []v1alpha12.Template{
 				{
 					Name: "application",
-					Arguments: v1alpha12.Arguments{
-						Parameters: []v1alpha12.Parameter{
+					DAG: &v1alpha12.DAGTemplate{
+						Tasks: []v1alpha12.DAGTask{
 							{
-								Name: helmReleaseArg,
-								Value: strToStrPtr(hrToYAML(helmopv1.HelmRelease{
-									TypeMeta: v1.TypeMeta{
-										Kind:       "HelmRelease",
-										APIVersion: "helm.fluxcd.io/v1",
-									},
-									ObjectMeta: v1.ObjectMeta{
-										Name: "application",
-									},
-									Spec: helmopv1.HelmReleaseSpec{
-										Values: helmopv1.HelmValues{
-											Data: map[string]interface{}{
-												"global": map[string]interface{}{
-													"keyG": "valueG",
+								Name:     "application",
+								Template: "helmrelease-executor",
+								Arguments: v1alpha12.Arguments{
+									Parameters: []v1alpha12.Parameter{
+										{
+											Name: helmReleaseArg,
+											Value: strToStrPtr(hrToYAML(helmopv1.HelmRelease{
+												TypeMeta: v1.TypeMeta{
+													Kind:       "HelmRelease",
+													APIVersion: "helm.fluxcd.io/v1",
 												},
-											},
-										},
-										ChartSource: helmopv1.ChartSource{
-											RepoChartSource: &helmopv1.RepoChartSource{
-												RepoURL: "http://stagingrepo",
-												Name:    "appchart",
-												Version: "1.0.0",
-											},
+												ObjectMeta: v1.ObjectMeta{
+													Name: "application",
+												},
+												Spec: helmopv1.HelmReleaseSpec{
+													Values: helmopv1.HelmValues{
+														Data: map[string]interface{}{
+															"global": map[string]interface{}{
+																"keyG": "valueG",
+															},
+														},
+													},
+													ChartSource: helmopv1.ChartSource{
+														RepoChartSource: &helmopv1.RepoChartSource{
+															RepoURL: "http://primaryrepo",
+															Name:    "appchart",
+															Version: "1.0.0",
+														},
+													},
+												},
+											})),
 										},
 									},
-								})),
+								},
 							},
 						},
 					},
