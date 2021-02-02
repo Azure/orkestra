@@ -24,7 +24,8 @@ var (
 	errRegistryNotFound = errors.New("registry entry not found in registries map")
 )
 
-type RegistryMap map[string]*Config
+// RegistryMap specifies a type alias for the registry configuration by repo key
+type RegistryMap map[string]*Config //nolint:golint
 
 func (rm RegistryMap) RegistryConfig(key string) (*Config, error) {
 	if key == "" {

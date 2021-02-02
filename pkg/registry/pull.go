@@ -40,7 +40,11 @@ func (c *Client) PullChart(l logr.Logger, repoKey, chartName, version string) (s
 		l.V(3).Info("chart artifact found in target directory - skip downloading")
 	}
 
-	c.cfg.pull.ChartPathOptions.LocateChart(filePath, c.cfg.pull.Settings)
+	_, err = c.cfg.pull.ChartPathOptions.LocateChart(filePath, c.cfg.pull.Settings)
+	if err != nil {
+		l.Error(err, "failed to locate chart in filesystem")
+		return "", nil, fmt.Errorf("failed to locate chart in filesystem at path %s : %w", filePath, err)
+	}
 
 	var ch *chart.Chart
 

@@ -125,7 +125,7 @@ spec:
                 type: string
               repo:
                 description: ChartRepoNickname is used to lookup the repository config
-                  in the registeries config map
+                  in the registries config map
                 type: string
               resetValues:
                 description: ResetValues will mark this Helm release to reset the

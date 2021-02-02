@@ -17,4 +17,4 @@ registries:
   staging:
     url: "http://localhost:8080"
     # Uncomment this when deployed in cluster
-    # url: "http://my-chartmuseum-chartmuseum.default:8080"
+    # url: "http://releaser-chartmuseum.default:8080"

@@ -42,9 +42,8 @@ type argo struct {
 	stagingRepoURL string
 }
 
-// Argo is blah blah
-func Argo(scheme *runtime.Scheme, c client.Client, stagingRepoURL string) *argo {
-
+// Argo implements the Workflow interface for the Argo Workflow based DAG engine
+func Argo(scheme *runtime.Scheme, c client.Client, stagingRepoURL string) *argo { //nolint:golint
 	return &argo{
 		scheme:         scheme,
 		cli:            c,
@@ -87,11 +86,11 @@ func (a *argo) Generate(ctx context.Context, l logr.Logger, ns string, g *v1alph
 	a.wf.Name = g.Name
 	a.wf.Namespace = ns
 
-	sort.SliceStable(apps[:], func(i, j int) bool {
+	sort.SliceStable(apps[:], func(i, j int) bool { //nolint:gocritic
 		return apps[i].Name < apps[j].Name
 	})
 
-	sort.SliceStable(g.Spec.Applications[:], func(i, j int) bool {
+	sort.SliceStable(g.Spec.Applications[:], func(i, j int) bool { //nolint:gocritic
 		return g.Spec.Applications[i].Name < g.Spec.Applications[j].Name
 	})
 
@@ -215,17 +214,19 @@ func updateAppGroupDAG(g *v1alpha1.ApplicationGroup, entry *v1alpha12.Template, 
 }
 
 func generateAppDAGTemplates(apps []*v1alpha1.Application, repo string) ([]v1alpha12.Template, error) {
-	ts := make([]v1alpha12.Template, 0, len(apps))
+	ts := make([]v1alpha12.Template, 0)
 
 	for _, app := range apps {
 		// XXX (nitishm) : Workaround for https://github.com/kubernetes/kubernetes/issues/98683
 		vString := app.Spec.Overlays
-		appHV := helmopv1.HelmValues{}
-		err := json.Unmarshal([]byte(vString), &appHV)
-		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal overlay values into HelmValues object")
+		if vString != "" {
+			appHV := helmopv1.HelmValues{}
+			err := json.Unmarshal([]byte(vString), &appHV)
+			if err != nil {
+				return nil, fmt.Errorf("failed to unmarshal overlay values into HelmValues object")
+			}
+			app.Spec.Values = appHV
 		}
-		app.Spec.Values = appHV
 		// END
 
 		var hasSubcharts bool
@@ -259,7 +260,7 @@ func generateAppDAGTemplates(apps []*v1alpha1.Application, repo string) ([]v1alp
 					// FIXME (nitishm) : Deploying HelmRelease to specific namespace requires special serviceAccount, ClusterRole and ClusterRoleBinding
 					// Namespace: app.Spec.TargetNamespace,
 				},
-				Spec: app.Spec.HelmReleaseSpec,
+				Spec: app.DeepCopy().Spec.HelmReleaseSpec,
 			}
 
 			if app.Status.Application.Staged {
@@ -293,14 +294,14 @@ func generateAppDAGTemplates(apps []*v1alpha1.Application, repo string) ([]v1alp
 	return ts, nil
 }
 
-func generateSubchartAndAppDAGTasks(app *v1alpha1.Application, repo string, targetNS string) ([]v1alpha12.DAGTask, error) {
+func generateSubchartAndAppDAGTasks(app *v1alpha1.Application, repo, targetNS string) ([]v1alpha12.DAGTask, error) {
 	if repo == "" {
 		return nil, fmt.Errorf("repo arg must be a valid non-empty string")
 	}
 
 	// XXX (nitishm)
 	// Should this be set to nil if no subcharts are found??
-	tasks := make([]v1alpha12.DAGTask, 0, len(app.Spec.Subcharts))
+	tasks := make([]v1alpha12.DAGTask, 0, len(app.Spec.Subcharts)+1)
 
 	for _, sc := range app.Spec.Subcharts {
 		hr := generateSubchartHelmRelease(app.Spec.HelmReleaseSpec, sc.Name, repo, targetNS)
@@ -331,7 +332,7 @@ func generateSubchartAndAppDAGTasks(app *v1alpha1.Application, repo string, targ
 			// FIXME (nitishm) : Deploying HelmRelease to specific namespace requires special serviceAccount, ClusterRole and ClusterRoleBinding
 			// Namespace: app.Spec.HelmReleaseSpec.TargetNamespace,
 		},
-		Spec: app.Spec.HelmReleaseSpec,
+		Spec: app.DeepCopy().Spec.HelmReleaseSpec,
 	}
 
 	// staging repo instead of the primary repo
@@ -400,7 +401,7 @@ func hrToYAML(hr helmopv1.HelmRelease) string {
 	return string(b)
 }
 
-func generateSubchartHelmRelease(a helmopv1.HelmReleaseSpec, sc, repo string, targetNS string) helmopv1.HelmRelease {
+func generateSubchartHelmRelease(a helmopv1.HelmReleaseSpec, sc, repo, targetNS string) helmopv1.HelmRelease {
 	hr := helmopv1.HelmRelease{
 		TypeMeta: v1.TypeMeta{
 			Kind:       "HelmRelease",
@@ -411,13 +412,19 @@ func generateSubchartHelmRelease(a helmopv1.HelmReleaseSpec, sc, repo string, ta
 			// FIXME (nitishm) : Deploying HelmRelease to specific namespace requires special serviceAccount, ClusterRole and ClusterRoleBinding
 			// Namespace: targetNS,
 		},
-		Spec: a,
+		Spec: helmopv1.HelmReleaseSpec{
+			ChartSource: helmopv1.ChartSource{
+				RepoChartSource: &helmopv1.RepoChartSource{},
+			},
+		},
 		// FIXME (nitishm) : Deploying HelmRelease to specific namespace requires special serviceAccount, ClusterRole and ClusterRoleBinding
 		// TargetNamespace: targetNS,
 	}
 
-	hr.Spec.RepoURL = repo
-	hr.Spec.Version = a.Version
+	hr.Spec.ChartSource.RepoChartSource = a.DeepCopy().RepoChartSource
+	hr.Spec.ChartSource.RepoChartSource.Name = sc
+	hr.Spec.ChartSource.RepoChartSource.RepoURL = repo
+	hr.Spec.ChartSource.RepoChartSource.Version = a.Version
 	hr.Spec.Values = subchartValues(sc, a.Values)
 
 	return hr

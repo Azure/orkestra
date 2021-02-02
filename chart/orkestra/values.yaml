@@ -16,7 +16,7 @@ helm-operator:
         url: https://charts.bitnami.com/bitnami
       - name: chartmuseum 
         url: http://localhost:8080
-        # url: http://my-chartmuseum-chartmuseum.default:8080
+        # url: http://releaser-chartmuseum.default:8080
   rbac:
     create: true 
     pspEnabled: true 

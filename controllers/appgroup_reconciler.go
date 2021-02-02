@@ -20,20 +20,13 @@ var (
 	ErrRequeue = fmt.Errorf("(transitory error) Requeue-ing resource to try again")
 )
 
-const (
-	argoAPIVersion = "argoproj.io/v1alpha1"
-	argoKind       = "Workflow"
-
-	entrypointTemplate = "entry"
-)
-
 func (r *ApplicationGroupReconciler) reconcile(ctx context.Context, l logr.Logger, ns string, appGroup *orkestrav1alpha1.ApplicationGroup) (bool, error) {
 	l = l.WithValues(appgroupNameKey, appGroup.Name)
 	l.V(3).Info("Reconciling ApplicationGroup object")
 
 	if len(appGroup.Spec.Applications) == 0 {
 		l.Error(ErrInvalidSpec, "ApplicationGroup must list atleast one Application")
-		return false, fmt.Errorf("ApplicationGroup must list atleast one Application : %w", ErrInvalidSpec)
+		return false, fmt.Errorf("application group must list atleast one Application : %w", ErrInvalidSpec)
 	}
 
 	// Readiness matrix stores the status of the Application object
