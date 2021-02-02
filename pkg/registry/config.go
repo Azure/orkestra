@@ -12,12 +12,11 @@ type Config struct {
 	KeyFile            string `yaml:"keyFile" json:"key_file,omitempty"`
 	InsecureSkipVerify bool   `yaml:"insecureSkipVerify" json:"insecure_skip_verify,omitempty"`
 
-	// TODO (nitishm) : Add these fields to the config.yaml as and when use case arrives
+	// TODO (nitishm) : Add these fields to the config.yaml as and when the need arrives
 	// See https://github.com/helm/helm/blob/v3.2.1/pkg/action/install.go#L106-L116
 	// Keyring  string // --keyring
 	// Verify   bool   // --verify
 	// Version  string // --version
 
-	// XXX (nitishm) : Is this required? Since it is not part of the repoAddOption in the helm go package
 	AccessToken string `yaml:"accessToken" json:"access_token,omitempty"`
 }

@@ -63,7 +63,6 @@ func NewConfigurer(cfgPath string) (*Configurer, error) {
 func setupRegistryRepos(registries map[string]*registry.Config) error {
 	settings := cli.New()
 	repoFile := settings.RepositoryConfig
-	// TODO (nitishm) : Do we need to do this? https://github.com/helm/helm/blob/v3.1.2/cmd/helm/repo_add.go#L83-L109
 	err := os.MkdirAll(filepath.Dir(repoFile), os.ModePerm)
 	if err != nil && !os.IsExist(err) {
 		return err

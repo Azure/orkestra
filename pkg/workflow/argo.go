@@ -299,8 +299,7 @@ func generateSubchartAndAppDAGTasks(app *v1alpha1.Application, repo, targetNS st
 		return nil, fmt.Errorf("repo arg must be a valid non-empty string")
 	}
 
-	// XXX (nitishm)
-	// Should this be set to nil if no subcharts are found??
+	// XXX (nitishm) Should this be set to nil if no subcharts are found??
 	tasks := make([]v1alpha12.DAGTask, 0, len(app.Spec.Subcharts)+1)
 
 	for _, sc := range app.Spec.Subcharts {
