@@ -90,9 +90,10 @@ func Test_subchartValues(t *testing.T) {
 	}
 }
 
-func Test_generateSubchartDAGTasks(t *testing.T) {
+func Test_generateSubchartAndAppDAGTasks(t *testing.T) {
 	type args struct {
-		app *v1alpha1.Application
+		app      *v1alpha1.Application
+		targetNS string
 	}
 	tests := []struct {
 		name    string
@@ -431,7 +432,7 @@ func Test_generateSubchartDAGTasks(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := generateSubchartDAGTasks(tt.args.app, "http://stagingrepo")
+			got, err := generateSubchartAndAppDAGTasks(tt.args.app, "http://stagingrepo", tt.args.targetNS)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("generateSubchartDAGTasks() error = %v, wantErr %v", err, tt.wantErr)
 				return

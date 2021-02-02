@@ -11,7 +11,6 @@ import (
 	"helm.sh/helm/v3/pkg/chart"
 )
 
-// TODO (nitishm) Implement me
 func (c *Client) PushChart(l logr.Logger, repoKey string, pkgPath string, ch *chart.Chart) error {
 	chartName := ch.Name()
 	version := ch.Metadata.Version

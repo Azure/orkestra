@@ -1,0 +1,62 @@
+namespace: &namespace default 
+serviceAccount: &serviceAccount releaser-paas
+clusterRole : &clusterRole "permissive-full-cr"
+
+chartmuseum:
+  env:
+    open:
+      DISABLE_API: false 
+
+helm-operator:
+  # Add demo repository
+  configureRepositories:
+    enable: true
+    repositories:
+      - name: bitnami 
+        url: https://charts.bitnami.com/bitnami
+      - name: chartmuseum 
+        url: http://localhost:8080
+        # url: http://my-chartmuseum-chartmuseum.default:8080
+  rbac:
+    create: true 
+    pspEnabled: true 
+  serviceAccount:
+    create: true 
+    annotations: {}
+    name: ""
+  helm:
+    versions: "v3"
+
+argo:
+  images:
+    pullPolicy: IfNotPresent
+
+  init:
+    serviceAccount: *serviceAccount
+
+  workflow:
+    namespace: *namespace
+    serviceAccount:
+      create: false
+      name: *serviceAccount
+    rbac:
+      create: false
+
+  controller:
+    serviceAccount: *serviceAccount
+    name: workflow-controller
+    workflowNamespaces:
+      - *namespace
+      - "default"
+    # containerRuntimeExecutor: docker
+    # For KinD use -
+    containerRuntimeExecutor: k8sapi
+
+  # executor controls how the init and wait container should be customized
+  executor:
+
+  server:
+    enabled: true
+    name: argo-server
+    serviceAccount: *serviceAccount
+    createServiceAccount: false

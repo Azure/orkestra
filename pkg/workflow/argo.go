@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 
 	helmopv1 "github.com/fluxcd/helm-operator/pkg/apis/helm.fluxcd.io/v1"
 
@@ -16,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/yaml"
 )
 
 const (
@@ -26,7 +28,8 @@ const (
 	argoKind          = "Workflow"
 	entrypointTplName = "entry"
 
-	helmReleaseArg = "helmrelease"
+	helmReleaseArg      = "helmrelease"
+	helmReleaseExecutor = "helmrelease-executor"
 
 	valuesKeyGlobal = "global"
 )
@@ -43,6 +46,7 @@ type argo struct {
 func Argo(scheme *runtime.Scheme, c client.Client, stagingRepoURL string) *argo {
 
 	return &argo{
+		scheme:         scheme,
 		cli:            c,
 		stagingRepoURL: stagingRepoURL,
 	}
@@ -82,6 +86,14 @@ func (a *argo) Generate(ctx context.Context, l logr.Logger, ns string, g *v1alph
 	// Set name and namespace based on the input application group
 	a.wf.Name = g.Name
 	a.wf.Namespace = ns
+
+	sort.SliceStable(apps[:], func(i, j int) bool {
+		return apps[i].Name < apps[j].Name
+	})
+
+	sort.SliceStable(g.Spec.Applications[:], func(i, j int) bool {
+		return g.Spec.Applications[i].Name < g.Spec.Applications[j].Name
+	})
 
 	err := a.generateWorkflow(g, apps)
 	if err != nil {
@@ -163,17 +175,17 @@ func (a *argo) generateAppGroupTpls(g *v1alpha1.ApplicationGroup, apps []*v1alph
 		},
 	}
 
-	err := updateAppGroupDAG(&entry, apps)
-	if err != nil {
-		return fmt.Errorf("failed to generate Application Group DAG : %w", err)
-	}
-	a.updateWorkflowTemplates(entry)
-
 	adt, err := generateAppDAGTemplates(apps, a.stagingRepoURL)
 	if err != nil {
 		return fmt.Errorf("failed to generate application DAG templates : %w", err)
 	}
 	a.updateWorkflowTemplates(adt...)
+
+	err = updateAppGroupDAG(g, &entry, adt)
+	if err != nil {
+		return fmt.Errorf("failed to generate Application Group DAG : %w", err)
+	}
+	a.updateWorkflowTemplates(entry)
 
 	// TODO: Add the executor template
 	// This should eventually be configurable
@@ -182,15 +194,20 @@ func (a *argo) generateAppGroupTpls(g *v1alpha1.ApplicationGroup, apps []*v1alph
 	return nil
 }
 
-func updateAppGroupDAG(entry *v1alpha12.Template, apps []*v1alpha1.Application) error {
+func updateAppGroupDAG(g *v1alpha1.ApplicationGroup, entry *v1alpha12.Template, tpls []v1alpha12.Template) error {
 	if entry == nil {
 		return fmt.Errorf("entry template cannot be nil")
 	}
 
-	for i, app := range apps {
+	entry.DAG = &v1alpha12.DAGTemplate{
+		Tasks: make([]v1alpha12.DAGTask, len(tpls), len(tpls)),
+	}
+
+	for i, tpl := range tpls {
 		entry.DAG.Tasks[i] = v1alpha12.DAGTask{
-			Name:     app.Name,
-			Template: app.Name,
+			Name:         tpl.Name,
+			Template:     tpl.Name,
+			Dependencies: g.Spec.Applications[i].Dependencies,
 		}
 	}
 
@@ -201,14 +218,27 @@ func generateAppDAGTemplates(apps []*v1alpha1.Application, repo string) ([]v1alp
 	ts := make([]v1alpha12.Template, 0, len(apps))
 
 	for _, app := range apps {
+		// XXX (nitishm) : Workaround for https://github.com/kubernetes/kubernetes/issues/98683
+		vString := app.Spec.Overlays
+		appHV := helmopv1.HelmValues{}
+		err := json.Unmarshal([]byte(vString), &appHV)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal overlay values into HelmValues object")
+		}
+		app.Spec.Values = appHV
+		// END
+
+		var hasSubcharts bool
+
 		// Create Subchart DAG only when the application chart has dependencies
 		if len(app.Spec.Subcharts) > 0 {
+			hasSubcharts = true
 			t := v1alpha12.Template{
 				Name: app.Name,
 			}
 
 			t.DAG = &v1alpha12.DAGTemplate{}
-			tasks, err := generateSubchartDAGTasks(app, repo)
+			tasks, err := generateSubchartAndAppDAGTasks(app, repo, app.Spec.HelmReleaseSpec.TargetNamespace)
 			if err != nil {
 				return nil, fmt.Errorf("failed to generate Application Template DAG tasks : %w", err)
 			}
@@ -218,42 +248,52 @@ func generateAppDAGTemplates(apps []*v1alpha1.Application, repo string) ([]v1alp
 			ts = append(ts, t)
 		}
 
-		hr := helmopv1.HelmRelease{
-			TypeMeta: v1.TypeMeta{
-				Kind:       "HelmRelease",
-				APIVersion: "helm.fluxcd.io/v1",
-			},
-		}
+		if !hasSubcharts {
+			hr := helmopv1.HelmRelease{
+				TypeMeta: v1.TypeMeta{
+					Kind:       "HelmRelease",
+					APIVersion: "helm.fluxcd.io/v1",
+				},
+				ObjectMeta: v1.ObjectMeta{
+					Name: app.Name,
+					// FIXME (nitishm) : Deploying HelmRelease to specific namespace requires special serviceAccount, ClusterRole and ClusterRoleBinding
+					// Namespace: app.Spec.TargetNamespace,
+				},
+				Spec: app.Spec.HelmReleaseSpec,
+			}
 
-		hr.Name = app.Name
-		hr.Spec = app.Spec.HelmReleaseSpec
+			if app.Status.Application.Staged {
+				hr.Spec.RepoURL = repo
+			}
 
-		// FIXME: Do not assume application chart will get pushed to the staging registry for every application
-		// Application charts that do not specify subchart dependencies should generate the HelmRelease with the
-		// RepoURL pointing to the primary chart
-		// NOTE: For now let's assume that each chart is being pushed to staging
-		hr.Spec.RepoURL = repo
-
-		// tStaging is the Application chart HelmRelease that points to the staged Application (with dependencies set to null)
-		tStaging := v1alpha12.Template{
-			Name: app.Name,
-			Arguments: v1alpha12.Arguments{
-				Parameters: []v1alpha12.Parameter{
-					{
-						Name:  helmReleaseArg,
-						Value: strToStrPtr(hrToYAML(hr)),
+			tApp := v1alpha12.Template{
+				Name: app.Name,
+				DAG: &v1alpha12.DAGTemplate{
+					Tasks: []v1alpha12.DAGTask{
+						{
+							Name:     app.Name,
+							Template: helmReleaseExecutor,
+							Arguments: v1alpha12.Arguments{
+								Parameters: []v1alpha12.Parameter{
+									{
+										Name:  helmReleaseArg,
+										Value: strToStrPtr(hrToYAML(hr)),
+									},
+								},
+							},
+						},
 					},
 				},
-			},
-		}
+			}
 
-		ts = append(ts, tStaging)
+			ts = append(ts, tApp)
+		}
 	}
 
 	return ts, nil
 }
 
-func generateSubchartDAGTasks(app *v1alpha1.Application, repo string) ([]v1alpha12.DAGTask, error) {
+func generateSubchartAndAppDAGTasks(app *v1alpha1.Application, repo string, targetNS string) ([]v1alpha12.DAGTask, error) {
 	if repo == "" {
 		return nil, fmt.Errorf("repo arg must be a valid non-empty string")
 	}
@@ -263,9 +303,10 @@ func generateSubchartDAGTasks(app *v1alpha1.Application, repo string) ([]v1alpha
 	tasks := make([]v1alpha12.DAGTask, 0, len(app.Spec.Subcharts))
 
 	for _, sc := range app.Spec.Subcharts {
-		hr := generateSubchartHelmRelease(app.Spec.HelmReleaseSpec, sc.Name, repo)
+		hr := generateSubchartHelmRelease(app.Spec.HelmReleaseSpec, sc.Name, repo, targetNS)
 		task := v1alpha12.DAGTask{
-			Name: sc.Name,
+			Name:     sc.Name,
+			Template: helmReleaseExecutor,
 			Arguments: v1alpha12.Arguments{
 				Parameters: []v1alpha12.Parameter{
 					{
@@ -280,6 +321,43 @@ func generateSubchartDAGTasks(app *v1alpha1.Application, repo string) ([]v1alpha
 		tasks = append(tasks, task)
 	}
 
+	hr := helmopv1.HelmRelease{
+		TypeMeta: v1.TypeMeta{
+			Kind:       "HelmRelease",
+			APIVersion: "helm.fluxcd.io/v1",
+		},
+		ObjectMeta: v1.ObjectMeta{
+			Name: app.Name,
+			// FIXME (nitishm) : Deploying HelmRelease to specific namespace requires special serviceAccount, ClusterRole and ClusterRoleBinding
+			// Namespace: app.Spec.HelmReleaseSpec.TargetNamespace,
+		},
+		Spec: app.Spec.HelmReleaseSpec,
+	}
+
+	// staging repo instead of the primary repo
+	hr.Spec.RepoURL = repo
+
+	task := v1alpha12.DAGTask{
+		Name:     app.Name,
+		Template: helmReleaseExecutor,
+		Arguments: v1alpha12.Arguments{
+			Parameters: []v1alpha12.Parameter{
+				{
+					Name:  helmReleaseArg,
+					Value: strToStrPtr(hrToYAML(hr)),
+				},
+			},
+		},
+		Dependencies: func() (out []string) {
+			for _, t := range tasks {
+				out = append(out, t.Name)
+			}
+			return out
+		}(),
+	}
+
+	tasks = append(tasks, task)
+
 	return tasks, nil
 }
 
@@ -289,7 +367,10 @@ func (a *argo) updateWorkflowTemplates(tpls ...v1alpha12.Template) {
 
 func defaultExecutor() v1alpha12.Template {
 	return v1alpha12.Template{
-		Name: "helmrelease-executor",
+		Name: helmReleaseExecutor,
+		// FIXME (nitishm) : Hack
+		// Replace with the actual service account in use
+		ServiceAccountName: "releaser-helm-operator",
 		Inputs: v1alpha12.Inputs{
 			Parameters: []v1alpha12.Parameter{
 				{
@@ -311,7 +392,7 @@ func strToStrPtr(s string) *string {
 }
 
 func hrToYAML(hr helmopv1.HelmRelease) string {
-	b, err := json.MarshalIndent(hr, "", "  ")
+	b, err := yaml.Marshal(hr)
 	if err != nil {
 		return ""
 	}
@@ -319,25 +400,24 @@ func hrToYAML(hr helmopv1.HelmRelease) string {
 	return string(b)
 }
 
-func generateSubchartHelmRelease(a helmopv1.HelmReleaseSpec, sc, repo string) helmopv1.HelmRelease {
+func generateSubchartHelmRelease(a helmopv1.HelmReleaseSpec, sc, repo string, targetNS string) helmopv1.HelmRelease {
 	hr := helmopv1.HelmRelease{
 		TypeMeta: v1.TypeMeta{
 			Kind:       "HelmRelease",
 			APIVersion: "helm.fluxcd.io/v1",
 		},
-		Spec: helmopv1.HelmReleaseSpec{
-			ChartSource: helmopv1.ChartSource{
-				RepoChartSource: &helmopv1.RepoChartSource{},
-			},
+		ObjectMeta: v1.ObjectMeta{
+			Name: sc,
+			// FIXME (nitishm) : Deploying HelmRelease to specific namespace requires special serviceAccount, ClusterRole and ClusterRoleBinding
+			// Namespace: targetNS,
 		},
+		Spec: a,
+		// FIXME (nitishm) : Deploying HelmRelease to specific namespace requires special serviceAccount, ClusterRole and ClusterRoleBinding
+		// TargetNamespace: targetNS,
 	}
 
-	hr.Name = sc
-
 	hr.Spec.RepoURL = repo
-	hr.Spec.Name = sc
 	hr.Spec.Version = a.Version
-
 	hr.Spec.Values = subchartValues(sc, a.Values)
 
 	return hr
