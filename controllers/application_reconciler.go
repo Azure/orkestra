@@ -59,7 +59,7 @@ func (r *ApplicationReconciler) reconcile(ctx context.Context, l logr.Logger, ap
 				if err != nil {
 					cs.Error = err.Error()
 					ll.Error(err, "failed to save subchart package as tgz")
-					return false, fmt.Errorf("failed to save subchart package as tgz : %w", err)
+					return false, fmt.Errorf("failed to save subchart package as tgz at location %s : %w", path, err)
 				}
 
 				err = r.RegistryClient.PushChart(ll, stagingRepoName, path, sc)
@@ -71,6 +71,8 @@ func (r *ApplicationReconciler) reconcile(ctx context.Context, l logr.Logger, ap
 				}
 
 				cs.Staged = true
+				// TODO (nitishm) : Rather than the path we can just store the version of the chart
+				cs.Version = sc.Metadata.Version
 				cs.Ready = true
 				cs.Error = ""
 

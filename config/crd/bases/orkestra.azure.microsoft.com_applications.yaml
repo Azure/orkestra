@@ -321,6 +321,8 @@ spec:
                     type: boolean
                   staged:
                     type: boolean
+                  version:
+                    type: string
                 type: object
               name:
                 type: string
@@ -335,6 +337,8 @@ spec:
                       type: boolean
                     staged:
                       type: boolean
+                    version:
+                      type: string
                   type: object
                 type: object
             required:
