@@ -385,9 +385,10 @@ func defaultExecutor() v1alpha12.Template {
 		},
 		Outputs: v1alpha12.Outputs{},
 		Resource: &v1alpha12.ResourceTemplate{
-			Action:           "create",
-			Manifest:         "{{inputs.parameters.helmrelease}}",
-			SuccessCondition: "status.phase == Succeeded",
+			SetOwnerReference: true,
+			Action:            "create",
+			Manifest:          "{{inputs.parameters.helmrelease}}",
+			SuccessCondition:  "status.phase == Succeeded",
 		},
 	}
 }
