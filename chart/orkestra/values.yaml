@@ -38,13 +38,6 @@ chartmuseum:
       DISABLE_API: false 
 
 helm-operator:
-  configureRepositories:
-    enable: true
-    repositories:
-      - name: bitnami 
-        url: https://charts.bitnami.com/bitnami
-      - name: chartmuseum
-        url: http://orkestra-chartmuseum.orkestra:8080
   rbac:
     create: false 
     pspEnabled: false 
