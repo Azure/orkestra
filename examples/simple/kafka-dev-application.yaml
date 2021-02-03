@@ -18,7 +18,12 @@ spec:
     repository: "https://charts.bitnami.com/bitnami"
     name: kafka
     version: 12.4.1
-  overlays: "{\"global\":{\"imagePullSecrets\":[]},\"zookeeper\":{\"enable\":true}}"
+  values:
+    global:
+      imagePullSecrets: []
+    zookeerper:
+      enabled: true
+
   # targetNamespace: "kafka-dev-ns"
 
 
