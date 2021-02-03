@@ -1,0 +1,25 @@
+# Example: Kafka with Zookeeper as a dependency
+apiVersion: orkestra.azure.microsoft.com/v1alpha1
+kind: Application
+metadata:
+  name: kafka-dev
+spec:
+  # Namespace to which the HelmRelease object is deployed
+  namespace: "default"
+  repo: bitnami
+  groupID: "dev"
+  subcharts:
+    # subchart ordering
+    - name: zookeeper
+      dependencies: []
+  # HelmRelease spec fields
+  # https://docs.fluxcd.io/projects/helm-operator/en/1.0.0-rc9/references/helmrelease-custom-resource.html#helmrelease-custom-resource
+  chart:
+    repository: "https://charts.bitnami.com/bitnami"
+    name: kafka
+    version: 12.4.1
+  overlays: "{\"global\":{\"imagePullSecrets\":[]},\"zookeeper\":{\"enable\":true}}"
+  # targetNamespace: "kafka-dev-ns"
+
+
+
