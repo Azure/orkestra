@@ -27,9 +27,10 @@ type ApplicationSpec struct {
 
 // ChartStatus denotes the current status of the Application Reconciliation
 type ChartStatus struct {
-	Ready  bool   `json:"ready,omitempty"`
-	Error  string `json:"error,omitempty"`
-	Staged bool   `json:"staged,omitempty"`
+	Ready   bool   `json:"ready,omitempty"`
+	Error   string `json:"error,omitempty"`
+	Staged  bool   `json:"staged,omitempty"`
+	Version string `json:"version,omitempty"`
 }
 
 // ApplicationStatus defines the observed state of Application

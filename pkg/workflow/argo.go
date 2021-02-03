@@ -303,7 +303,12 @@ func generateSubchartAndAppDAGTasks(app *v1alpha1.Application, repo, targetNS st
 	tasks := make([]v1alpha12.DAGTask, 0, len(app.Spec.Subcharts)+1)
 
 	for _, sc := range app.Spec.Subcharts {
-		hr := generateSubchartHelmRelease(app.Spec.HelmReleaseSpec, sc.Name, repo, targetNS)
+		s, ok := app.Status.Subcharts[sc.Name]
+		if !ok {
+			return nil, fmt.Errorf("failed to find subchart info in applications status field")
+		}
+
+		hr := generateSubchartHelmRelease(app.Spec.HelmReleaseSpec, sc.Name, s.Version, repo, targetNS)
 		task := v1alpha12.DAGTask{
 			Name:     sc.Name,
 			Template: helmReleaseExecutor,
@@ -370,7 +375,7 @@ func defaultExecutor() v1alpha12.Template {
 		Name: helmReleaseExecutor,
 		// FIXME (nitishm) : Hack
 		// Replace with the actual service account in use
-		ServiceAccountName: "releaser-helm-operator",
+		ServiceAccountName: "orkestra",
 		Inputs: v1alpha12.Inputs{
 			Parameters: []v1alpha12.Parameter{
 				{
@@ -380,9 +385,10 @@ func defaultExecutor() v1alpha12.Template {
 		},
 		Outputs: v1alpha12.Outputs{},
 		Resource: &v1alpha12.ResourceTemplate{
-			Action:           "create",
-			Manifest:         "{{inputs.parameters.helmrelease}}",
-			SuccessCondition: "status.phase == Succeeded",
+			SetOwnerReference: true,
+			Action:            "create",
+			Manifest:          "{{inputs.parameters.helmrelease}}",
+			SuccessCondition:  "status.phase == Succeeded",
 		},
 	}
 }
@@ -400,7 +406,7 @@ func hrToYAML(hr helmopv1.HelmRelease) string {
 	return string(b)
 }
 
-func generateSubchartHelmRelease(a helmopv1.HelmReleaseSpec, sc, repo, targetNS string) helmopv1.HelmRelease {
+func generateSubchartHelmRelease(a helmopv1.HelmReleaseSpec, sc, version, repo, targetNS string) helmopv1.HelmRelease {
 	hr := helmopv1.HelmRelease{
 		TypeMeta: v1.TypeMeta{
 			Kind:       "HelmRelease",
@@ -423,7 +429,7 @@ func generateSubchartHelmRelease(a helmopv1.HelmReleaseSpec, sc, repo, targetNS 
 	hr.Spec.ChartSource.RepoChartSource = a.DeepCopy().RepoChartSource
 	hr.Spec.ChartSource.RepoChartSource.Name = sc
 	hr.Spec.ChartSource.RepoChartSource.RepoURL = repo
-	hr.Spec.ChartSource.RepoChartSource.Version = a.Version
+	hr.Spec.ChartSource.RepoChartSource.Version = version
 	hr.Spec.Values = subchartValues(sc, a.Values)
 
 	return hr

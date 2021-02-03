@@ -149,6 +149,19 @@ func Test_generateSubchartAndAppDAGTasks(t *testing.T) {
 							},
 						},
 					},
+					Status: v1alpha1.ApplicationStatus{
+						Subcharts: map[string]v1alpha1.ChartStatus{
+							"subchart-1": {
+								Version: "1.0.0",
+							},
+							"subchart-2": {
+								Version: "1.0.0",
+							},
+							"subchart-3": {
+								Version: "1.0.0",
+							},
+						},
+					},
 				},
 			},
 			want: []v1alpha12.DAGTask{
@@ -359,6 +372,19 @@ func Test_generateSubchartAndAppDAGTasks(t *testing.T) {
 									Name:    "appchart",
 									Version: "1.0.0",
 								},
+							},
+						},
+					},
+					Status: v1alpha1.ApplicationStatus{
+						Subcharts: map[string]v1alpha1.ChartStatus{
+							"subchart-1": {
+								Version: "1.0.0",
+							},
+							"subchart-2": {
+								Version: "1.0.0",
+							},
+							"subchart-3": {
+								Version: "1.0.0",
 							},
 						},
 					},
@@ -593,6 +619,19 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 								},
 							},
 						},
+						Status: v1alpha1.ApplicationStatus{
+							Subcharts: map[string]v1alpha1.ChartStatus{
+								"subchart-1": {
+									Version: "1.0.0",
+								},
+								"subchart-2": {
+									Version: "1.0.0",
+								},
+								"subchart-3": {
+									Version: "1.0.0",
+								},
+							},
+						},
 					},
 				},
 				repo: "http://stagingrepo",
@@ -776,6 +815,19 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 										Name:    "appchart",
 										Version: "1.0.0",
 									},
+								},
+							},
+						},
+						Status: v1alpha1.ApplicationStatus{
+							Subcharts: map[string]v1alpha1.ChartStatus{
+								"subchart-1": {
+									Version: "1.0.0",
+								},
+								"subchart-2": {
+									Version: "1.0.0",
+								},
+								"subchart-3": {
+									Version: "1.0.0",
 								},
 							},
 						},

@@ -1,0 +1,21 @@
+# Example: Kafka with Zookeeper as a dependency
+apiVersion: orkestra.azure.microsoft.com/v1alpha1
+kind: Application
+metadata:
+  name: redis-dev
+spec:
+  namespace: "orkestra"
+  repo: bitnami
+  groupID: "dev"
+  subcharts: []
+  # HelmRelease spec fields
+  # https://docs.fluxcd.io/projects/helm-operator/en/1.0.0-rc9/references/helmrelease-custom-resource.html#helmrelease-custom-resource
+  chart:
+    repository: "https://charts.bitnami.com/bitnami"
+    name: redis
+    version: 12.2.3
+  overlays: "{\"global\":{\"imageRegistry\":\"nil\",\"imagePullSecrets\":[]},\"master\":{\"persistence\":{\"size\":\"4Gi\"}}}" 
+  # targetNamespace: "redis-dev-ns"
+
+
+

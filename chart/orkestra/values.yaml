@@ -1,29 +1,57 @@
-namespace: &namespace default 
-serviceAccount: &serviceAccount releaser-paas
-clusterRole : &clusterRole "permissive-full-cr"
+namespace: &namespace orkestra
+serviceAccount: &serviceAccount orkestra
 
+replicaCount: 1
+
+image:
+  repository: azureorkestra/orkestra
+  pullPolicy: Always 
+  tag: "latest"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: *serviceAccount
+
+podAnnotations: {}
+
+podSecurityContext: {}
+
+securityContext: {}
+
+resources: {}
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# Dependency overlay values
 chartmuseum:
   env:
     open:
       DISABLE_API: false 
 
 helm-operator:
-  # Add demo repository
   configureRepositories:
     enable: true
     repositories:
       - name: bitnami 
         url: https://charts.bitnami.com/bitnami
-      - name: chartmuseum 
-        url: http://localhost:8080
-        # url: http://releaser-chartmuseum.default:8080
+      - name: chartmuseum
+        url: http://orkestra-chartmuseum.orkestra:8080
   rbac:
-    create: true 
-    pspEnabled: true 
+    create: false 
+    pspEnabled: false 
   serviceAccount:
-    create: true 
+    create: false 
     annotations: {}
-    name: ""
+    name: *serviceAccount
   helm:
     versions: "v3"
 
@@ -37,23 +65,18 @@ argo:
   workflow:
     namespace: *namespace
     serviceAccount:
-      create: false
       name: *serviceAccount
     rbac:
-      create: false
+      enabled: false
 
   controller:
-    serviceAccount: *serviceAccount
+    # serviceAccount: *serviceAccount
     name: workflow-controller
     workflowNamespaces:
       - *namespace
-      - "default"
-    # containerRuntimeExecutor: docker
+    containerRuntimeExecutor: docker
     # For KinD use -
-    containerRuntimeExecutor: k8sapi
-
-  # executor controls how the init and wait container should be customized
-  executor:
+    # containerRuntimeExecutor: k8sapi
 
   server:
     enabled: true
