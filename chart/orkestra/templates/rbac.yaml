@@ -1,0 +1,35 @@
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name:  {{ include "orkestra.serviceAccountName" . }}
+rules:
+- apiGroups: [""]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["apps"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["orkestra.azure.microsoft.com"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["helm.fluxcd.io"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["argoproj.io"]
+  resources: ["*"]
+  verbs: ["*"]
+  
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ include "orkestra.serviceAccountName" . }}
+  namespace: {{ .Release.Namespace }} 
+subjects:
+- kind: ServiceAccount 
+  namespace: orkestra
+  name: {{ include "orkestra.serviceAccountName" . }} 
+roleRef:
+  kind: ClusterRole 
+  name: {{ include "orkestra.serviceAccountName" . }} 
+  apiGroup: rbac.authorization.k8s.io

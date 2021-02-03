@@ -14,15 +14,30 @@ import (
 // ApplicationSpec defines the desired state of Application
 type ApplicationSpec struct {
 	// Namespace to which the HelmRelease object will be deployed
-	Namespace                string `json:"namespace"`
-	Subcharts                []DAG  `json:"subcharts,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
+	Subcharts []DAG  `json:"subcharts,omitempty"`
+	GroupID   string `json:"groupID,omitempty"`
+	// ChartRepoNickname is used to lookup the repository config in the registries config map
+	ChartRepoNickname string `json:"repo,omitempty"`
+	// XXX (nitishm) : Workaround for https://github.com/kubernetes/kubernetes/issues/98683
+	Overlays string `json:"overlays,omitempty"`
+
 	helmopv1.HelmReleaseSpec `json:",inline"`
+}
+
+// ChartStatus denotes the current status of the Application Reconciliation
+type ChartStatus struct {
+	Ready   bool   `json:"ready,omitempty"`
+	Error   string `json:"error,omitempty"`
+	Staged  bool   `json:"staged,omitempty"`
+	Version string `json:"version,omitempty"`
 }
 
 // ApplicationStatus defines the observed state of Application
 type ApplicationStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	Name        string                 `json:"name"`
+	Application ChartStatus            `json:"application"`
+	Subcharts   map[string]ChartStatus `json:"subcharts"`
 }
 
 // +kubebuilder:object:root=true

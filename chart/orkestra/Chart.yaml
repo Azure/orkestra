@@ -1,0 +1,37 @@
+apiVersion: v2
+name: orkestra
+description: A Helm chart for Azure Orkestra operator and supporting components
+
+sources:
+- https://github.com/Azure/Orkestra
+
+maintainers:
+  - name: Nitish Malhotra (nitishm)
+    email: nitishm@microsoft.com
+
+# Chart version
+version: 0.1.0
+
+type: application
+
+# Application version
+appVersion: "0.1.0"
+
+dependencies:
+- name: chartmuseum
+  version: "2.15.0"
+  repository: "https://chartmuseum.github.io/charts"
+- name: argo
+  version: "0.15.3"
+  repository: "https://argoproj.github.io/argo-helm"
+- name: helm-operator
+  version: "1.2.0"
+  repository: "https://charts.fluxcd.io"
+
+keywords:
+- helmops
+- application release
+- orchestration
+- continuous delivery
+- conituous deployment
+- 5G

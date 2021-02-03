@@ -12,16 +12,19 @@ RUN go mod download
 # Copy the go source
 COPY main.go main.go
 COPY api/ api/
+COPY pkg/ pkg/
 COPY controllers/ controllers/
+COPY config.yaml config.yaml
 
 # Build
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o manager main.go
 
-# Use distroless as minimal base image to package the manager binary
-# Refer to https://github.com/GoogleContainerTools/distroless for more details
-FROM gcr.io/distroless/static:nonroot
+FROM alpine:3.7
+RUN apk add --no-cache bash
+RUN mkdir -p /etc/orkestra/charts/pull/
+
 WORKDIR /
 COPY --from=builder /workspace/manager .
-USER nonroot:nonroot
+COPY --from=builder /workspace/config.yaml /etc/controller/config.yaml
 
 ENTRYPOINT ["/manager"]

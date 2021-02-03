@@ -26,7 +26,7 @@ To solve the complex application orchestration problem Orkestra builds a [Direct
 2. For each `Application` in `ApplicationGroup` download Helm chart from “primary” Helm Registry
 3. (*optional) For each dependency in the `Application` chart, if dependency chart is embedded in `charts/` directory, push to ”staging” Helm Registry (Chart-museum).
 4. Generate and submit Argo Workflow DAG
-5. (Executor nodes only) Submit and probe deployment state of `HelmRelease CR.
+5. (Executor nodes only) Submit and probe deployment state of `HelmRelease` CR.
 6. Fetch and deploy Helm charts referred to by each `HelmRelease` CR to the Kubernetes cluster.
    (*optional) Embedded subcharts are fetched from the “staging” registry instead of the “primary/remote” registry.
 

@@ -1,0 +1,12 @@
+dependencies:
+- name: chartmuseum
+  repository: https://chartmuseum.github.io/charts
+  version: 2.15.0
+- name: argo
+  repository: https://argoproj.github.io/argo-helm
+  version: 0.15.3
+- name: helm-operator
+  repository: https://charts.fluxcd.io
+  version: 1.2.0
+digest: sha256:f8d6513a1fa72b84138ea34c60fc017231725b09fbd0a2a274819d1a3b8d926c
+generated: "2021-01-31T16:17:12.2035772-08:00"
