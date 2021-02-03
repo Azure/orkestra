@@ -18,10 +18,7 @@ type ApplicationSpec struct {
 	Subcharts []DAG  `json:"subcharts,omitempty"`
 	GroupID   string `json:"groupID,omitempty"`
 	// ChartRepoNickname is used to lookup the repository config in the registries config map
-	ChartRepoNickname string `json:"repo,omitempty"`
-	// XXX (nitishm) : Workaround for https://github.com/kubernetes/kubernetes/issues/98683
-	Overlays string `json:"overlays,omitempty"`
-
+	ChartRepoNickname        string `json:"repo,omitempty"`
 	helmopv1.HelmReleaseSpec `json:",inline"`
 }
 

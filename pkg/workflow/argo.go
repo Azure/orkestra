@@ -2,7 +2,6 @@ package workflow
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"sort"
 
@@ -217,18 +216,6 @@ func generateAppDAGTemplates(apps []*v1alpha1.Application, repo string) ([]v1alp
 	ts := make([]v1alpha12.Template, 0)
 
 	for _, app := range apps {
-		// XXX (nitishm) : Workaround for https://github.com/kubernetes/kubernetes/issues/98683
-		vString := app.Spec.Overlays
-		if vString != "" {
-			appHV := helmopv1.HelmValues{}
-			err := json.Unmarshal([]byte(vString), &appHV)
-			if err != nil {
-				return nil, fmt.Errorf("failed to unmarshal overlay values into HelmValues object")
-			}
-			app.Spec.Values = appHV
-		}
-		// END
-
 		var hasSubcharts bool
 
 		// Create Subchart DAG only when the application chart has dependencies

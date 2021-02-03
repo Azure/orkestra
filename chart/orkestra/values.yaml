@@ -6,7 +6,7 @@ replicaCount: 1
 image:
   repository: azureorkestra/orkestra
   pullPolicy: Always 
-  tag: "latest"
+  tag: "v0.1.0"
 
 imagePullSecrets: []
 nameOverride: ""
