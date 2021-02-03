@@ -1,6 +1,6 @@
 # Orkestra
 
-[![Build Status](https://dev.azure.com/azure/Orkestra/_apis/build/status/Azure.Orkestra?branchName=refs%2Fpull%2F41%2Fmerge)](https://dev.azure.com/azure/Orkestra/_build/latest?definitionId=95&branchName=refs%2Fpull%2F41%2Fmerge)
+[![Build Status](https://dev.azure.com/azure/Orkestra/_apis/build/status/Azure.Orkestra?branchName=main)](https://dev.azure.com/azure/Orkestra/_build/latest?definitionId=95&branchName=main)
 
 Orkestra is a cloud-native release orchestration platform that allows you to manage the lifecycle and orchestrate the release of groups of Kubernetes [Helm](https://helm.sh/) applications through Kubernetes Custom Resource Objects.
 Orkestra works by generating dependency driven DAG workflows to orchestrate the deployment and upgrade of multiple applications within a Kubernetes cluster. Additionally, Orkestra can also orchestrate the deployment of multiple microservice ([helm dependencies](https://helm.sh/docs/helm/helm_dependency/) - sub-charts) within a parent Helm chart.
