@@ -91,6 +91,7 @@ stages:
     - task: GitHubRelease@0
       displayName: 'Create GitHub Release'      
       inputs:
+        tagPattern: v*
         gitHubConnection: GithubAzureOrkestra 
         repositoryName: Azure/Orkestra
         assets: $(Build.ArtifactStagingDirectory)/README.md
