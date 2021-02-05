@@ -27,7 +27,7 @@ type ApplicationSpec struct {
 	// ===========
 	// HelmValues uses a map[string]interface{} structure for holding helm values Data.
 	// kubebuilder prunes the field value when deploying the Application resource as it considers the field to be an
-	// Unknown field. HelmOperator v1 being in maintainence mode, we do not expect them to merge PRs
+	// Unknown field. HelmOperator v1 being in maintenance mode, we do not expect them to merge PRs
 	// to add the  +kubebuilder:pruning:PreserveUnknownFields
 	// https://github.com/fluxcd/helm-operator/issues/585
 
