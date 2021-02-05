@@ -18,7 +18,7 @@ spec:
     repository: "https://charts.bitnami.com/bitnami"
     name: kafka
     version: 12.4.1
-  values:
+  overlays:
     global:
       imagePullSecrets: []
     zookeerper:

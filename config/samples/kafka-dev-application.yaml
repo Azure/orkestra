@@ -5,7 +5,7 @@ metadata:
   name: kafka-dev
 spec:
   # Namespace to which the HelmRelease object is deployed
-  namespace: "default"
+  namespace: "orkestra"
   repo: bitnami
   groupID: "dev"
   subcharts:
@@ -18,7 +18,12 @@ spec:
     repository: "https://charts.bitnami.com/bitnami"
     name: kafka
     version: 12.4.1
-  overlays: "{\"global\":{\"imagePullSecrets\":[]},\"zookeeper\":{\"enable\":true}}"
+  overlays:
+    global:
+      imagePullSecrets: []
+    zookeerper:
+      enabled: true
+
   # targetNamespace: "kafka-dev-ns"
 
 

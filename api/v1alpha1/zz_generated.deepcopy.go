@@ -183,6 +183,7 @@ func (in *ApplicationSpec) DeepCopyInto(out *ApplicationSpec) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	in.Overlays.DeepCopyInto(&out.Overlays)
 	in.HelmReleaseSpec.DeepCopyInto(&out.HelmReleaseSpec)
 }
 

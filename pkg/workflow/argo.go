@@ -217,6 +217,7 @@ func generateAppDAGTemplates(apps []*v1alpha1.Application, repo string) ([]v1alp
 
 	for _, app := range apps {
 		var hasSubcharts bool
+		app.Spec.Values = app.Spec.Overlays
 
 		// Create Subchart DAG only when the application chart has dependencies
 		if len(app.Spec.Subcharts) > 0 {
