@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"sort"
 
-	helmopv1 "github.com/fluxcd/helm-operator/pkg/apis/helm.fluxcd.io/v1"
-
 	"github.com/Azure/Orkestra/api/v1alpha1"
 	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
+	helmopv1 "github.com/fluxcd/helm-operator/pkg/apis/helm.fluxcd.io/v1"
 	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -93,7 +93,7 @@ func (a *argo) Generate(ctx context.Context, l logr.Logger, ns string, g *v1alph
 		return g.Spec.Applications[i].Name < g.Spec.Applications[j].Name
 	})
 
-	err := a.generateWorkflow(g, apps)
+	err := a.generateWorkflow(ctx, g, apps)
 	if err != nil {
 		l.Error(err, "failed to generate workflow")
 		return fmt.Errorf("failed to generate argo workflow : %w", err)
@@ -122,7 +122,7 @@ func (a *argo) Submit(ctx context.Context, l logr.Logger, g *v1alpha1.Applicatio
 
 	err := a.cli.Get(ctx, types.NamespacedName{Namespace: a.wf.Namespace, Name: a.wf.Name}, obj)
 	if err != nil {
-		if errors.IsNotFound(err) && !errors.IsAlreadyExists(err) {
+		if errors.IsNotFound(err) {
 			// Add OwnershipReference
 			err = controllerutil.SetControllerReference(g, a.wf, a.scheme)
 			if err != nil {
@@ -145,9 +145,9 @@ func (a *argo) Submit(ctx context.Context, l logr.Logger, g *v1alpha1.Applicatio
 	return nil
 }
 
-func (a *argo) generateWorkflow(g *v1alpha1.ApplicationGroup, apps []*v1alpha1.Application) error {
+func (a *argo) generateWorkflow(ctx context.Context, g *v1alpha1.ApplicationGroup, apps []*v1alpha1.Application) error {
 	// Generate the Entrypoint template and Application Group DAG
-	err := a.generateAppGroupTpls(g, apps)
+	err := a.generateAppGroupTpls(ctx, g, apps)
 	if err != nil {
 		return fmt.Errorf("failed to generate Application Group DAG : %w", err)
 	}
@@ -155,7 +155,7 @@ func (a *argo) generateWorkflow(g *v1alpha1.ApplicationGroup, apps []*v1alpha1.A
 	return nil
 }
 
-func (a *argo) generateAppGroupTpls(g *v1alpha1.ApplicationGroup, apps []*v1alpha1.Application) error {
+func (a *argo) generateAppGroupTpls(ctx context.Context, g *v1alpha1.ApplicationGroup, apps []*v1alpha1.Application) error {
 	if a.wf == nil {
 		return fmt.Errorf("workflow cannot be nil")
 	}
@@ -173,7 +173,7 @@ func (a *argo) generateAppGroupTpls(g *v1alpha1.ApplicationGroup, apps []*v1alph
 		},
 	}
 
-	adt, err := generateAppDAGTemplates(apps, a.stagingRepoURL)
+	adt, err := a.generateAppDAGTemplates(ctx, apps, a.stagingRepoURL)
 	if err != nil {
 		return fmt.Errorf("failed to generate application DAG templates : %w", err)
 	}
@@ -212,7 +212,7 @@ func updateAppGroupDAG(g *v1alpha1.ApplicationGroup, entry *v1alpha12.Template, 
 	return nil
 }
 
-func generateAppDAGTemplates(apps []*v1alpha1.Application, repo string) ([]v1alpha12.Template, error) {
+func (a *argo) generateAppDAGTemplates(ctx context.Context, apps []*v1alpha1.Application, repo string) ([]v1alpha12.Template, error) {
 	ts := make([]v1alpha12.Template, 0)
 
 	for _, app := range apps {
@@ -227,7 +227,7 @@ func generateAppDAGTemplates(apps []*v1alpha1.Application, repo string) ([]v1alp
 			}
 
 			t.DAG = &v1alpha12.DAGTemplate{}
-			tasks, err := generateSubchartAndAppDAGTasks(app, repo, app.Spec.HelmReleaseSpec.TargetNamespace)
+			tasks, err := a.generateSubchartAndAppDAGTasks(ctx, app, repo, app.Spec.HelmReleaseSpec.TargetNamespace)
 			if err != nil {
 				return nil, fmt.Errorf("failed to generate Application Template DAG tasks : %w", err)
 			}
@@ -246,9 +246,35 @@ func generateAppDAGTemplates(apps []*v1alpha1.Application, repo string) ([]v1alp
 				ObjectMeta: v1.ObjectMeta{
 					Name: app.Name,
 					// FIXME (nitishm) : Deploying HelmRelease to specific namespace requires special serviceAccount, ClusterRole and ClusterRoleBinding
-					// Namespace: app.Spec.TargetNamespace,
+
+					Namespace: app.Spec.TargetNamespace,
 				},
 				Spec: app.DeepCopy().Spec.HelmReleaseSpec,
+			}
+
+			ns := corev1.Namespace{
+				TypeMeta: v1.TypeMeta{
+					Kind:       "Namespace",
+					APIVersion: "v1",
+				},
+				ObjectMeta: v1.ObjectMeta{
+					Name:      hr.Spec.TargetNamespace,
+					Namespace: hr.Spec.TargetNamespace,
+				},
+			}
+
+			// Create the namespace since helm-operator does not do this
+			err := a.cli.Get(ctx, types.NamespacedName{Name: ns.Name}, &ns)
+			if err != nil {
+				err = controllerutil.SetControllerReference(app, &ns, a.scheme)
+				if err != nil {
+					return nil, fmt.Errorf("failed to set OwnerReference for Namespace %s : %w", ns.Name, err)
+				}
+
+				err = a.cli.Create(ctx, &ns)
+				if err != nil {
+					return nil, fmt.Errorf("failed to CREATE namespace %s object for application %s : %w", ns.Name, app.Name, err)
+				}
 			}
 
 			if app.Status.Application.Staged {
@@ -278,11 +304,10 @@ func generateAppDAGTemplates(apps []*v1alpha1.Application, repo string) ([]v1alp
 			ts = append(ts, tApp)
 		}
 	}
-
 	return ts, nil
 }
 
-func generateSubchartAndAppDAGTasks(app *v1alpha1.Application, repo, targetNS string) ([]v1alpha12.DAGTask, error) {
+func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, app *v1alpha1.Application, repo, targetNS string) ([]v1alpha12.DAGTask, error) {
 	if repo == "" {
 		return nil, fmt.Errorf("repo arg must be a valid non-empty string")
 	}
@@ -311,6 +336,32 @@ func generateSubchartAndAppDAGTasks(app *v1alpha1.Application, repo, targetNS st
 			Dependencies: sc.Dependencies,
 		}
 
+		ns := corev1.Namespace{
+			TypeMeta: v1.TypeMeta{
+				Kind:       "Namespace",
+				APIVersion: "v1",
+			},
+			ObjectMeta: v1.ObjectMeta{
+				Name:      hr.Namespace,
+				Namespace: hr.Namespace,
+			},
+		}
+
+		// Create the namespace since helm-operator does not do this
+		err := a.cli.Get(ctx, types.NamespacedName{Name: ns.Name}, &ns)
+		if err != nil {
+			// Add OwnershipReference
+			err = controllerutil.SetControllerReference(app, &ns, a.scheme)
+			if err != nil {
+				return nil, fmt.Errorf("failed to set OwnerReference for Namespace %s : %w", ns.Name, err)
+			}
+
+			err = a.cli.Create(ctx, &ns)
+			if err != nil {
+				return nil, fmt.Errorf("failed to CREATE namespace %s object for subchart %s : %w", ns.Name, sc.Name, err)
+			}
+		}
+
 		tasks = append(tasks, task)
 	}
 
@@ -322,13 +373,39 @@ func generateSubchartAndAppDAGTasks(app *v1alpha1.Application, repo, targetNS st
 		ObjectMeta: v1.ObjectMeta{
 			Name: app.Name,
 			// FIXME (nitishm) : Deploying HelmRelease to specific namespace requires special serviceAccount, ClusterRole and ClusterRoleBinding
-			// Namespace: app.Spec.HelmReleaseSpec.TargetNamespace,
+			Namespace: app.Spec.HelmReleaseSpec.TargetNamespace,
 		},
 		Spec: app.DeepCopy().Spec.HelmReleaseSpec,
 	}
 
 	// staging repo instead of the primary repo
 	hr.Spec.RepoURL = repo
+
+	ns := corev1.Namespace{
+		TypeMeta: v1.TypeMeta{
+			Kind:       "Namespace",
+			APIVersion: "v1",
+		},
+		ObjectMeta: v1.ObjectMeta{
+			Name:      hr.Namespace,
+			Namespace: hr.Namespace,
+		},
+	}
+
+	// Create the namespace since helm-operator does not do this
+	err := a.cli.Get(ctx, types.NamespacedName{Name: ns.Name}, &ns)
+	if err != nil {
+		// Add OwnershipReference
+		err = controllerutil.SetControllerReference(app, &ns, a.scheme)
+		if err != nil {
+			return nil, fmt.Errorf("failed to set OwnerReference for Namespace %s : %w", ns.Name, err)
+		}
+
+		err = a.cli.Create(ctx, &ns)
+		if err != nil {
+			return nil, fmt.Errorf("failed to CREATE namespace %s object for staged application %s : %w", ns.Name, app.Name, err)
+		}
+	}
 
 	task := v1alpha12.DAGTask{
 		Name:     app.Name,
@@ -403,15 +480,15 @@ func generateSubchartHelmRelease(a helmopv1.HelmReleaseSpec, sc, version, repo, 
 		ObjectMeta: v1.ObjectMeta{
 			Name: sc,
 			// FIXME (nitishm) : Deploying HelmRelease to specific namespace requires special serviceAccount, ClusterRole and ClusterRoleBinding
-			// Namespace: targetNS,
+			Namespace: targetNS,
 		},
 		Spec: helmopv1.HelmReleaseSpec{
 			ChartSource: helmopv1.ChartSource{
 				RepoChartSource: &helmopv1.RepoChartSource{},
 			},
+			TargetNamespace: targetNS,
 		},
 		// FIXME (nitishm) : Deploying HelmRelease to specific namespace requires special serviceAccount, ClusterRole and ClusterRoleBinding
-		// TargetNamespace: targetNS,
 	}
 
 	hr.Spec.ChartSource.RepoChartSource = a.DeepCopy().RepoChartSource

@@ -23,8 +23,7 @@ spec:
       imagePullSecrets: []
     zookeerper:
       enabled: true
-
-  # targetNamespace: "kafka-dev-ns"
+  targetNamespace: "kafka-dev-ns"
 
 
 

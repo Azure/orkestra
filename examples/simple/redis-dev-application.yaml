@@ -20,7 +20,7 @@ spec:
     master:
       persistence: 
         size: 4Gi
-  # targetNamespace: "redis-dev-ns"
+  targetNamespace: "redis-dev-ns"
 
 
 

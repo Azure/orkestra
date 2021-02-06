@@ -68,3 +68,6 @@ bootstrap.yaml
 
 # Development tools
 tilt_modules
+
+# binary manager
+manager
