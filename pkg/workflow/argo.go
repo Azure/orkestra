@@ -3,7 +3,6 @@ package workflow
 import (
 	"context"
 	"fmt"
-	"os"
 	"sort"
 
 	"github.com/Azure/Orkestra/api/v1alpha1"
@@ -435,8 +434,10 @@ func (a *argo) updateWorkflowTemplates(tpls ...v1alpha12.Template) {
 
 func defaultExecutor() v1alpha12.Template {
 	return v1alpha12.Template{
-		Name:               helmReleaseExecutor,
-		ServiceAccountName: os.Getenv("SERVICE_ACCOUNT"),
+		Name: helmReleaseExecutor,
+		// FIXME (nitishm) : Hack
+		// Replace with the actual service account in use
+		ServiceAccountName: "orkestra",
 		Inputs: v1alpha12.Inputs{
 			Parameters: []v1alpha12.Parameter{
 				{
