@@ -1,96 +1,97 @@
 package workflow
 
-// import (
-// 	"context"
-// 	"encoding/json"
-// 	"testing"
+import (
+	"context"
+	"encoding/json"
+	"testing"
 
-// 	"github.com/Azure/Orkestra/api/v1alpha1"
-// 	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
-// 	helmopv1 "github.com/fluxcd/helm-operator/pkg/apis/helm.fluxcd.io/v1"
-// 	"github.com/google/go-cmp/cmp"
-// 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-// 	"k8s.io/apimachinery/pkg/runtime"
-// 	"sigs.k8s.io/controller-runtime/pkg/client"
-// )
+	"github.com/Azure/Orkestra/api/v1alpha1"
+	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
+	helmopv1 "github.com/fluxcd/helm-operator/pkg/apis/helm.fluxcd.io/v1"
+	"github.com/google/go-cmp/cmp"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+)
 
-// func helmValues(v string) map[string]interface{} {
-// 	out := make(map[string]interface{})
-// 	err := json.Unmarshal([]byte(v), &out)
-// 	if err != nil {
-// 		panic(err)
-// 	}
-// 	return out
-// }
+func helmValues(v string) map[string]interface{} {
+	out := make(map[string]interface{})
+	err := json.Unmarshal([]byte(v), &out)
+	if err != nil {
+		panic(err)
+	}
+	return out
+}
 
-// func Test_subchartValues(t *testing.T) {
-// 	type args struct {
-// 		sc string
-// 		av helmopv1.HelmValues
-// 	}
-// 	tests := []struct {
-// 		name string
-// 		args args
-// 		want helmopv1.HelmValues
-// 	}{
-// 		{
-// 			name: "withGlobalSuchart",
-// 			args: args{
-// 				sc: "subchart",
-// 				av: helmopv1.HelmValues{
-// 					Data: helmValues(`{"global": {"keyG": "valueG"},"subchart": {"keySC": "valueSC"}}`),
-// 				},
-// 			},
-// 			want: helmopv1.HelmValues{
-// 				Data: helmValues(`{"global": {"keyG": "valueG"},"keySC": "valueSC"}`),
-// 			},
-// 		},
-// 		{
-// 			name: "withOnlyGlobal",
-// 			args: args{
-// 				sc: "subchart",
-// 				av: helmopv1.HelmValues{
-// 					Data: helmValues(`{"global": {"keyG": "valueG"}}`),
-// 				},
-// 			},
-// 			want: helmopv1.HelmValues{
-// 				Data: helmValues(`{"global": {"keyG": "valueG"}}`),
-// 			},
-// 		},
-// 		{
-// 			name: "withOnlySubchart",
-// 			args: args{
-// 				sc: "subchart",
-// 				av: helmopv1.HelmValues{
-// 					Data: helmValues(`{"subchart": {"keySC": "valueSC"}}`),
-// 				},
-// 			},
-// 			want: helmopv1.HelmValues{
-// 				Data: helmValues(`{"keySC": "valueSC"}`),
-// 			},
-// 		},
-// 		{
-// 			name: "withNone",
-// 			args: args{
-// 				sc: "subchart",
-// 				av: helmopv1.HelmValues{
-// 					Data: make(map[string]interface{}),
-// 				},
-// 			},
-// 			want: helmopv1.HelmValues{
-// 				Data: make(map[string]interface{}),
-// 			},
-// 		},
-// 	}
-// 	for _, tt := range tests {
-// 		t.Run(tt.name, func(t *testing.T) {
-// 			if got := subchartValues(tt.args.sc, tt.args.av); !cmp.Equal(got, tt.want) {
-// 				t.Errorf("subchartValues() = %v", cmp.Diff(got, tt.want))
-// 			}
-// 		})
-// 	}
-// }
+func Test_subchartValues(t *testing.T) {
+	type args struct {
+		sc string
+		av helmopv1.HelmValues
+	}
+	tests := []struct {
+		name string
+		args args
+		want helmopv1.HelmValues
+	}{
+		{
+			name: "withGlobalSuchart",
+			args: args{
+				sc: "subchart",
+				av: helmopv1.HelmValues{
+					Data: helmValues(`{"global": {"keyG": "valueG"},"subchart": {"keySC": "valueSC"}}`),
+				},
+			},
+			want: helmopv1.HelmValues{
+				Data: helmValues(`{"global": {"keyG": "valueG"},"keySC": "valueSC"}`),
+			},
+		},
+		{
+			name: "withOnlyGlobal",
+			args: args{
+				sc: "subchart",
+				av: helmopv1.HelmValues{
+					Data: helmValues(`{"global": {"keyG": "valueG"}}`),
+				},
+			},
+			want: helmopv1.HelmValues{
+				Data: helmValues(`{"global": {"keyG": "valueG"}}`),
+			},
+		},
+		{
+			name: "withOnlySubchart",
+			args: args{
+				sc: "subchart",
+				av: helmopv1.HelmValues{
+					Data: helmValues(`{"subchart": {"keySC": "valueSC"}}`),
+				},
+			},
+			want: helmopv1.HelmValues{
+				Data: helmValues(`{"keySC": "valueSC"}`),
+			},
+		},
+		{
+			name: "withNone",
+			args: args{
+				sc: "subchart",
+				av: helmopv1.HelmValues{
+					Data: make(map[string]interface{}),
+				},
+			},
+			want: helmopv1.HelmValues{
+				Data: make(map[string]interface{}),
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := subchartValues(tt.args.sc, tt.args.av); !cmp.Equal(got, tt.want) {
+				t.Errorf("subchartValues() = %v", cmp.Diff(got, tt.want))
+			}
+		})
+	}
+}
 
+// FIXME: (nitishm) Requires a fake kubernetes client and scheme to make tests succeed
+// after last set of changes, where this function was converted into a method for struct type argo.
 // func Test_generateSubchartAndAppDAGTasks(t *testing.T) {
 // 	type args struct {
 // 		app      *v1alpha1.Application
@@ -569,6 +570,8 @@ package workflow
 // 	}
 // }
 
+// FIXME: (nitishm) Requires a fake kubernetes client and scheme to make tests succeed
+// after last set of changes, where this function was converted into a method for struct type argo.
 // func Test_generateAppDAGTemplates(t *testing.T) {
 // 	type args struct {
 // 		apps []*v1alpha1.Application
@@ -897,36 +900,36 @@ package workflow
 // 	}
 // }
 
-// func Test_argo_generateAppGroupTpls(t *testing.T) {
-// 	type fields struct {
-// 		scheme         *runtime.Scheme
-// 		cli            client.Client
-// 		wf             *v1alpha12.Workflow
-// 		stagingRepoURL string
-// 	}
-// 	type args struct {
-// 		g    *v1alpha1.ApplicationGroup
-// 		apps []*v1alpha1.Application
-// 	}
-// 	tests := []struct {
-// 		name    string
-// 		fields  fields
-// 		args    args
-// 		wantErr bool
-// 	}{
-// 		// TODO: Add test cases.
-// 	}
-// 	for _, tt := range tests {
-// 		t.Run(tt.name, func(t *testing.T) {
-// 			a := &argo{
-// 				scheme:         tt.fields.scheme,
-// 				cli:            tt.fields.cli,
-// 				wf:             tt.fields.wf,
-// 				stagingRepoURL: tt.fields.stagingRepoURL,
-// 			}
-// 			if err := a.generateAppGroupTpls(tt.args.g, tt.args.apps); (err != nil) != tt.wantErr {
-// 				t.Errorf("argo.generateAppGroupTpls() error = %v, wantErr %v", err, tt.wantErr)
-// 			}
-// 		})
-// 	}
-// }
+func Test_argo_generateAppGroupTpls(t *testing.T) {
+	type fields struct {
+		scheme         *runtime.Scheme
+		cli            client.Client
+		wf             *v1alpha12.Workflow
+		stagingRepoURL string
+	}
+	type args struct {
+		g    *v1alpha1.ApplicationGroup
+		apps []*v1alpha1.Application
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr bool
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			a := &argo{
+				scheme:         tt.fields.scheme,
+				cli:            tt.fields.cli,
+				wf:             tt.fields.wf,
+				stagingRepoURL: tt.fields.stagingRepoURL,
+			}
+			if err := a.generateAppGroupTpls(context.TODO(), tt.args.g, tt.args.apps); (err != nil) != tt.wantErr {
+				t.Errorf("argo.generateAppGroupTpls() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
