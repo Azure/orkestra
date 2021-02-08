@@ -18,7 +18,22 @@ type ApplicationSpec struct {
 	Subcharts []DAG  `json:"subcharts,omitempty"`
 	GroupID   string `json:"groupID,omitempty"`
 	// ChartRepoNickname is used to lookup the repository config in the registries config map
-	ChartRepoNickname        string `json:"repo,omitempty"`
+	ChartRepoNickname string `json:"repo,omitempty"`
+	// XXX (nitishm) **IMPORTANT**: DO NOT USE HelmReleaseSpec.Values!!!
+	// ApplicationSpec.Overlays field replaces HelmReleaseSpec.Values field.
+	// Setting the HelmReleaseSpec.Values field will not reflect in the deployed Application object
+	//
+	// Explanation
+	// ===========
+	// HelmValues uses a map[string]interface{} structure for holding helm values Data.
+	// kubebuilder prunes the field value when deploying the Application resource as it considers the field to be an
+	// Unknown field. HelmOperator v1 being in maintenance mode, we do not expect them to merge PRs
+	// to add the  +kubebuilder:pruning:PreserveUnknownFields
+	// https://github.com/fluxcd/helm-operator/issues/585
+
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:XPreserveUnknownFields
+	Overlays                 helmopv1.HelmValues `json:"overlays,omitempty"`
 	helmopv1.HelmReleaseSpec `json:",inline"`
 }
 

@@ -4,7 +4,7 @@ kind: Application
 metadata:
   name: redis-dev
 spec:
-  namespace: "default"
+  namespace: "orkestra"
   repo: bitnami
   groupID: "dev"
   subcharts: []
@@ -14,8 +14,13 @@ spec:
     repository: "https://charts.bitnami.com/bitnami"
     name: redis
     version: 12.2.3
-  overlays: "{\"global\":{\"imageRegistry\":\"nil\",\"imagePullSecrets\":[]},\"master\":{\"persistence\":{\"size\":\"4Gi\"}}}" 
-  # targetNamespace: "redis-dev-ns"
+  overlays:
+    global:
+      imagePullSecrets: []
+    master:
+      persistence: 
+        size: 4Gi
+  targetNamespace: "redis-dev-ns"
 
 
 

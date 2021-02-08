@@ -65,3 +65,9 @@ testoutput.txt
 ./certs/
 commit_logs
 bootstrap.yaml
+
+# Development tools
+tilt_modules
+
+# binary manager
+manager
