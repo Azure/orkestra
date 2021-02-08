@@ -244,9 +244,7 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, apps []*v1alpha1.App
 					APIVersion: "helm.fluxcd.io/v1",
 				},
 				ObjectMeta: v1.ObjectMeta{
-					Name: app.Name,
-					// FIXME (nitishm) : Deploying HelmRelease to specific namespace requires special serviceAccount, ClusterRole and ClusterRoleBinding
-
+					Name:      app.Name,
 					Namespace: app.Spec.TargetNamespace,
 				},
 				Spec: app.DeepCopy().Spec.HelmReleaseSpec,
@@ -371,8 +369,7 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, app *v1alpha1
 			APIVersion: "helm.fluxcd.io/v1",
 		},
 		ObjectMeta: v1.ObjectMeta{
-			Name: app.Name,
-			// FIXME (nitishm) : Deploying HelmRelease to specific namespace requires special serviceAccount, ClusterRole and ClusterRoleBinding
+			Name:      app.Name,
 			Namespace: app.Spec.HelmReleaseSpec.TargetNamespace,
 		},
 		Spec: app.DeepCopy().Spec.HelmReleaseSpec,
@@ -478,8 +475,7 @@ func generateSubchartHelmRelease(a helmopv1.HelmReleaseSpec, sc, version, repo, 
 			APIVersion: "helm.fluxcd.io/v1",
 		},
 		ObjectMeta: v1.ObjectMeta{
-			Name: sc,
-			// FIXME (nitishm) : Deploying HelmRelease to specific namespace requires special serviceAccount, ClusterRole and ClusterRoleBinding
+			Name:      sc,
 			Namespace: targetNS,
 		},
 		Spec: helmopv1.HelmReleaseSpec{
@@ -488,7 +484,6 @@ func generateSubchartHelmRelease(a helmopv1.HelmReleaseSpec, sc, version, repo, 
 			},
 			TargetNamespace: targetNS,
 		},
-		// FIXME (nitishm) : Deploying HelmRelease to specific namespace requires special serviceAccount, ClusterRole and ClusterRoleBinding
 	}
 
 	hr.Spec.ChartSource.RepoChartSource = a.DeepCopy().RepoChartSource
