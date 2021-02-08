@@ -41,6 +41,8 @@ spec:
           env:
           - name: WORKFLOW_NAMESPACE 
             value: orkestra
+          - name: SERVICE_ACCOUNT
+            value: {{ include "orkestra.serviceAccountName" . }}
           # ports:
           #   - name: http
           #     containerPort: 80
