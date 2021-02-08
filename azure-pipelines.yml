@@ -74,12 +74,18 @@ stages:
       inputs:
         command: build
         repository: azureorkestra/orkestra
+        tags: |
+          $(Build.BuildNumber)
+          latest
       condition: succeeded()
     - task: Docker@2
       displayName: Push 
       inputs:
         command: push
         repository: azureorkestra/orkestra
+        tags: |
+          $(Build.BuildNumber)
+          latest
       condition: and(succeeded(),eq(variables.isMain, true))
 
 - stage: Release 
