@@ -60,8 +60,6 @@ type Client struct {
 
 // NewClient is the constructor for the registry client
 func NewClient(l logr.InfoLogger, registries map[string]*Config, opts ...Option) (*Client, error) {
-	// TODO (nitishm) : Check if TargetDir exists.
-	// If not, then create it.
 	cm, err := chartmuseum.NewClient()
 	if err != nil {
 		return nil, err
