@@ -90,12 +90,6 @@ func setupRegistryRepos(registries map[string]*registry.Config) error {
 		return err
 	}
 
-	// XXX (nitishm) : Probably not needed. We can validate the config.yaml for duplicate entries
-	// Most likely the map will be overwritten with the last named entry.
-	// if o.noUpdate && f.Has(o.name) {
-	// 	return errors.Errorf("repository name (%s) already exists, please specify a different name", o.name)
-	// }
-
 	for name, cfg := range registries {
 		c := repo.Entry{
 			Name:     name,

@@ -71,7 +71,6 @@ func (r *ApplicationReconciler) reconcile(ctx context.Context, l logr.Logger, ap
 				}
 
 				cs.Staged = true
-				// TODO (nitishm) : Rather than the path we can just store the version of the chart
 				cs.Version = sc.Metadata.Version
 				cs.Ready = true
 				cs.Error = ""
