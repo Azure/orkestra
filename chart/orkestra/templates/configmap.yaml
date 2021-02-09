@@ -11,7 +11,7 @@ data:
         {{ $repo.name }}:
             url: {{ $repo.url }}
             {{ if $repo.username }}
-            username: { {$repo.username }}
+            username: {{ $repo.username }}
             {{ end }}
             {{ if $repo.password }}
             password: {{ $repo.password }}
