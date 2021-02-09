@@ -3,6 +3,7 @@ package workflow
 import (
 	"context"
 	"fmt"
+	"os"
 	"sort"
 
 	"github.com/Azure/Orkestra/api/v1alpha1"
@@ -244,8 +245,7 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, apps []*v1alpha1.App
 					APIVersion: "helm.fluxcd.io/v1",
 				},
 				ObjectMeta: v1.ObjectMeta{
-					Name:      app.Name,
-					Namespace: app.Spec.TargetNamespace,
+					Name: app.Name,
 				},
 				Spec: app.DeepCopy().Spec.HelmReleaseSpec,
 			}
@@ -256,8 +256,7 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, apps []*v1alpha1.App
 					APIVersion: "v1",
 				},
 				ObjectMeta: v1.ObjectMeta{
-					Name:      hr.Spec.TargetNamespace,
-					Namespace: hr.Spec.TargetNamespace,
+					Name: hr.Spec.TargetNamespace,
 				},
 			}
 
@@ -340,8 +339,7 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, app *v1alpha1
 				APIVersion: "v1",
 			},
 			ObjectMeta: v1.ObjectMeta{
-				Name:      hr.Namespace,
-				Namespace: hr.Namespace,
+				Name: hr.Spec.TargetNamespace,
 			},
 		}
 
@@ -369,8 +367,7 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, app *v1alpha1
 			APIVersion: "helm.fluxcd.io/v1",
 		},
 		ObjectMeta: v1.ObjectMeta{
-			Name:      app.Name,
-			Namespace: app.Spec.HelmReleaseSpec.TargetNamespace,
+			Name: app.Name,
 		},
 		Spec: app.DeepCopy().Spec.HelmReleaseSpec,
 	}
@@ -384,8 +381,7 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, app *v1alpha1
 			APIVersion: "v1",
 		},
 		ObjectMeta: v1.ObjectMeta{
-			Name:      hr.Namespace,
-			Namespace: hr.Namespace,
+			Name: hr.Spec.TargetNamespace,
 		},
 	}
 
@@ -437,7 +433,7 @@ func defaultExecutor() v1alpha12.Template {
 		Name: helmReleaseExecutor,
 		// FIXME (nitishm) : Hack
 		// Replace with the actual service account in use
-		ServiceAccountName: "orkestra",
+		ServiceAccountName: os.Getenv("SERVICE_ACCOUNT_NAME"),
 		Inputs: v1alpha12.Inputs{
 			Parameters: []v1alpha12.Parameter{
 				{
@@ -475,8 +471,7 @@ func generateSubchartHelmRelease(a helmopv1.HelmReleaseSpec, sc, version, repo, 
 			APIVersion: "helm.fluxcd.io/v1",
 		},
 		ObjectMeta: v1.ObjectMeta{
-			Name:      sc,
-			Namespace: targetNS,
+			Name: sc,
 		},
 		Spec: helmopv1.HelmReleaseSpec{
 			ChartSource: helmopv1.ChartSource{
