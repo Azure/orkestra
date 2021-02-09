@@ -6,6 +6,7 @@
 variables:
   isMain: $[eq(variables['Build.SourceBranch'], 'refs/heads/main')]
 
+
 trigger:
   - main
 
@@ -61,6 +62,9 @@ stages:
 - stage: Docker 
   jobs:
   - job: orkestra
+    variables:  
+      tags: $[git tag --sort=-creatordate]
+      tag: $(tags)[0]
     pool:
       vmImage: 'ubuntu-latest'
     steps:
@@ -76,6 +80,7 @@ stages:
         repository: azureorkestra/orkestra
         tags: |
           $(Build.BuildNumber)
+          $(tag)
           latest
       condition: succeeded()
     - task: Docker@2
@@ -85,6 +90,7 @@ stages:
         repository: azureorkestra/orkestra
         tags: |
           $(Build.BuildNumber)
+          $(tag)
           latest
       condition: and(succeeded(),eq(variables.isMain, true))
 
