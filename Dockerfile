@@ -14,10 +14,10 @@ COPY main.go main.go
 COPY api/ api/
 COPY pkg/ pkg/
 COPY controllers/ controllers/
-COPY config.yaml config.yaml
+# COPY config.yaml config.yaml
 
 # Build
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o manager main.go
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -o manager main.go
 
 FROM alpine:3.7
 RUN apk add --no-cache bash
@@ -25,6 +25,6 @@ RUN mkdir -p /etc/orkestra/charts/pull/
 
 WORKDIR /
 COPY --from=builder /workspace/manager .
-COPY --from=builder /workspace/config.yaml /etc/controller/config.yaml
+# COPY --from=builder /workspace/config.yaml /etc/controller/config.yaml
 
 ENTRYPOINT ["/manager"]

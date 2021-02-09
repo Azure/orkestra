@@ -1,0 +1,35 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: registry-config
+  labels:
+    {{- include "orkestra.labels" . | nindent 4 }}
+data:
+    config.yaml: |
+      registries:
+      {{- range $repo := $.Values.repositories }}
+        {{ $repo.name }}:
+            url: {{ $repo.url }}
+            {{ if $repo.username }}
+            username: { {$repo.username }}
+            {{ end }}
+            {{ if $repo.password }}
+            password: {{ $repo.password }}
+            {{ end }}
+            {{ if $repo.authHeader }}
+            authHeader: {{ $repo.authHeader }}
+            {{ end }}
+            {{ if $repo.caFile }}
+            caFile: {{ $repo.caFile }}
+            {{ end }}
+            {{ if $repo.certFile }}
+            certFile: {{ $repo.certFile }}
+            {{ end }}
+            {{ if $repo.keyFile }}
+            keyFile: {{ $repo.keyFile }}
+            {{ end }}
+            {{ if $repo.insecureSkipVerify }}
+            insecureSkipVerify: {{ $repo.insecureSkipVerify }}
+            {{ end }}
+    {{ end -}}
+  
