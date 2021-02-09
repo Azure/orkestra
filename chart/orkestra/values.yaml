@@ -17,6 +17,19 @@ serviceAccount:
   annotations: {}
   name: *serviceAccount
 
+repositories:
+  - name: staging 
+    url: "http://orkestra-chartmuseum.orkestra:8080"
+  - name: bitnami
+    url: "https://charts.bitnami.com/bitnami"
+    # username: admin
+    # password: password
+    # authHeader: 'Authorization: Basic HTTPBASICAUTHCREDS'
+    # caFile: /path/to/ca/file
+    # certFile: /path/to/cert/file
+    # keyFile: /path/to/key/file
+    # insecureSkipVerify: false
+
 podAnnotations: {}
 
 podSecurityContext: {}

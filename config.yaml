@@ -1,7 +1,0 @@
-registries:
-  bitnami:
-    url: "https://charts.bitnami.com/bitnami"
-    insecureSkipVerify: true
-
-  staging:
-    url: "http://orkestra-chartmuseum.orkestra:8080"
