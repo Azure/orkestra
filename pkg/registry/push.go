@@ -48,6 +48,7 @@ func (c *Client) PushChart(l logr.Logger, repoKey, pkgPath string, ch *chart.Cha
 	}
 
 	err = handlePushResponse(resp)
+	defer resp.Body.Close()
 	if err != nil {
 		l.Error(err, "failed to handle upload/push http response")
 		return fmt.Errorf("failed to handle upload/push http response for chart package with repoKey %s Name %s Version %s : %w", repoKey, chartName, version, err)

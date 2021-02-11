@@ -33,7 +33,12 @@ type ApplicationSpec struct {
 
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:XPreserveUnknownFields
-	Overlays                 helmopv1.HelmValues `json:"overlays,omitempty"`
+	Overlays helmopv1.HelmValues `json:"overlays,omitempty"`
+
+	// RepoPath provides the subdir path to the actual chart artifact within a Helm Registry
+	// Artifactory for instance utilizes folders to store charts
+	RepoPath string `json:"repoPath,omitempty"`
+
 	helmopv1.HelmReleaseSpec `json:",inline"`
 }
 

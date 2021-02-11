@@ -6,7 +6,6 @@ import (
 
 	"fmt"
 
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	orkestrav1alpha1 "github.com/Azure/Orkestra/api/v1alpha1"
@@ -130,5 +129,5 @@ func defaultNamespace() string {
 	if ns, ok := os.LookupEnv("WORKFLOW_NAMESPACE"); ok {
 		return ns
 	}
-	return v1.NamespaceDefault
+	return "orkestra"
 }
