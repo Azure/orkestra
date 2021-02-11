@@ -113,7 +113,11 @@ func (c *Client) init() error {
 	return nil
 }
 
-func chartURL(repo, chart, version string) string {
+func chartURL(repo, repoPath, chart, version string) string {
+	if repoPath != "" {
+		chart = strings.Trim(repoPath, "/") + "/" + chart
+	}
+
 	s := fmt.Sprintf("%s/%s-%s.tgz",
 		strings.Trim(repo, "/"),
 		strings.Trim(chart, "/"),

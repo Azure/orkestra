@@ -9,7 +9,7 @@ import (
 	"helm.sh/helm/v3/pkg/chart/loader"
 )
 
-func (c *Client) PullChart(l logr.Logger, repoKey, chartName, version string) (string, *chart.Chart, error) {
+func (c *Client) PullChart(l logr.Logger, repoKey, repoPath, chartName, version string) (string, *chart.Chart, error) {
 	l.WithValues("repo-key", repoKey, "chart-name", chartName, "chart-version", version)
 
 	l.V(3).Info("pulling chart")
@@ -26,12 +26,13 @@ func (c *Client) PullChart(l logr.Logger, repoKey, chartName, version string) (s
 	c.cfg.pull.CaFile = rCfg.CaFile
 	c.cfg.pull.CertFile = rCfg.CertFile
 	c.cfg.pull.KeyFile = rCfg.KeyFile
+	c.cfg.pull.DestDir = c.TargetDir
 
 	filePath := fmt.Sprintf("%s/%s-%s.tgz", c.TargetDir, chartName, version)
 
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		l.V(3).Info("chart artifact not found in target directory - downloading")
-		_, err = c.cfg.pull.Run(chartURL(rCfg.URL, chartName, version))
+		_, err = c.cfg.pull.Run(chartURL(rCfg.URL, repoPath, chartName, version))
 		if err != nil {
 			l.Error(err, "failed to pull chart from repo")
 			return "", nil, fmt.Errorf("failed to pull chart from repoKey %s Name %s Version %s in registries map : %w", repoKey, chartName, version, err)

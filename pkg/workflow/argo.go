@@ -238,6 +238,30 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, apps []*v1alpha1.App
 			ts = append(ts, t)
 		}
 
+		ns := corev1.Namespace{
+			TypeMeta: v1.TypeMeta{
+				Kind:       "Namespace",
+				APIVersion: "v1",
+			},
+			ObjectMeta: v1.ObjectMeta{
+				Name: app.Spec.HelmReleaseSpec.TargetNamespace,
+			},
+		}
+
+		// Create the namespace since helm-operator does not do this
+		err := a.cli.Get(ctx, types.NamespacedName{Name: ns.Name}, &ns)
+		if err != nil {
+			err = controllerutil.SetControllerReference(app, &ns, a.scheme)
+			if err != nil {
+				return nil, fmt.Errorf("failed to set OwnerReference for Namespace %s : %w", ns.Name, err)
+			}
+
+			err = a.cli.Create(ctx, &ns)
+			if err != nil {
+				return nil, fmt.Errorf("failed to CREATE namespace %s object for application %s : %w", ns.Name, app.Name, err)
+			}
+		}
+
 		if !hasSubcharts {
 			hr := helmopv1.HelmRelease{
 				TypeMeta: v1.TypeMeta{
@@ -245,34 +269,13 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, apps []*v1alpha1.App
 					APIVersion: "helm.fluxcd.io/v1",
 				},
 				ObjectMeta: v1.ObjectMeta{
-					Name: app.Name,
+					Name:      app.Name,
+					Namespace: app.Spec.TargetNamespace,
 				},
 				Spec: app.DeepCopy().Spec.HelmReleaseSpec,
 			}
 
-			ns := corev1.Namespace{
-				TypeMeta: v1.TypeMeta{
-					Kind:       "Namespace",
-					APIVersion: "v1",
-				},
-				ObjectMeta: v1.ObjectMeta{
-					Name: hr.Spec.TargetNamespace,
-				},
-			}
-
-			// Create the namespace since helm-operator does not do this
-			err := a.cli.Get(ctx, types.NamespacedName{Name: ns.Name}, &ns)
-			if err != nil {
-				err = controllerutil.SetControllerReference(app, &ns, a.scheme)
-				if err != nil {
-					return nil, fmt.Errorf("failed to set OwnerReference for Namespace %s : %w", ns.Name, err)
-				}
-
-				err = a.cli.Create(ctx, &ns)
-				if err != nil {
-					return nil, fmt.Errorf("failed to CREATE namespace %s object for application %s : %w", ns.Name, app.Name, err)
-				}
-			}
+			// hr.Spec.RepoChartSource.RepoURL = repo
 
 			if app.Status.Application.Staged {
 				hr.Spec.RepoURL = repo
@@ -318,7 +321,9 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, app *v1alpha1
 			return nil, fmt.Errorf("failed to find subchart info in applications status field")
 		}
 
-		hr := generateSubchartHelmRelease(app.Spec.HelmReleaseSpec, sc.Name, s.Version, repo, targetNS)
+		isStaged := app.Status.Application.Staged
+
+		hr := generateSubchartHelmRelease(app.Spec.HelmReleaseSpec, sc.Name, s.Version, repo, targetNS, isStaged)
 		task := v1alpha12.DAGTask{
 			Name:     sc.Name,
 			Template: helmReleaseExecutor,
@@ -367,13 +372,24 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, app *v1alpha1
 			APIVersion: "helm.fluxcd.io/v1",
 		},
 		ObjectMeta: v1.ObjectMeta{
-			Name: app.Name,
+			Name:      app.Name,
+			Namespace: app.Spec.HelmReleaseSpec.TargetNamespace,
 		},
 		Spec: app.DeepCopy().Spec.HelmReleaseSpec,
 	}
 
 	// staging repo instead of the primary repo
 	hr.Spec.RepoURL = repo
+
+	// Force disable all subchart for the staged application chart
+	// to prevent duplication and possible collision of deployed resources
+	// Since the subchart should have been deployed in a prior DAG step,
+	// we must not redeploy it along with the parent application chart.
+	for d := range app.Status.Subcharts {
+		hr.Spec.Values.Data[d] = map[string]interface{}{
+			"enabled": false,
+		}
+	}
 
 	ns := corev1.Namespace{
 		TypeMeta: v1.TypeMeta{
@@ -431,7 +447,7 @@ func (a *argo) updateWorkflowTemplates(tpls ...v1alpha12.Template) {
 func defaultExecutor() v1alpha12.Template {
 	return v1alpha12.Template{
 		Name:               helmReleaseExecutor,
-		ServiceAccountName: os.Getenv("SERVICE_ACCOUNT_NAME"),
+		ServiceAccountName: defaultNamespace(),
 		Inputs: v1alpha12.Inputs{
 			Parameters: []v1alpha12.Parameter{
 				{
@@ -439,12 +455,15 @@ func defaultExecutor() v1alpha12.Template {
 				},
 			},
 		},
+		Executor: &v1alpha12.ExecutorConfig{
+			ServiceAccountName: defaultNamespace(),
+		},
 		Outputs: v1alpha12.Outputs{},
 		Resource: &v1alpha12.ResourceTemplate{
-			SetOwnerReference: true,
-			Action:            "create",
-			Manifest:          "{{inputs.parameters.helmrelease}}",
-			SuccessCondition:  "status.phase == Succeeded",
+			// SetOwnerReference: true,
+			Action:           "create",
+			Manifest:         "{{inputs.parameters.helmrelease}}",
+			SuccessCondition: "status.phase == Succeeded",
 		},
 	}
 }
@@ -462,14 +481,15 @@ func hrToYAML(hr helmopv1.HelmRelease) string {
 	return string(b)
 }
 
-func generateSubchartHelmRelease(a helmopv1.HelmReleaseSpec, sc, version, repo, targetNS string) helmopv1.HelmRelease {
+func generateSubchartHelmRelease(a helmopv1.HelmReleaseSpec, sc, version, repo, targetNS string, isStaged bool) helmopv1.HelmRelease {
 	hr := helmopv1.HelmRelease{
 		TypeMeta: v1.TypeMeta{
 			Kind:       "HelmRelease",
 			APIVersion: "helm.fluxcd.io/v1",
 		},
 		ObjectMeta: v1.ObjectMeta{
-			Name: sc,
+			Name:      sc,
+			Namespace: targetNS,
 		},
 		Spec: helmopv1.HelmReleaseSpec{
 			ChartSource: helmopv1.ChartSource{
@@ -481,7 +501,10 @@ func generateSubchartHelmRelease(a helmopv1.HelmReleaseSpec, sc, version, repo, 
 
 	hr.Spec.ChartSource.RepoChartSource = a.DeepCopy().RepoChartSource
 	hr.Spec.ChartSource.RepoChartSource.Name = sc
-	hr.Spec.ChartSource.RepoChartSource.RepoURL = repo
+
+	if isStaged {
+		hr.Spec.ChartSource.RepoChartSource.RepoURL = repo
+	}
 	hr.Spec.ChartSource.RepoChartSource.Version = version
 	hr.Spec.Values = subchartValues(sc, a.Values)
 
@@ -508,4 +531,11 @@ func subchartValues(sc string, av helmopv1.HelmValues) helmopv1.HelmValues {
 	}
 
 	return v
+}
+
+func defaultNamespace() string {
+	if ns, ok := os.LookupEnv("WORKFLOW_NAMESPACE"); ok {
+		return ns
+	}
+	return "orkestra"
 }
