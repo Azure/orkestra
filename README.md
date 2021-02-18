@@ -136,6 +136,18 @@ See [sequence diagrams](./docs/SEQUENCE.md)
 
 Try out the examples in [examples](./examples)
 
+## Roadmap
+
+### Functional
+
+- [ ] Handling of `Application`, `ApplicationGroup` UPDATE & DELETE reconcilation events : [#64](https://github.com/Azure/Orkestra/issues/64), [#59](https://github.com/Azure/Orkestra/issues/59)
+
+### Features
+
+- [ ] Rollback ApplicationGroup to previous version on failure by re-deploying last-applied workflow. 
+- [ ] Support multiple remediation strategies on failure
+- [ ] Make the switch from [helm-operator](https://github.com/fluxcd/helm-operator) to [helm-controller](https://github.com/fluxcd/helm-controller)
+
 ## Contributing
 
 For instructions about setting up your environment to develop and extend the operator, please see
