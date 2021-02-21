@@ -1,16 +1,11 @@
 package workflow
 
 import (
-	"context"
 	"encoding/json"
 	"testing"
 
-	"github.com/Azure/Orkestra/api/v1alpha1"
-	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
 	helmopv1 "github.com/fluxcd/helm-operator/pkg/apis/helm.fluxcd.io/v1"
 	"github.com/google/go-cmp/cmp"
-	"k8s.io/apimachinery/pkg/runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func helmValues(v string) map[string]interface{} {
@@ -900,36 +895,36 @@ func Test_subchartValues(t *testing.T) {
 // 	}
 // }
 
-func Test_argo_generateAppGroupTpls(t *testing.T) {
-	type fields struct {
-		scheme         *runtime.Scheme
-		cli            client.Client
-		wf             *v1alpha12.Workflow
-		stagingRepoURL string
-	}
-	type args struct {
-		g    *v1alpha1.ApplicationGroup
-		apps []*v1alpha1.Application
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			a := &argo{
-				scheme:         tt.fields.scheme,
-				cli:            tt.fields.cli,
-				wf:             tt.fields.wf,
-				stagingRepoURL: tt.fields.stagingRepoURL,
-			}
-			if err := a.generateAppGroupTpls(context.TODO(), tt.args.g, tt.args.apps); (err != nil) != tt.wantErr {
-				t.Errorf("argo.generateAppGroupTpls() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
+// func Test_argo_generateAppGroupTpls(t *testing.T) {
+// 	type fields struct {
+// 		scheme         *runtime.Scheme
+// 		cli            client.Client
+// 		wf             *v1alpha12.Workflow
+// 		stagingRepoURL string
+// 	}
+// 	type args struct {
+// 		g    *v1alpha1.ApplicationGroup
+// 		apps []*v1alpha1.Application
+// 	}
+// 	tests := []struct {
+// 		name    string
+// 		fields  fields
+// 		args    args
+// 		wantErr bool
+// 	}{
+// 		// TODO: Add test cases.
+// 	}
+// 	for _, tt := range tests {
+// 		t.Run(tt.name, func(t *testing.T) {
+// 			a := &argo{
+// 				scheme:         tt.fields.scheme,
+// 				cli:            tt.fields.cli,
+// 				wf:             tt.fields.wf,
+// 				stagingRepoURL: tt.fields.stagingRepoURL,
+// 			}
+// 			if err := a.generateAppGroupTpls(context.TODO(), tt.args.g, tt.args.apps); (err != nil) != tt.wantErr {
+// 				t.Errorf("argo.generateAppGroupTpls() error = %v, wantErr %v", err, tt.wantErr)
+// 			}
+// 		})
+// 	}
+// }
