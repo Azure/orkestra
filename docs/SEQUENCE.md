@@ -1,6 +1,8 @@
+# > **Out of date**  as of 02/22/2021 - *`Application` custom resource has been deprecated*
 # Sequence Diagrams
 
 ## Submitting an Application Group to a Kubernetes Cluster
+
 
 <p align="center"><img src="../assets/submit-sequence.png" width="1000x" /></p>
 

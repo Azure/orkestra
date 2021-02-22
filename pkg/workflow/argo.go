@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"sort"
 
 	"github.com/Azure/Orkestra/api/v1alpha1"
 	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
@@ -64,20 +63,10 @@ func (a *argo) initWorkflowObject() {
 	a.wf.Spec.Templates = make([]v1alpha12.Template, 0)
 }
 
-func (a *argo) Generate(ctx context.Context, l logr.Logger, ns string, g *v1alpha1.ApplicationGroup, apps []*v1alpha1.Application) error {
+func (a *argo) Generate(ctx context.Context, l logr.Logger, ns string, g *v1alpha1.ApplicationGroup) error {
 	if g == nil {
 		l.Error(nil, "ApplicationGroup object cannot be nil")
 		return fmt.Errorf("applicationGroup object cannot be nil")
-	}
-
-	if apps == nil {
-		l.Error(nil, "applications slice cannot be nil")
-		return fmt.Errorf("applications slice cannot be nil")
-	}
-
-	if len(apps) != len(g.Spec.Applications) {
-		l.Error(nil, "application len mismatch")
-		return fmt.Errorf("len application objects [%v] do not match len entries applicationgroup.spec.applications %v", len(apps), len(g.Spec.Applications))
 	}
 
 	a.initWorkflowObject()
@@ -86,15 +75,7 @@ func (a *argo) Generate(ctx context.Context, l logr.Logger, ns string, g *v1alph
 	a.wf.Name = g.Name
 	a.wf.Namespace = ns
 
-	sort.SliceStable(apps[:], func(i, j int) bool { //nolint:gocritic
-		return apps[i].Name < apps[j].Name
-	})
-
-	sort.SliceStable(g.Spec.Applications[:], func(i, j int) bool { //nolint:gocritic
-		return g.Spec.Applications[i].Name < g.Spec.Applications[j].Name
-	})
-
-	err := a.generateWorkflow(ctx, g, apps)
+	err := a.generateWorkflow(ctx, g)
 	if err != nil {
 		l.Error(err, "failed to generate workflow")
 		return fmt.Errorf("failed to generate argo workflow : %w", err)
@@ -146,9 +127,9 @@ func (a *argo) Submit(ctx context.Context, l logr.Logger, g *v1alpha1.Applicatio
 	return nil
 }
 
-func (a *argo) generateWorkflow(ctx context.Context, g *v1alpha1.ApplicationGroup, apps []*v1alpha1.Application) error {
+func (a *argo) generateWorkflow(ctx context.Context, g *v1alpha1.ApplicationGroup) error {
 	// Generate the Entrypoint template and Application Group DAG
-	err := a.generateAppGroupTpls(ctx, g, apps)
+	err := a.generateAppGroupTpls(ctx, g)
 	if err != nil {
 		return fmt.Errorf("failed to generate Application Group DAG : %w", err)
 	}
@@ -156,7 +137,7 @@ func (a *argo) generateWorkflow(ctx context.Context, g *v1alpha1.ApplicationGrou
 	return nil
 }
 
-func (a *argo) generateAppGroupTpls(ctx context.Context, g *v1alpha1.ApplicationGroup, apps []*v1alpha1.Application) error {
+func (a *argo) generateAppGroupTpls(ctx context.Context, g *v1alpha1.ApplicationGroup) error {
 	if a.wf == nil {
 		return fmt.Errorf("workflow cannot be nil")
 	}
@@ -168,13 +149,13 @@ func (a *argo) generateAppGroupTpls(ctx context.Context, g *v1alpha1.Application
 	entry := v1alpha12.Template{
 		Name: entrypointTplName,
 		DAG: &v1alpha12.DAGTemplate{
-			Tasks: make([]v1alpha12.DAGTask, len(apps)),
+			Tasks: make([]v1alpha12.DAGTask, len(g.Spec.Applications)),
 			// TBD (nitishm): Do we need to failfast?
 			// FailFast: true
 		},
 	}
 
-	adt, err := a.generateAppDAGTemplates(ctx, apps, a.stagingRepoURL)
+	adt, err := a.generateAppDAGTemplates(ctx, g, a.stagingRepoURL)
 	if err != nil {
 		return fmt.Errorf("failed to generate application DAG templates : %w", err)
 	}
@@ -213,12 +194,15 @@ func updateAppGroupDAG(g *v1alpha1.ApplicationGroup, entry *v1alpha12.Template, 
 	return nil
 }
 
-func (a *argo) generateAppDAGTemplates(ctx context.Context, apps []*v1alpha1.Application, repo string) ([]v1alpha12.Template, error) {
+func (a *argo) generateAppDAGTemplates(ctx context.Context, g *v1alpha1.ApplicationGroup, repo string) ([]v1alpha12.Template, error) {
 	ts := make([]v1alpha12.Template, 0)
 
-	for _, app := range apps {
+	for i, app := range g.Spec.Applications {
 		var hasSubcharts bool
 		app.Spec.Values = app.Spec.Overlays
+
+		appStatus := &g.Status.Applications[i].ChartStatus
+		scStatus := g.Status.Applications[i].Subcharts
 
 		// Create Subchart DAG only when the application chart has dependencies
 		if len(app.Spec.Subcharts) > 0 {
@@ -228,7 +212,7 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, apps []*v1alpha1.App
 			}
 
 			t.DAG = &v1alpha12.DAGTemplate{}
-			tasks, err := a.generateSubchartAndAppDAGTasks(ctx, app, repo, app.Spec.HelmReleaseSpec.TargetNamespace)
+			tasks, err := a.generateSubchartAndAppDAGTasks(ctx, g, &app.Spec, appStatus, scStatus, repo, app.Spec.HelmReleaseSpec.TargetNamespace)
 			if err != nil {
 				return nil, fmt.Errorf("failed to generate Application Template DAG tasks : %w", err)
 			}
@@ -251,14 +235,16 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, apps []*v1alpha1.App
 		// Create the namespace since helm-operator does not do this
 		err := a.cli.Get(ctx, types.NamespacedName{Name: ns.Name}, &ns)
 		if err != nil {
-			err = controllerutil.SetControllerReference(app, &ns, a.scheme)
-			if err != nil {
-				return nil, fmt.Errorf("failed to set OwnerReference for Namespace %s : %w", ns.Name, err)
-			}
+			if errors.IsNotFound(err) {
+				err = controllerutil.SetControllerReference(g, &ns, a.scheme)
+				if err != nil {
+					return nil, fmt.Errorf("failed to set OwnerReference for Namespace %s : %w", ns.Name, err)
+				}
 
-			err = a.cli.Create(ctx, &ns)
-			if err != nil {
-				return nil, fmt.Errorf("failed to CREATE namespace %s object for application %s : %w", ns.Name, app.Name, err)
+				err = a.cli.Create(ctx, &ns)
+				if err != nil {
+					return nil, fmt.Errorf("failed to CREATE namespace %s object for application %s : %w", ns.Name, app.Name, err)
+				}
 			}
 		}
 
@@ -277,7 +263,7 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, apps []*v1alpha1.App
 
 			// hr.Spec.RepoChartSource.RepoURL = repo
 
-			if app.Status.Application.Staged {
+			if appStatus.Staged {
 				hr.Spec.RepoURL = repo
 			}
 
@@ -307,23 +293,19 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, apps []*v1alpha1.App
 	return ts, nil
 }
 
-func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, app *v1alpha1.Application, repo, targetNS string) ([]v1alpha12.DAGTask, error) {
+func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.ApplicationGroup, app *v1alpha1.ApplicationSpec, status *v1alpha1.ChartStatus, subchartsStatus map[string]v1alpha1.ChartStatus, repo, targetNS string) ([]v1alpha12.DAGTask, error) {
 	if repo == "" {
 		return nil, fmt.Errorf("repo arg must be a valid non-empty string")
 	}
 
 	// XXX (nitishm) Should this be set to nil if no subcharts are found??
-	tasks := make([]v1alpha12.DAGTask, 0, len(app.Spec.Subcharts)+1)
+	tasks := make([]v1alpha12.DAGTask, 0, len(app.Subcharts)+1)
 
-	for _, sc := range app.Spec.Subcharts {
-		s, ok := app.Status.Subcharts[sc.Name]
-		if !ok {
-			return nil, fmt.Errorf("failed to find subchart info in applications status field")
-		}
+	for _, sc := range app.Subcharts {
+		isStaged := subchartsStatus[sc.Name].Staged
+		version := subchartsStatus[sc.Name].Version
 
-		isStaged := app.Status.Application.Staged
-
-		hr := generateSubchartHelmRelease(app.Spec.HelmReleaseSpec, sc.Name, s.Version, repo, targetNS, isStaged)
+		hr := generateSubchartHelmRelease(app.HelmReleaseSpec, sc.Name, version, repo, targetNS, isStaged)
 		task := v1alpha12.DAGTask{
 			Name:     sc.Name,
 			Template: helmReleaseExecutor,
@@ -351,15 +333,17 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, app *v1alpha1
 		// Create the namespace since helm-operator does not do this
 		err := a.cli.Get(ctx, types.NamespacedName{Name: ns.Name}, &ns)
 		if err != nil {
-			// Add OwnershipReference
-			err = controllerutil.SetControllerReference(app, &ns, a.scheme)
-			if err != nil {
-				return nil, fmt.Errorf("failed to set OwnerReference for Namespace %s : %w", ns.Name, err)
-			}
+			if errors.IsNotFound(err) {
+				// Add OwnershipReference
+				err = controllerutil.SetControllerReference(g, &ns, a.scheme)
+				if err != nil {
+					return nil, fmt.Errorf("failed to set OwnerReference for Namespace %s : %w", ns.Name, err)
+				}
 
-			err = a.cli.Create(ctx, &ns)
-			if err != nil {
-				return nil, fmt.Errorf("failed to CREATE namespace %s object for subchart %s : %w", ns.Name, sc.Name, err)
+				err = a.cli.Create(ctx, &ns)
+				if err != nil {
+					return nil, fmt.Errorf("failed to CREATE namespace %s object for subchart %s : %w", ns.Name, sc.Name, err)
+				}
 			}
 		}
 
@@ -373,9 +357,9 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, app *v1alpha1
 		},
 		ObjectMeta: v1.ObjectMeta{
 			Name:      app.Name,
-			Namespace: app.Spec.HelmReleaseSpec.TargetNamespace,
+			Namespace: app.HelmReleaseSpec.TargetNamespace,
 		},
-		Spec: app.DeepCopy().Spec.HelmReleaseSpec,
+		Spec: app.DeepCopy().HelmReleaseSpec,
 	}
 
 	// staging repo instead of the primary repo
@@ -385,8 +369,8 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, app *v1alpha1
 	// to prevent duplication and possible collision of deployed resources
 	// Since the subchart should have been deployed in a prior DAG step,
 	// we must not redeploy it along with the parent application chart.
-	for d := range app.Status.Subcharts {
-		hr.Spec.Values.Data[d] = map[string]interface{}{
+	for _, d := range app.Subcharts {
+		hr.Spec.Values.Data[d.Name] = map[string]interface{}{
 			"enabled": false,
 		}
 	}
@@ -404,15 +388,17 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, app *v1alpha1
 	// Create the namespace since helm-operator does not do this
 	err := a.cli.Get(ctx, types.NamespacedName{Name: ns.Name}, &ns)
 	if err != nil {
-		// Add OwnershipReference
-		err = controllerutil.SetControllerReference(app, &ns, a.scheme)
-		if err != nil {
-			return nil, fmt.Errorf("failed to set OwnerReference for Namespace %s : %w", ns.Name, err)
-		}
+		if errors.IsNotFound(err) {
+			// Add OwnershipReference
+			err = controllerutil.SetControllerReference(g, &ns, a.scheme)
+			if err != nil {
+				return nil, fmt.Errorf("failed to set OwnerReference for Namespace %s : %w", ns.Name, err)
+			}
 
-		err = a.cli.Create(ctx, &ns)
-		if err != nil {
-			return nil, fmt.Errorf("failed to CREATE namespace %s object for staged application %s : %w", ns.Name, app.Name, err)
+			err = a.cli.Create(ctx, &ns)
+			if err != nil {
+				return nil, fmt.Errorf("failed to CREATE namespace %s object for staged application %s : %w", ns.Name, app.Name, err)
+			}
 		}
 	}
 

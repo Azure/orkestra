@@ -5,3 +5,4 @@ registries:
 
   staging:
     url: "http://localhost:8080"
+    path: "charts/"

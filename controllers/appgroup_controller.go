@@ -6,10 +6,13 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"net/url"
 
 	"github.com/Azure/Orkestra/pkg/configurer"
+	"github.com/Azure/Orkestra/pkg/registry"
 	"github.com/Azure/Orkestra/pkg/workflow"
 	"github.com/go-logr/logr"
+	"helm.sh/helm/v3/pkg/chart"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
@@ -33,8 +36,17 @@ type ApplicationGroupReconciler struct {
 	Cfg    *configurer.Controller
 	Engine workflow.Engine
 
+	// RegistryClient interacts with the helm registries to pull and push charts
+	RegistryClient *registry.Client
+
 	// WorkflowNS is the namespace to which (generated) Argo Workflow object is deployed
 	WorkflowNS string
+
+	// StagingRepoName is the nickname for the repository used for staging artifacts before being deployed using the HelmRelease object
+	StagingRepoName string
+
+	// TargetDir to stage the charts before pushing
+	TargetDir string
 
 	// Recorder generates kubernetes events
 	Recorder record.EventRecorder
@@ -72,6 +84,19 @@ func (r *ApplicationGroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 		logr.V(3).Info("reconciling AppGroup instance previously in error state")
 	}
 
+	// Initialize the Status fields if not already setup
+	if len(appGroup.Status.Applications) == 0 {
+		appGroup.Status.Applications = make([]orkestrav1alpha1.ApplicationStatus, 0, len(appGroup.Spec.Applications))
+		for _, app := range appGroup.Spec.Applications {
+			status := orkestrav1alpha1.ApplicationStatus{
+				Name:        app.Name,
+				ChartStatus: orkestrav1alpha1.ChartStatus{Version: app.Spec.Version},
+				Subcharts:   make(map[string]orkestrav1alpha1.ChartStatus),
+			}
+			appGroup.Status.Applications = append(appGroup.Status.Applications, status)
+		}
+	}
+
 	requeue, err = r.reconcile(ctx, logr, r.WorkflowNS, &appGroup)
 	defer r.updateStatusAndEvent(ctx, appGroup, requeue, err)
 	if err != nil {
@@ -103,4 +128,20 @@ func (r *ApplicationGroupReconciler) updateStatusAndEvent(ctx context.Context, g
 	} else {
 		r.Recorder.Event(&grp, "Normal", "ReconcileSuccess", fmt.Sprintf("Successfully reconciled ApplicationGroup %s", grp.Name))
 	}
+}
+
+func isDependenciesEmbedded(ch *chart.Chart) bool {
+	isURI := false
+	for _, d := range ch.Metadata.Dependencies {
+		if _, err := url.ParseRequestURI(d.Repository); err == nil {
+			isURI = true
+		}
+	}
+
+	if !isURI {
+		if len(ch.Dependencies()) > 0 {
+			return true
+		}
+	}
+	return false
 }

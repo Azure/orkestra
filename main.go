@@ -103,20 +103,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controllers.ApplicationReconciler{
-		Client:          mgr.GetClient(),
-		Log:             ctrl.Log.WithName("controllers").WithName("Application"),
-		Scheme:          mgr.GetScheme(),
-		Cfg:             cfg.Ctrl,
-		RegistryClient:  rc,
-		StagingRepoName: stagingRepoName,
-		TargetDir:       tempChartStoreTargetDir,
-		Recorder:        mgr.GetEventRecorderFor("application-controller"),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Application")
-		os.Exit(1)
-	}
-
 	sCfg, err := cfg.Ctrl.RegistryConfig(stagingRepoName)
 	if err != nil {
 		setupLog.Error(err, "unable to find staging repo configuration", "controller", "registry-config")
@@ -124,12 +110,15 @@ func main() {
 	}
 
 	if err = (&controllers.ApplicationGroupReconciler{
-		Client:   mgr.GetClient(),
-		Log:      ctrl.Log.WithName("controllers").WithName("ApplicationGroup"),
-		Scheme:   mgr.GetScheme(),
-		Cfg:      cfg.Ctrl,
-		Engine:   workflow.Argo(scheme, mgr.GetClient(), sCfg.URL),
-		Recorder: mgr.GetEventRecorderFor("appgroup-controller"),
+		Client:          mgr.GetClient(),
+		Log:             ctrl.Log.WithName("controllers").WithName("ApplicationGroup"),
+		Scheme:          mgr.GetScheme(),
+		Cfg:             cfg.Ctrl,
+		RegistryClient:  rc,
+		Engine:          workflow.Argo(scheme, mgr.GetClient(), sCfg.URL),
+		StagingRepoName: stagingRepoName,
+		TargetDir:       tempChartStoreTargetDir,
+		Recorder:        mgr.GetEventRecorderFor("appgroup-controller"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ApplicationGroup")
 		os.Exit(1)
