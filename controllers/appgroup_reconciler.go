@@ -34,7 +34,6 @@ func (r *ApplicationGroupReconciler) reconcile(ctx context.Context, l logr.Logge
 		l.Error(err, "failed to reconcile the applications")
 		err = fmt.Errorf("failed to reconcile the applications : %w", err)
 		return false, err
-
 	}
 	// if target workflow namespace is unset, then set it to the default namespace explicitly
 	if ns == "" {
