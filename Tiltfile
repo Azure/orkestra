@@ -25,4 +25,4 @@ yaml = helm(
 
 k8s_yaml(yaml,allow_duplicates=True) 
 
-k8s_yaml(['./config/samples/dev-applicationgroup.yaml', './config/samples/kafka-dev-application.yaml', './config/samples/redis-dev-application.yaml'],allow_duplicates=True)
+k8s_yaml(['./config/samples/dev-applicationgroup.yaml'],allow_duplicates=True)
