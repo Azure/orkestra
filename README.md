@@ -27,7 +27,7 @@ For getting started you will need,
 - `helm` - Helm client
 - (_optional_) `argo` - Argo workflow client (follow the instructions to install the binary at https://github.com/argoproj/argo/releases)
 
-Install the `ApplicationGroup` and `Application` custom resource definitions (CRDs) using `make install`
+Install the `ApplicationGroup` and custom resource definitions (CRDs) using `make install`
 
 ```console
 /home/nitishm/go/bin/controller-gen "crd:trivialVersions=true" rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
@@ -112,9 +112,9 @@ To solve the complex application orchestration problem Orkestra builds a [Direct
 
 <p align="center"><img src="./assets/orkestra-core.png" width="750x" /></p>
 
-1. Submit `Application` and `ApplicationGroup` CRs
-2. For each `Application` in `ApplicationGroup` download Helm chart from “primary” Helm Registry
-3. (*optional) For each dependency in the `Application` chart, if dependency chart is embedded in `charts/` directory, push to ”staging” Helm Registry (Chart-museum).
+1. Submit `ApplicationGroup` CRs
+2. For each application in `ApplicationGroup` download Helm chart from “primary” Helm Registry
+3. (*optional) For each dependency in the Application chart, if dependency chart is embedded in `charts/` directory, push to ”staging” Helm Registry (Chart-museum).
 4. Generate and submit Argo Workflow DAG
 5. (Executor nodes only) Submit and probe deployment state of `HelmRelease` CR.
 6. Fetch and deploy Helm charts referred to by each `HelmRelease` CR to the Kubernetes cluster.
@@ -140,7 +140,7 @@ Try out the examples in [examples](./examples)
 
 ### Functional
 
-- [ ] Handling of `Application`, `ApplicationGroup` UPDATE & DELETE reconcilation events : [#64](https://github.com/Azure/Orkestra/issues/64), [#59](https://github.com/Azure/Orkestra/issues/59)
+- [ ] Handling of `ApplicationGroup` UPDATE & DELETE reconcilation events : [#64](https://github.com/Azure/Orkestra/issues/64), [#59](https://github.com/Azure/Orkestra/issues/59)
 
 ### Features
 
