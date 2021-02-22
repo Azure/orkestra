@@ -33,7 +33,6 @@ Install the `ApplicationGroup` and custom resource definitions (CRDs) using `mak
 /home/nitishm/go/bin/controller-gen "crd:trivialVersions=true" rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 kustomize build config/crd | kubectl apply -f -
 customresourcedefinition.apiextensions.k8s.io/applicationgroups.orkestra.azure.microsoft.com configured
-customresourcedefinition.apiextensions.k8s.io/applications.orkestra.azure.microsoft.com configured
 ```
 
 Alternatively, you can use the integrated `kustomize` flag directly to install the CRDs using `kubectl` by issuing the following command - `kubectl -k config/bases`
