@@ -11,9 +11,9 @@ import (
 // ApplicationSpec defines the desired state of Application
 type ApplicationSpec struct {
 	// Namespace to which the HelmRelease object will be deployed
-	Namespace string    `json:"namespace,omitempty"`
-	Subcharts []DAGData `json:"subcharts,omitempty"`
-	GroupID   string    `json:"groupID,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
+	Subcharts []DAG  `json:"subcharts,omitempty"`
+	GroupID   string `json:"groupID,omitempty"`
 	// ChartRepoNickname is used to lookup the repository config in the registries config map
 	ChartRepoNickname string `json:"repo,omitempty"`
 	// XXX (nitishm) **IMPORTANT**: DO NOT USE HelmReleaseSpec.Values!!!
@@ -48,14 +48,14 @@ type ChartStatus struct {
 
 // ApplicationGroupSpec defines the desired state of ApplicationGroup
 type ApplicationGroupSpec struct {
-	Applications []DAG `json:"applications,omitempty"`
+	Applications []Application `json:"applications,omitempty"`
 }
 
-type DAG struct {
-	DAGData `json:",inline"`
-	Spec    ApplicationSpec `json:"spec,omitempty"`
+type Application struct {
+	DAG  `json:",inline"`
+	Spec ApplicationSpec `json:"spec,omitempty"`
 }
-type DAGData struct {
+type DAG struct {
 	Name         string   `json:"name,omitempty"`
 	Dependencies []string `json:"dependencies,omitempty"`
 }
