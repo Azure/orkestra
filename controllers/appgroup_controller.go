@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/url"
 
+	"github.com/Azure/Orkestra/pkg"
 	"github.com/Azure/Orkestra/pkg/configurer"
 	"github.com/Azure/Orkestra/pkg/registry"
 	"github.com/Azure/Orkestra/pkg/workflow"
@@ -72,7 +73,20 @@ func (r *ApplicationGroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 		return ctrl.Result{}, err
 	}
 
+	_, checksums, err := pkg.Checksum(&appGroup)
+	if err != nil {
+		// TODO (nitishm) Handle different error types here to decide remediation action
+		if checksums != nil {
+			appGroup.Status.Checksums = checksums
+		}
+		_ = r.Status().Update(ctx, &appGroup)
+		logr.V(3).Info("failed to calculate checksum annotations for application group specs")
+		return ctrl.Result{Requeue: false}, err
+	}
+
 	logr = logr.WithValues("status-ready", appGroup.Status.Ready, "status-error", appGroup.Status.Error)
+
+	appGroup.Status.Checksums = checksums
 
 	if appGroup.Status.Ready {
 		logr.V(3).Info("skip reconciling since AppGroup has already been successfully reconciled")

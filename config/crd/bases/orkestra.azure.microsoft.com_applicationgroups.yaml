@@ -350,6 +350,10 @@ spec:
           status:
             description: ApplicationGroupStatus defines the observed state of ApplicationGroup
             properties:
+              checksums:
+                additionalProperties:
+                  type: string
+                type: object
               error:
                 type: string
               ready:

@@ -68,6 +68,7 @@ type ApplicationStatus struct {
 
 // ApplicationGroupStatus defines the observed state of ApplicationGroup
 type ApplicationGroupStatus struct {
+	Checksums    map[string]string   `json:"checksums,omitempty"`
 	Applications []ApplicationStatus `json:"status,omitempty"`
 	Ready        bool                `json:"ready,omitempty"`
 	Error        string              `json:"error,omitempty"`
