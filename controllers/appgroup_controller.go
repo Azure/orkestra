@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"strings"
 
 	"github.com/Azure/Orkestra/pkg"
 	"github.com/Azure/Orkestra/pkg/configurer"
@@ -122,8 +123,10 @@ func (r *ApplicationGroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 }
 
 func (r *ApplicationGroupReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	pred := predicate.GenerationChangedPredicate{}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&orkestrav1alpha1.ApplicationGroup{}).
+		WithEventFilter(pred).
 		Complete(r)
 }
 
