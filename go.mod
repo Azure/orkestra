@@ -5,12 +5,14 @@ go 1.15
 require (
 	github.com/argoproj/argo v2.5.2+incompatible
 	github.com/chartmuseum/helm-push v0.9.0
+	github.com/cnf/structhash v0.0.0-20201127153200-e1b16c1ebc08
 	github.com/fluxcd/helm-operator v1.2.0
 	github.com/go-delve/delve v1.5.1 // indirect
 	github.com/go-logr/logr v0.1.0
 	github.com/gofrs/flock v0.7.1
 	github.com/golang/protobuf v1.4.3 // indirect
 	github.com/google/go-cmp v0.5.2
+	github.com/mitchellh/hashstructure/v2 v2.0.1
 	github.com/onsi/ginkgo v1.14.0
 	github.com/onsi/gomega v1.10.1
 	github.com/spf13/viper v1.7.0
