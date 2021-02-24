@@ -51,6 +51,10 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 		ll := l.WithValues("application", application.Name)
 		ll.V(3).Info("performing chart actions")
 
+		if appGroup.Status.Applications[i].Subcharts == nil {
+			appGroup.Status.Applications[i].Subcharts = make(map[string]orkestrav1alpha1.ChartStatus)
+		}
+
 		repoKey := application.Spec.ChartRepoNickname
 		repoPath := application.Spec.RepoPath
 		name := application.Spec.HelmReleaseSpec.Name
