@@ -80,9 +80,7 @@ argo:
     name: workflow-controller
     workflowNamespaces:
       - *namespace
-    containerRuntimeExecutor: docker
-    # For KinD use -
-    # containerRuntimeExecutor: k8sapi
+    containerRuntimeExecutor: k8sapi # Most Secure - https://argoproj.github.io/argo-workflows/workflow-executors/#kubernetes-api-k8sapi
 
   server:
     enabled: true
