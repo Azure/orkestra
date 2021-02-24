@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"strings"
 
 	"github.com/Azure/Orkestra/pkg"
 	"github.com/Azure/Orkestra/pkg/configurer"
@@ -19,6 +20,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	orkestrav1alpha1 "github.com/Azure/Orkestra/api/v1alpha1"
 )
@@ -122,8 +124,10 @@ func (r *ApplicationGroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 }
 
 func (r *ApplicationGroupReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	pred := predicate.GenerationChangedPredicate{}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&orkestrav1alpha1.ApplicationGroup{}).
+		WithEventFilter(pred).
 		Complete(r)
 }
 
@@ -145,9 +149,15 @@ func (r *ApplicationGroupReconciler) updateStatusAndEvent(ctx context.Context, g
 }
 
 func isDependenciesEmbedded(ch *chart.Chart) bool {
+	// TODO (nitishm) This does not support a mix of remote and embedded dependency subcharts
 	isURI := false
 	for _, d := range ch.Metadata.Dependencies {
 		if _, err := url.ParseRequestURI(d.Repository); err == nil {
+			// If this is an " assembled" chart (https://helm.sh/docs/chart_best_practices/dependencies/#versions) we must stage the embedded subchart
+			if strings.Contains(d.Repository, "file://") {
+				isURI = false
+				break
+			}
 			isURI = true
 		}
 	}
