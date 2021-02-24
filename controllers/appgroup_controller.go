@@ -27,6 +27,7 @@ import (
 
 const (
 	appgroupNameKey = "appgroup"
+	finalizer       = "application-group-finalizer"
 )
 
 // ApplicationGroupReconciler reconciles a ApplicationGroup object
@@ -73,6 +74,33 @@ func (r *ApplicationGroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 		}
 		logr.Error(err, "unable to fetch ApplicationGroup instance")
 		return ctrl.Result{}, err
+	}
+
+	// TODO (nitishm) Handle DELETE event first
+	if !appGroup.DeletionTimestamp.IsZero() {
+		if appGroup.Finalizers != nil {
+			logr.Info("Cleaning up")
+			appGroup.Finalizers = nil
+			err = r.Update(ctx, &appGroup)
+			if err != nil {
+				logr.Error(err, "failed to update finalizer information for application group resource")
+				return ctrl.Result{Requeue: false}, err
+			}
+			return ctrl.Result{Requeue: true}, nil
+		}
+		// Do nothing
+		return ctrl.Result{Requeue: false}, nil
+	}
+
+	// Add finalizer if it doesnt already exist
+	if appGroup.Finalizers == nil {
+		appGroup.Finalizers = []string{finalizer}
+		err = r.Update(ctx, &appGroup)
+		if err != nil {
+			logr.Error(err, "failed to update finalizer information for application group resource")
+			return ctrl.Result{Requeue: false}, err
+		}
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	_, checksums, err := pkg.Checksum(&appGroup)
