@@ -13,6 +13,7 @@ import (
 	"github.com/Azure/Orkestra/pkg/configurer"
 	"github.com/Azure/Orkestra/pkg/registry"
 	"github.com/Azure/Orkestra/pkg/workflow"
+	v1 "github.com/fluxcd/helm-operator/pkg/apis/helm.fluxcd.io/v1"
 	"github.com/go-logr/logr"
 	"helm.sh/helm/v3/pkg/chart"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -91,6 +92,16 @@ func (r *ApplicationGroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 		// Do nothing
 		return ctrl.Result{Requeue: false}, nil
 	}
+
+	v := orkestrav1alpha1.ApplicationGroup{}
+	for _, app := range appGroup.Spec.Applications {
+		app.Spec.Values = v1.HelmValues{
+			Data: make(map[string]interface{}),
+		}
+		v.Spec.Applications = append(v.Spec.Applications, app)
+	}
+
+	appGroup.Spec.Applications = v.DeepCopy().Spec.Applications
 
 	// Add finalizer if it doesnt already exist
 	if appGroup.Finalizers == nil {
