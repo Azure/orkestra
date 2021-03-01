@@ -9,6 +9,7 @@ import (
 	"github.com/Azure/Orkestra/api/v1alpha1"
 	orkestrav1alpha1 "github.com/Azure/Orkestra/api/v1alpha1"
 	"github.com/Azure/Orkestra/pkg/registry"
+	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
 	"github.com/go-logr/logr"
 )
 
@@ -187,9 +188,9 @@ func (r *ApplicationGroupReconciler) generateWorkflow(ctx context.Context, logr 
 		return false, err
 	}
 
-	g.Status.Ready = true
+	g.Status.Phase = v1alpha12.NodePending
 
-	return false, nil
+	return true, nil
 }
 
 func defaultNamespace() string {

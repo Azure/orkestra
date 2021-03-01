@@ -20,9 +20,6 @@ import (
 )
 
 const (
-	project           = "orkestra"
-	ownershipLabel    = "owner"
-	heritageLabel     = "heritage"
 	argoAPIVersion    = "argoproj.io/v1alpha1"
 	argoKind          = "Workflow"
 	entrypointTplName = "entry"
@@ -51,7 +48,13 @@ func Argo(scheme *runtime.Scheme, c client.Client, stagingRepoURL string) *argo 
 }
 
 func (a *argo) initWorkflowObject() {
-	a.wf = &v1alpha12.Workflow{}
+	a.wf = &v1alpha12.Workflow{
+		ObjectMeta: v1.ObjectMeta{
+			Labels: make(map[string]string),
+		},
+	}
+
+	a.wf.Labels[HeritageLabel] = Project
 
 	a.wf.APIVersion = argoAPIVersion
 	a.wf.Kind = argoKind
@@ -99,9 +102,6 @@ func (a *argo) Submit(ctx context.Context, l logr.Logger, g *v1alpha1.Applicatio
 		ObjectMeta: v1.ObjectMeta{Labels: make(map[string]string)},
 	}
 
-	obj.Labels[ownershipLabel] = g.Name
-	obj.Labels[heritageLabel] = project
-
 	err := a.cli.Get(ctx, types.NamespacedName{Namespace: a.wf.Namespace, Name: a.wf.Name}, obj)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -111,6 +111,8 @@ func (a *argo) Submit(ctx context.Context, l logr.Logger, g *v1alpha1.Applicatio
 				l.Error(err, "unable to set ApplicationGroup as owner of Argo Workflow object")
 				return fmt.Errorf("unable to set ApplicationGroup as owner of Argo Workflow: %w", err)
 			}
+
+			a.wf.Labels[OwnershipLabel] = g.Name
 
 			// If the argo Workflow object is NotFound and not AlreadyExists on the cluster
 			// create a new object and submit it to the cluster

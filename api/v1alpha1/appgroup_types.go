@@ -4,6 +4,7 @@
 package v1alpha1
 
 import (
+	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
 	helmopv1 "github.com/fluxcd/helm-operator/pkg/apis/helm.fluxcd.io/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -70,14 +71,15 @@ type ApplicationStatus struct {
 type ApplicationGroupStatus struct {
 	Checksums    map[string]string   `json:"checksums,omitempty"`
 	Applications []ApplicationStatus `json:"status,omitempty"`
-	Ready        bool                `json:"ready,omitempty"`
+	Phase        v1alpha12.NodePhase `json:"phase,omitempty"`
 	Error        string              `json:"error,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:path=applicationgroups,scope=Cluster
 // +kubebuilder:subresource:status
-
+// +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=`.status.phase`
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=`.metadata.creationTimestamp`
 // ApplicationGroup is the Schema for the applicationgroups API
 type ApplicationGroup struct {
 	metav1.TypeMeta   `json:",inline"`

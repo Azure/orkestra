@@ -71,3 +71,6 @@ tilt_modules
 
 # binary manager
 manager
+
+# artifacts
+*/**.tgz
