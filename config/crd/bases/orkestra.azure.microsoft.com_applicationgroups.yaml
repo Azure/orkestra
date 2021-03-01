@@ -16,7 +16,14 @@ spec:
     singular: applicationgroup
   scope: Cluster
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .status.phase
+      name: Phase
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: ApplicationGroup is the Schema for the applicationgroups API
@@ -356,8 +363,10 @@ spec:
                 type: object
               error:
                 type: string
-              ready:
-                type: boolean
+              phase:
+                description: NodePhase is a label for the condition of a node at the
+                  current time.
+                type: string
               status:
                 items:
                   properties:

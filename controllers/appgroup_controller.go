@@ -8,11 +8,13 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/Azure/Orkestra/pkg"
 	"github.com/Azure/Orkestra/pkg/configurer"
 	"github.com/Azure/Orkestra/pkg/registry"
 	"github.com/Azure/Orkestra/pkg/workflow"
+	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
 	"github.com/go-logr/logr"
 	"helm.sh/helm/v3/pkg/chart"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -28,6 +30,7 @@ import (
 const (
 	appgroupNameKey = "appgroup"
 	finalizer       = "application-group-finalizer"
+	requeueAfter    = 5 * time.Second
 )
 
 // ApplicationGroupReconciler reconciles a ApplicationGroup object
@@ -76,68 +79,18 @@ func (r *ApplicationGroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 		return ctrl.Result{}, err
 	}
 
-	// TODO (nitishm) Handle DELETE event first
+	// handle DELETE if deletion timestamp is non-zero
 	if !appGroup.DeletionTimestamp.IsZero() {
+		// If finalizer is found, remove it and requeue
 		if appGroup.Finalizers != nil {
 			logr.Info("Cleaning up")
+			// TODO: Take remediation action
 			appGroup.Finalizers = nil
-			err = r.Update(ctx, &appGroup)
-			if err != nil {
-				logr.Error(err, "failed to update finalizer information for application group resource")
-				return ctrl.Result{Requeue: false}, err
-			}
+			_ = r.Update(ctx, &appGroup)
 			return ctrl.Result{Requeue: true}, nil
 		}
 		// Do nothing
 		return ctrl.Result{Requeue: false}, nil
-	}
-
-	v := orkestrav1alpha1.ApplicationGroup{}
-	for _, app := range appGroup.Spec.Applications {
-		if app.Spec.Overlays.Data == nil {
-			app.Spec.Overlays.Data = make(map[string]interface{})
-		}
-		app.Spec.Values = app.Spec.Overlays
-
-		v.Spec.Applications = append(v.Spec.Applications, app)
-	}
-
-	appGroup.Spec.Applications = v.DeepCopy().Spec.Applications
-
-	// Add finalizer if it doesnt already exist
-	if appGroup.Finalizers == nil {
-		appGroup.Finalizers = []string{finalizer}
-		err = r.Update(ctx, &appGroup)
-		if err != nil {
-			logr.Error(err, "failed to update finalizer information for application group resource")
-			return ctrl.Result{Requeue: false}, err
-		}
-		return ctrl.Result{Requeue: true}, nil
-	}
-
-	_, checksums, err := pkg.Checksum(&appGroup)
-	if err != nil {
-		// TODO (nitishm) Handle different error types here to decide remediation action
-		if checksums != nil {
-			appGroup.Status.Checksums = checksums
-		}
-		_ = r.Status().Update(ctx, &appGroup)
-		logr.V(3).Info("failed to calculate checksum annotations for application group specs")
-		return ctrl.Result{Requeue: false}, err
-	}
-
-	logr = logr.WithValues("status-ready", appGroup.Status.Ready, "status-error", appGroup.Status.Error)
-
-	appGroup.Status.Checksums = checksums
-
-	if appGroup.Status.Ready {
-		logr.V(3).Info("skip reconciling since AppGroup has already been successfully reconciled")
-		return ctrl.Result{Requeue: false}, nil
-	}
-
-	// info log if status error is not nil on reconciling
-	if appGroup.Status.Error != "" {
-		logr.V(3).Info("reconciling AppGroup instance previously in error state")
 	}
 
 	// Initialize the Status fields if not already setup
@@ -153,6 +106,78 @@ func (r *ApplicationGroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 		}
 	}
 
+	// Initialize fields in the Application spec for every app in the appgroup
+	v := orkestrav1alpha1.ApplicationGroup{}
+	for _, app := range appGroup.Spec.Applications {
+		if app.Spec.Overlays.Data == nil {
+			app.Spec.Overlays.Data = make(map[string]interface{})
+		}
+		app.Spec.Values = app.Spec.Overlays
+		v.Spec.Applications = append(v.Spec.Applications, app)
+	}
+	appGroup.Spec.Applications = v.DeepCopy().Spec.Applications
+
+	// Add finalizer if it doesnt already exist
+	if appGroup.Finalizers == nil {
+		appGroup.Finalizers = []string{finalizer}
+		_ = r.Update(ctx, &appGroup)
+		return ctrl.Result{Requeue: true}, nil
+	}
+
+	// handle UPDATE if checksum mismatched
+	_, checksums, err := pkg.Checksum(&appGroup)
+	if err != nil {
+		// TODO (nitishm) Handle different error types here to decide remediation action
+
+		if checksums != nil {
+			appGroup.Status.Checksums = checksums
+		}
+		appGroup.Status.Error = err.Error()
+		_ = r.Status().Update(ctx, &appGroup)
+		logr.Error(err, "failed to calculate checksum annotations for application group specs")
+		return ctrl.Result{Requeue: false}, err
+	}
+
+	// Lookup Workflow by ownership and heritage labels
+	wfs := v1alpha12.WorkflowList{}
+	listOption := client.MatchingLabels{
+		workflow.OwnershipLabel: appGroup.Name,
+		workflow.HeritageLabel:  workflow.Project,
+	}
+	err = r.List(ctx, &wfs, listOption)
+	if err != nil {
+		logr.Error(err, "failed to find generate workflow instance")
+		appGroup.Status.Error = err.Error()
+		_ = r.Status().Update(ctx, &appGroup)
+		return ctrl.Result{Requeue: false}, err
+	}
+
+	if wfs.Items.Len() > 0 {
+		appGroup.Status.Phase = wfs.Items[0].Status.Phase
+	}
+
+	logr = logr.WithValues("phase", appGroup.Status.Phase, "status-error", appGroup.Status.Error)
+
+	appGroup.Status.Checksums = checksums
+
+	switch appGroup.Status.Phase {
+	case v1alpha12.NodeRunning, v1alpha12.NodePending:
+		logr.V(1).Info("workflow in pending/running state. requeue and reconcile after a short period")
+		_ = r.Status().Update(ctx, &appGroup)
+		return ctrl.Result{Requeue: true, RequeueAfter: requeueAfter}, nil
+	case v1alpha12.NodeSucceeded:
+		logr.V(1).Info("workflow ran to completion and succeeded")
+		appGroup.Status.Error = ""
+		r.updateStatusAndEvent(ctx, appGroup, false, nil)
+		return ctrl.Result{Requeue: false}, nil
+	case v1alpha12.NodeError, v1alpha12.NodeFailed:
+		err = fmt.Errorf("workflow in failure/error condition")
+		logr.Error(err, "workflow in failure/error condition")
+		appGroup.Status.Error = err.Error()
+		_ = r.Status().Update(ctx, &appGroup)
+		return ctrl.Result{Requeue: false}, err
+	}
+
 	requeue, err = r.reconcile(ctx, logr, r.WorkflowNS, &appGroup)
 	defer r.updateStatusAndEvent(ctx, appGroup, requeue, err)
 	if err != nil {
@@ -160,7 +185,10 @@ func (r *ApplicationGroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 		return ctrl.Result{Requeue: requeue}, err
 	}
 
-	return ctrl.Result{Requeue: requeue}, nil
+	if appGroup.Status.Phase != v1alpha12.NodeSucceeded {
+		return ctrl.Result{Requeue: true, RequeueAfter: requeueAfter}, nil
+	}
+	return ctrl.Result{Requeue: false}, nil
 }
 
 func (r *ApplicationGroupReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -181,10 +209,12 @@ func (r *ApplicationGroupReconciler) updateStatusAndEvent(ctx context.Context, g
 
 	_ = r.Status().Update(ctx, &grp)
 
+	if grp.Status.Phase == v1alpha12.NodeSucceeded {
+		r.Recorder.Event(&grp, "Normal", "ReconcileSuccess", fmt.Sprintf("Successfully reconciled ApplicationGroup %s", grp.Name))
+	}
+
 	if errStr != "" {
 		r.Recorder.Event(&grp, "Warning", "ReconcileError", fmt.Sprintf("Failed to reconcile ApplicationGroup %s with Error %s", grp.Name, errStr))
-	} else {
-		r.Recorder.Event(&grp, "Normal", "ReconcileSuccess", fmt.Sprintf("Successfully reconciled ApplicationGroup %s", grp.Name))
 	}
 }
 

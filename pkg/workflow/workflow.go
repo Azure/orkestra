@@ -7,6 +7,12 @@ import (
 	"github.com/go-logr/logr"
 )
 
+const (
+	Project        = "orkestra"
+	OwnershipLabel = "owner"
+	HeritageLabel  = "heritage"
+)
+
 type Engine interface {
 	// Generate the object required by the workflow engine
 	Generate(ctx context.Context, l logr.Logger, ns string, g *v1alpha1.ApplicationGroup) error
