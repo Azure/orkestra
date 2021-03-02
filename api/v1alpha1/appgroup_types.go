@@ -72,6 +72,7 @@ type ApplicationGroupStatus struct {
 	Checksums    map[string]string   `json:"checksums,omitempty"`
 	Applications []ApplicationStatus `json:"status,omitempty"`
 	Phase        v1alpha12.NodePhase `json:"phase,omitempty"`
+	Update       bool                `json:"update,omitempty"`
 	Error        string              `json:"error,omitempty"`
 }
 

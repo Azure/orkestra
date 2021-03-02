@@ -395,6 +395,8 @@ spec:
                   - name
                   type: object
                 type: array
+              update:
+                type: boolean
             type: object
         type: object
     served: true
