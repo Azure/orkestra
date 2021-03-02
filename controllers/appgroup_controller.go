@@ -5,6 +5,7 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -17,7 +18,7 @@ import (
 	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
 	"github.com/go-logr/logr"
 	"helm.sh/helm/v3/pkg/chart"
-	"k8s.io/apimachinery/pkg/api/errors"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -71,7 +72,7 @@ func (r *ApplicationGroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 	logr := r.Log.WithValues(appgroupNameKey, req.NamespacedName.Name)
 
 	if err := r.Get(ctx, req.NamespacedName, &appGroup); err != nil {
-		if errors.IsNotFound(err) {
+		if kerrors.IsNotFound(err) {
 			logr.V(3).Info("skip reconciliation since AppGroup instance not found on the cluster")
 			return ctrl.Result{}, nil
 		}
@@ -85,6 +86,7 @@ func (r *ApplicationGroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 		if appGroup.Finalizers != nil {
 			logr.Info("Cleaning up")
 			// TODO: Take remediation action
+			// Reverse the entire workflow to remove all the Helm Releases
 			appGroup.Finalizers = nil
 			_ = r.Update(ctx, &appGroup)
 			return ctrl.Result{Requeue: true}, nil
@@ -93,29 +95,8 @@ func (r *ApplicationGroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 		return ctrl.Result{Requeue: false}, nil
 	}
 
-	// Initialize the Status fields if not already setup
-	if len(appGroup.Status.Applications) == 0 {
-		appGroup.Status.Applications = make([]orkestrav1alpha1.ApplicationStatus, 0, len(appGroup.Spec.Applications))
-		for _, app := range appGroup.Spec.Applications {
-			status := orkestrav1alpha1.ApplicationStatus{
-				Name:        app.Name,
-				ChartStatus: orkestrav1alpha1.ChartStatus{Version: app.Spec.Version},
-				Subcharts:   make(map[string]orkestrav1alpha1.ChartStatus),
-			}
-			appGroup.Status.Applications = append(appGroup.Status.Applications, status)
-		}
-	}
-
-	// Initialize fields in the Application spec for every app in the appgroup
-	v := orkestrav1alpha1.ApplicationGroup{}
-	for _, app := range appGroup.Spec.Applications {
-		if app.Spec.Overlays.Data == nil {
-			app.Spec.Overlays.Data = make(map[string]interface{})
-		}
-		app.Spec.Values = app.Spec.Overlays
-		v.Spec.Applications = append(v.Spec.Applications, app)
-	}
-	appGroup.Spec.Applications = v.DeepCopy().Spec.Applications
+	// Initialize all the application specs and status fields embedded in the application group
+	initApplications(&appGroup)
 
 	// Add finalizer if it doesnt already exist
 	if appGroup.Finalizers == nil {
@@ -125,18 +106,33 @@ func (r *ApplicationGroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 	}
 
 	// handle UPDATE if checksum mismatched
-	_, checksums, err := pkg.Checksum(&appGroup)
+	checksums, err := pkg.Checksum(&appGroup)
 	if err != nil {
 		// TODO (nitishm) Handle different error types here to decide remediation action
-
-		if checksums != nil {
+		if errors.Is(err, pkg.ErrChecksumAppGroupSpecMismatch) {
 			appGroup.Status.Checksums = checksums
+			appGroup.Status.Update = true
+			requeue, err = r.reconcile(ctx, logr, r.WorkflowNS, &appGroup)
+			defer r.updateStatusAndEvent(ctx, appGroup, requeue, err)
+			if err != nil {
+				logr.Error(err, "failed to reconcile ApplicationGroup instance")
+				return ctrl.Result{Requeue: requeue}, err
+			}
+
+			if appGroup.Status.Phase != v1alpha12.NodeSucceeded {
+				return ctrl.Result{Requeue: true, RequeueAfter: requeueAfter}, nil
+			}
+
+			return ctrl.Result{Requeue: false}, nil
 		}
+
 		appGroup.Status.Error = err.Error()
 		_ = r.Status().Update(ctx, &appGroup)
 		logr.Error(err, "failed to calculate checksum annotations for application group specs")
 		return ctrl.Result{Requeue: false}, err
 	}
+
+	appGroup.Status.Checksums = checksums
 
 	// Lookup Workflow by ownership and heritage labels
 	wfs := v1alpha12.WorkflowList{}
@@ -158,8 +154,6 @@ func (r *ApplicationGroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 
 	logr = logr.WithValues("phase", appGroup.Status.Phase, "status-error", appGroup.Status.Error)
 
-	appGroup.Status.Checksums = checksums
-
 	switch appGroup.Status.Phase {
 	case v1alpha12.NodeRunning, v1alpha12.NodePending:
 		logr.V(1).Info("workflow in pending/running state. requeue and reconcile after a short period")
@@ -178,16 +172,6 @@ func (r *ApplicationGroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 		return ctrl.Result{Requeue: false}, err
 	}
 
-	requeue, err = r.reconcile(ctx, logr, r.WorkflowNS, &appGroup)
-	defer r.updateStatusAndEvent(ctx, appGroup, requeue, err)
-	if err != nil {
-		logr.Error(err, "failed to reconcile ApplicationGroup instance")
-		return ctrl.Result{Requeue: requeue}, err
-	}
-
-	if appGroup.Status.Phase != v1alpha12.NodeSucceeded {
-		return ctrl.Result{Requeue: true, RequeueAfter: requeueAfter}, nil
-	}
 	return ctrl.Result{Requeue: false}, nil
 }
 
@@ -223,7 +207,7 @@ func isDependenciesEmbedded(ch *chart.Chart) bool {
 	isURI := false
 	for _, d := range ch.Metadata.Dependencies {
 		if _, err := url.ParseRequestURI(d.Repository); err == nil {
-			// If this is an " assembled" chart (https://helm.sh/docs/chart_best_practices/dependencies/#versions) we must stage the embedded subchart
+			// If this is an "assembled" chart (https://helm.sh/docs/chart_best_practices/dependencies/#versions) we must stage the embedded subchart
 			if strings.Contains(d.Repository, "file://") {
 				isURI = false
 				break
@@ -238,4 +222,30 @@ func isDependenciesEmbedded(ch *chart.Chart) bool {
 		}
 	}
 	return false
+}
+
+func initApplications(appGroup *orkestrav1alpha1.ApplicationGroup) {
+	// Initialize the Status fields if not already setup
+	if len(appGroup.Status.Applications) == 0 {
+		appGroup.Status.Applications = make([]orkestrav1alpha1.ApplicationStatus, 0, len(appGroup.Spec.Applications))
+		for _, app := range appGroup.Spec.Applications {
+			status := orkestrav1alpha1.ApplicationStatus{
+				Name:        app.Name,
+				ChartStatus: orkestrav1alpha1.ChartStatus{Version: app.Spec.Version},
+				Subcharts:   make(map[string]orkestrav1alpha1.ChartStatus),
+			}
+			appGroup.Status.Applications = append(appGroup.Status.Applications, status)
+		}
+	}
+
+	// Initialize fields in the Application spec for every app in the appgroup
+	v := orkestrav1alpha1.ApplicationGroup{}
+	for _, app := range appGroup.Spec.Applications {
+		if app.Spec.Overlays.Data == nil {
+			app.Spec.Overlays.Data = make(map[string]interface{})
+		}
+		app.Spec.Values = app.Spec.Overlays
+		v.Spec.Applications = append(v.Spec.Applications, app)
+	}
+	appGroup.Spec.Applications = v.DeepCopy().Spec.Applications
 }
