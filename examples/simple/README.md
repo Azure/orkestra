@@ -8,22 +8,18 @@ In this example we deploy an application group consisting of two demo applicatio
 
 - `kubectl`
 
-Install the `ApplicationGroup` and associated `Application` CRDs:
+Install the `ApplicationGroup`: 
 
 ```console
 kubectl apply -f examples/simple
 
 applicationgroup.orkestra.azure.microsoft.com/dev created
-application.orkestra.azure.microsoft.com/kafka-dev created
-application.orkestra.azure.microsoft.com/redis-dev created
 ```
 
 The orkestra controller logs should look as follows on success,
 
 ```log
 2021-02-03T09:21:18.395Z        DEBUG   controller-runtime.manager.events       Normal  {"object": {"kind":"Application","name":"redis-dev","uid":"6ffc6c9d-1343-4911-8683-a60b5bbdf28d","apiVersion":"orkestra.azure.microsoft.com/v1alpha1","resourceVersion":"61624"}, "reason": "ReconcileSuccess", "message": "Successfully reconciled Application redis-dev"}
-2021-02-03T09:21:18.395Z        DEBUG   controller-runtime.controller   Successfully Reconciled {"controller": "application", "request": "/kafka-dev"}
-2021-02-03T09:21:18.395Z        DEBUG   controller-runtime.controller   Successfully Reconciled {"controller": "application", "request": "/redis-dev"}
 2021-02-03T09:21:20.314Z        DEBUG   controller-runtime.controller   Successfully Reconciled {"controller": "applicationgroup", "request": "/dev"}
 2021-02-03T09:21:20.314Z        DEBUG   controller-runtime.manager.events       Normal  {"object": {"kind":"ApplicationGroup","name":"dev","uid":"6d9ba709-70f0-438e-ad40-f4be7376b0f5","apiVersion":"orkestra.azure.microsoft.com/v1alpha1","resourceVersion":"61634"}, "reason": "ReconcileSuccess", "message": "Successfully reconciled ApplicationGroup dev"}
 2021-02-03T09:21:20.325Z        DEBUG   controller-runtime.controller   Successfully Reconciled {"controller": "applicationgroup", "request": "/dev"}
