@@ -126,6 +126,37 @@ func (a *argo) Submit(ctx context.Context, l logr.Logger, g *v1alpha1.Applicatio
 			return fmt.Errorf("failed to GET workflow object with an unrecoverable error : %w", err)
 		}
 	}
+
+	// If the workflow needs an update, delete the previous workflow and apply the new one
+	// Argo Workflow does not rerun the workflow on UPDATE, so intead we cleanup and reapply
+	if g.Status.Update {
+		err = a.cli.Delete(ctx, obj)
+		if err != nil {
+			l.Error(err, "failed to DELETE argo workflow object")
+			return fmt.Errorf("failed to DELETE argo workflow object : %w", err)
+		}
+		// If the argo Workflow object is Found on the cluster
+		// update the workflow and submit it to the cluster
+		// Add OwnershipReference
+		err = controllerutil.SetControllerReference(g, a.wf, a.scheme)
+		if err != nil {
+			l.Error(err, "unable to set ApplicationGroup as owner of Argo Workflow object")
+			return fmt.Errorf("unable to set ApplicationGroup as owner of Argo Workflow: %w", err)
+		}
+
+		a.wf.Labels[OwnershipLabel] = g.Name
+
+		// If the argo Workflow object is NotFound and not AlreadyExists on the cluster
+		// create a new object and submit it to the cluster
+		err = a.cli.Create(ctx, a.wf)
+		if err != nil {
+			l.Error(err, "failed to CREATE argo workflow object")
+			return fmt.Errorf("failed to CREATE argo workflow object : %w", err)
+		}
+
+		g.Status.Update = false
+	}
+
 	return nil
 }
 
@@ -449,7 +480,7 @@ func defaultExecutor() v1alpha12.Template {
 		Outputs: v1alpha12.Outputs{},
 		Resource: &v1alpha12.ResourceTemplate{
 			// SetOwnerReference: true,
-			Action:           "create",
+			Action:           "apply",
 			Manifest:         "{{inputs.parameters.helmrelease}}",
 			SuccessCondition: "status.phase == Succeeded",
 		},
