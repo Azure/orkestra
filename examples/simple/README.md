@@ -8,26 +8,33 @@ In this example we deploy an application group consisting of two demo applicatio
 
 - `kubectl`
 
-Install the `ApplicationGroup` and associated `Application` CRDs:
+Install the `ApplicationGroup`: 
 
 ```console
 kubectl apply -f examples/simple
 
 applicationgroup.orkestra.azure.microsoft.com/dev created
-application.orkestra.azure.microsoft.com/kafka-dev created
-application.orkestra.azure.microsoft.com/redis-dev created
 ```
 
 The orkestra controller logs should look as follows on success,
 
 ```log
-2021-02-03T09:21:18.395Z        DEBUG   controller-runtime.manager.events       Normal  {"object": {"kind":"Application","name":"redis-dev","uid":"6ffc6c9d-1343-4911-8683-a60b5bbdf28d","apiVersion":"orkestra.azure.microsoft.com/v1alpha1","resourceVersion":"61624"}, "reason": "ReconcileSuccess", "message": "Successfully reconciled Application redis-dev"}
-2021-02-03T09:21:18.395Z        DEBUG   controller-runtime.controller   Successfully Reconciled {"controller": "application", "request": "/kafka-dev"}
-2021-02-03T09:21:18.395Z        DEBUG   controller-runtime.controller   Successfully Reconciled {"controller": "application", "request": "/redis-dev"}
-2021-02-03T09:21:20.314Z        DEBUG   controller-runtime.controller   Successfully Reconciled {"controller": "applicationgroup", "request": "/dev"}
-2021-02-03T09:21:20.314Z        DEBUG   controller-runtime.manager.events       Normal  {"object": {"kind":"ApplicationGroup","name":"dev","uid":"6d9ba709-70f0-438e-ad40-f4be7376b0f5","apiVersion":"orkestra.azure.microsoft.com/v1alpha1","resourceVersion":"61634"}, "reason": "ReconcileSuccess", "message": "Successfully reconciled ApplicationGroup dev"}
-2021-02-03T09:21:20.325Z        DEBUG   controller-runtime.controller   Successfully Reconciled {"controller": "applicationgroup", "request": "/dev"}
-2021-02-03T09:21:20.325Z        DEBUG   controller-runtime.manager.events       Normal  {"object": {"kind":"ApplicationGroup","name":"dev","uid":"6d9ba709-70f0-438e-ad40-f4be7376b0f5","apiVersion":"orkestra.azure
+orkestra-6967b4676b-h94dl orkestra 2021-03-03T19:45:15.655Z     INFO    controller-runtime.metrics      metrics server is starting to listen    {"addr": ":8080"}
+orkestra-6967b4676b-h94dl orkestra 2021-03-03T19:45:19.360Z     INFO    setup   starting manager
+orkestra-6967b4676b-h94dl orkestra 2021-03-03T19:45:19.360Z     INFO    controller-runtime.manager      starting metrics server {"path": "/metrics"}
+orkestra-6967b4676b-h94dl orkestra 2021-03-03T19:45:19.360Z     INFO    controller-runtime.controller   Starting EventSource    {"controller": "applicationgroup", "source": "kind source: /, Kind="}
+orkestra-6967b4676b-h94dl orkestra 2021-03-03T19:45:19.461Z     INFO    controller-runtime.controller   Starting Controller     {"controller": "applicationgroup"}
+orkestra-6967b4676b-h94dl orkestra 2021-03-03T19:45:19.461Z     INFO    controller-runtime.controller   Starting workers        {"controller": "applicationgroup", "worker count": 1}
+orkestra-6967b4676b-h94dl orkestra 2021-03-03T19:45:28.347Z     DEBUG   controllers.ApplicationGroup    workflow in pending/running state. requeue and reconcile after a short period {"appgroup": "dev", "phase": "Running", "status-error": ""}
+orkestra-6967b4676b-h94dl orkestra 2021-03-03T19:45:28.520Z     DEBUG   controllers.ApplicationGroup    workflow in pending/running state. requeue and reconcile after a short period {"appgroup": "dev", "phase": "Running", "status-error": ""}
+orkestra-6967b4676b-h94dl orkestra 2021-03-03T19:45:33.528Z     DEBUG   controllers.ApplicationGroup    workflow in pending/running state. requeue and reconcile after a short period {"appgroup": "dev", "phase": "Running", "status-error": ""}
+orkestra-6967b4676b-h94dl orkestra 2021-03-03T19:45:38.539Z     DEBUG   controllers.ApplicationGroup    workflow in pending/running state. requeue and reconcile after a short period {"appgroup": "dev", "phase": "Running", "status-error": ""}
+orkestra-6967b4676b-h94dl orkestra 2021-03-03T19:45:43.550Z     DEBUG   controllers.ApplicationGroup    workflow in pending/running state. requeue and reconcile after a short period {"appgroup": "dev", "phase": "Running", "status-error": ""}
+orkestra-6967b4676b-h94dl orkestra 2021-03-03T19:45:48.557Z     DEBUG   controllers.ApplicationGroup    workflow in pending/running state. requeue and reconcile after a short period {"appgroup": "dev", "phase": "Running", "status-error": ""}
+orkestra-6967b4676b-h94dl orkestra 2021-03-03T19:45:53.566Z     DEBUG   controllers.ApplicationGroup    workflow in pending/running state. requeue and reconcile after a short period {"appgroup": "dev", "phase": "Running", "status-error": ""}
+orkestra-6967b4676b-h94dl orkestra 2021-03-03T19:45:58.572Z     DEBUG   controllers.ApplicationGroup    workflow ran to completion and succeeded        {"appgroup": "dev", "phase": "Succeeded", "status-error": ""}
+orkestra-6967b4676b-h94dl orkestra 2021-03-03T19:45:58.580Z     DEBUG   controller-runtime.controller   Successfully Reconciled {"controller": "applicationgroup", "request": "/dev"}
+orkestra-6967b4676b-h94dl orkestra 2021-03-03T19:45:58.581Z     DEBUG   controller-runtime.manager.events       Normal  {"object": {"kind":"ApplicationGroup","name":"dev","uid":"37f39abe-4a5e-40e6-ae6d-323ef56a8263","apiVersion":"orkestra.azure.microsoft.com/v1alpha1","resourceVersion":"32178"}, "reason": "ReconcileSuccess", "message": "Successfully reconciled ApplicationGroup dev"}
 ```
 
 (_optional_) The Argo dashboard should show the DAG nodes in Green 
