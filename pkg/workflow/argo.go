@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/Azure/Orkestra/api/v1alpha1"
 	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
@@ -218,8 +219,8 @@ func updateAppGroupDAG(g *v1alpha1.ApplicationGroup, entry *v1alpha12.Template, 
 
 	for i, tpl := range tpls {
 		entry.DAG.Tasks[i] = v1alpha12.DAGTask{
-			Name:         tpl.Name,
-			Template:     tpl.Name,
+			Name:         convertToDNS1123(tpl.Name),
+			Template:     convertToDNS1123(tpl.Name),
 			Dependencies: g.Spec.Applications[i].Dependencies,
 		}
 	}
@@ -241,7 +242,7 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, g *v1alpha1.Applicat
 		if len(app.Spec.Subcharts) > 0 {
 			hasSubcharts = true
 			t := v1alpha12.Template{
-				Name: app.Name,
+				Name: convertToDNS1123(app.Name),
 			}
 
 			t.DAG = &v1alpha12.DAGTemplate{}
@@ -288,7 +289,7 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, g *v1alpha1.Applicat
 					APIVersion: "helm.fluxcd.io/v1",
 				},
 				ObjectMeta: v1.ObjectMeta{
-					Name:      app.Name,
+					Name:      convertToDNS1123(app.Name),
 					Namespace: app.Spec.TargetNamespace,
 				},
 				Spec: app.DeepCopy().Spec.HelmReleaseSpec,
@@ -301,11 +302,11 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, g *v1alpha1.Applicat
 			}
 
 			tApp := v1alpha12.Template{
-				Name: app.Name,
+				Name: convertToDNS1123(app.Name),
 				DAG: &v1alpha12.DAGTemplate{
 					Tasks: []v1alpha12.DAGTask{
 						{
-							Name:     app.Name,
+							Name:     convertToDNS1123(app.Name),
 							Template: helmReleaseExecutor,
 							Arguments: v1alpha12.Arguments{
 								Parameters: []v1alpha12.Parameter{
@@ -340,7 +341,7 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 
 		hr := generateSubchartHelmRelease(app.HelmReleaseSpec, sc.Name, version, repo, targetNS, isStaged)
 		task := v1alpha12.DAGTask{
-			Name:     sc.Name,
+			Name:     convertToDNS1123(sc.Name),
 			Template: helmReleaseExecutor,
 			Arguments: v1alpha12.Arguments{
 				Parameters: []v1alpha12.Parameter{
@@ -389,7 +390,7 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 			APIVersion: "helm.fluxcd.io/v1",
 		},
 		ObjectMeta: v1.ObjectMeta{
-			Name:      app.Name,
+			Name:      convertToDNS1123(app.Name),
 			Namespace: app.HelmReleaseSpec.TargetNamespace,
 		},
 		Spec: app.DeepCopy().HelmReleaseSpec,
@@ -436,7 +437,7 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 	}
 
 	task := v1alpha12.DAGTask{
-		Name:     app.Name,
+		Name:     convertToDNS1123(app.Name),
 		Template: helmReleaseExecutor,
 		Arguments: v1alpha12.Arguments{
 			Parameters: []v1alpha12.Parameter{
@@ -507,7 +508,7 @@ func generateSubchartHelmRelease(a helmopv1.HelmReleaseSpec, sc, version, repo, 
 			APIVersion: "helm.fluxcd.io/v1",
 		},
 		ObjectMeta: v1.ObjectMeta{
-			Name:      sc,
+			Name:      convertToDNS1123(sc),
 			Namespace: targetNS,
 		},
 		Spec: helmopv1.HelmReleaseSpec{
@@ -557,4 +558,8 @@ func defaultNamespace() string {
 		return ns
 	}
 	return "orkestra"
+}
+
+func convertToDNS1123(in string) string {
+	return strings.ReplaceAll(in, "_", "-")
 }

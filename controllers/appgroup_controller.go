@@ -110,8 +110,10 @@ func (r *ApplicationGroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 	if err != nil {
 		// TODO (nitishm) Handle different error types here to decide remediation action
 		if errors.Is(err, pkg.ErrChecksumAppGroupSpecMismatch) {
+			if appGroup.Status.Checksums != nil {
+				appGroup.Status.Update = true
+			}
 			appGroup.Status.Checksums = checksums
-			appGroup.Status.Update = true
 			requeue, err = r.reconcile(ctx, logr, r.WorkflowNS, &appGroup)
 			defer r.updateStatusAndEvent(ctx, appGroup, requeue, err)
 			if err != nil {
