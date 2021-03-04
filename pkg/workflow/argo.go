@@ -103,6 +103,43 @@ func (a *argo) Submit(ctx context.Context, l logr.Logger, g *v1alpha1.Applicatio
 		ObjectMeta: v1.ObjectMeta{Labels: make(map[string]string)},
 	}
 
+	namespaces := []string{}
+	for _, app := range g.Spec.Applications {
+		namespaces = append(namespaces, app.Spec.TargetNamespace)
+	}
+
+	for _, namespace := range namespaces {
+		ns := corev1.Namespace{
+			TypeMeta: v1.TypeMeta{
+				Kind:       "Namespace",
+				APIVersion: "v1",
+			},
+			ObjectMeta: v1.ObjectMeta{
+				Name: namespace,
+			},
+		}
+		// Create the namespace since helm-operator does not do this
+		// FIXME (nitishm) Handle namespace in termination state by requeueing
+		err := a.cli.Get(ctx, types.NamespacedName{Name: ns.Name}, &ns)
+		if err != nil {
+			fmt.Printf("\n\n\n\n\nGET %s\n\n\n\n", err)
+			if errors.IsNotFound(err) {
+				// Add OwnershipReference
+				err = controllerutil.SetControllerReference(g, &ns, a.scheme)
+				if err != nil {
+					return fmt.Errorf("failed to set OwnerReference for Namespace %s : %w", ns.Name, err)
+				}
+
+				err = a.cli.Create(ctx, &ns)
+				if err != nil {
+					fmt.Printf("\n\n\n\n\nCREATE %s\n\n\n\n", err)
+
+					return fmt.Errorf("failed to CREATE namespace %s object : %w", ns.Name, err)
+				}
+			}
+		}
+	}
+
 	err := a.cli.Get(ctx, types.NamespacedName{Namespace: a.wf.Namespace, Name: a.wf.Name}, obj)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -256,32 +293,6 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, g *v1alpha1.Applicat
 			ts = append(ts, t)
 		}
 
-		ns := corev1.Namespace{
-			TypeMeta: v1.TypeMeta{
-				Kind:       "Namespace",
-				APIVersion: "v1",
-			},
-			ObjectMeta: v1.ObjectMeta{
-				Name: app.Spec.HelmReleaseSpec.TargetNamespace,
-			},
-		}
-
-		// Create the namespace since helm-operator does not do this
-		err := a.cli.Get(ctx, types.NamespacedName{Name: ns.Name}, &ns)
-		if err != nil {
-			if errors.IsNotFound(err) {
-				err = controllerutil.SetControllerReference(g, &ns, a.scheme)
-				if err != nil {
-					return nil, fmt.Errorf("failed to set OwnerReference for Namespace %s : %w", ns.Name, err)
-				}
-
-				err = a.cli.Create(ctx, &ns)
-				if err != nil {
-					return nil, fmt.Errorf("failed to CREATE namespace %s object for application %s : %w", ns.Name, app.Name, err)
-				}
-			}
-		}
-
 		if !hasSubcharts {
 			hr := helmopv1.HelmRelease{
 				TypeMeta: v1.TypeMeta{
@@ -354,33 +365,6 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 			Dependencies: sc.Dependencies,
 		}
 
-		ns := corev1.Namespace{
-			TypeMeta: v1.TypeMeta{
-				Kind:       "Namespace",
-				APIVersion: "v1",
-			},
-			ObjectMeta: v1.ObjectMeta{
-				Name: hr.Spec.TargetNamespace,
-			},
-		}
-
-		// Create the namespace since helm-operator does not do this
-		err := a.cli.Get(ctx, types.NamespacedName{Name: ns.Name}, &ns)
-		if err != nil {
-			if errors.IsNotFound(err) {
-				// Add OwnershipReference
-				err = controllerutil.SetControllerReference(g, &ns, a.scheme)
-				if err != nil {
-					return nil, fmt.Errorf("failed to set OwnerReference for Namespace %s : %w", ns.Name, err)
-				}
-
-				err = a.cli.Create(ctx, &ns)
-				if err != nil {
-					return nil, fmt.Errorf("failed to CREATE namespace %s object for subchart %s : %w", ns.Name, sc.Name, err)
-				}
-			}
-		}
-
 		tasks = append(tasks, task)
 	}
 
@@ -406,33 +390,6 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 	for _, d := range app.Subcharts {
 		hr.Spec.Values.Data[d.Name] = map[string]interface{}{
 			"enabled": false,
-		}
-	}
-
-	ns := corev1.Namespace{
-		TypeMeta: v1.TypeMeta{
-			Kind:       "Namespace",
-			APIVersion: "v1",
-		},
-		ObjectMeta: v1.ObjectMeta{
-			Name: hr.Spec.TargetNamespace,
-		},
-	}
-
-	// Create the namespace since helm-operator does not do this
-	err := a.cli.Get(ctx, types.NamespacedName{Name: ns.Name}, &ns)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			// Add OwnershipReference
-			err = controllerutil.SetControllerReference(g, &ns, a.scheme)
-			if err != nil {
-				return nil, fmt.Errorf("failed to set OwnerReference for Namespace %s : %w", ns.Name, err)
-			}
-
-			err = a.cli.Create(ctx, &ns)
-			if err != nil {
-				return nil, fmt.Errorf("failed to CREATE namespace %s object for staged application %s : %w", ns.Name, app.Name, err)
-			}
 		}
 	}
 
