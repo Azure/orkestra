@@ -130,6 +130,7 @@ func (r *ApplicationGroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 			}
 
 			if appGroup.Status.Phase != v1alpha12.NodeSucceeded {
+				r.updateStatusAndEvent(ctx, appGroup, requeue, err)
 				return ctrl.Result{Requeue: true, RequeueAfter: requeueAfter}, nil
 			}
 
