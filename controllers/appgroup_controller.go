@@ -5,6 +5,7 @@ package controllers
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -29,9 +30,10 @@ import (
 )
 
 const (
-	appgroupNameKey = "appgroup"
-	finalizer       = "application-group-finalizer"
-	requeueAfter    = 5 * time.Second
+	appgroupNameKey                   = "appgroup"
+	finalizer                         = "application-group-finalizer"
+	requeueAfter                      = 5 * time.Second
+	lastSuccessfulApplicationGroupKey = "orkestra/last-successful-applicationgroup"
 )
 
 // ApplicationGroupReconciler reconciles a ApplicationGroup object
@@ -80,6 +82,12 @@ func (r *ApplicationGroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 		return ctrl.Result{}, err
 	}
 
+	if appGroup.GetAnnotations() != nil {
+		// TODO (nitishm) Use this in error remediation by reapplying last successful appgroup spec
+		// lastSuccessfulApplicationGroup := appGroup.Annotations[lastSuccessfulApplicationGroupKey]
+		_ = appGroup.Annotations[lastSuccessfulApplicationGroupKey]
+	}
+
 	// handle DELETE if deletion timestamp is non-zero
 	if !appGroup.DeletionTimestamp.IsZero() {
 		// If finalizer is found, remove it and requeue
@@ -115,9 +123,9 @@ func (r *ApplicationGroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 			}
 			appGroup.Status.Checksums = checksums
 			requeue, err = r.reconcile(ctx, logr, r.WorkflowNS, &appGroup)
-			defer r.updateStatusAndEvent(ctx, appGroup, requeue, err)
 			if err != nil {
 				logr.Error(err, "failed to reconcile ApplicationGroup instance")
+				r.updateStatusAndEvent(ctx, appGroup, requeue, err)
 				return ctrl.Result{Requeue: requeue}, err
 			}
 
@@ -125,6 +133,7 @@ func (r *ApplicationGroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 				return ctrl.Result{Requeue: true, RequeueAfter: requeueAfter}, nil
 			}
 
+			r.updateStatusAndEvent(ctx, appGroup, requeue, err)
 			return ctrl.Result{Requeue: false}, nil
 		}
 
@@ -196,6 +205,9 @@ func (r *ApplicationGroupReconciler) updateStatusAndEvent(ctx context.Context, g
 	_ = r.Status().Update(ctx, &grp)
 
 	if grp.Status.Phase == v1alpha12.NodeSucceeded {
+		b, _ := json.Marshal(&grp)
+		grp.SetAnnotations(map[string]string{lastSuccessfulApplicationGroupKey: string(b)})
+		_ = r.Update(ctx, &grp)
 		r.Recorder.Event(&grp, "Normal", "ReconcileSuccess", fmt.Sprintf("Successfully reconciled ApplicationGroup %s", grp.Name))
 	}
 
