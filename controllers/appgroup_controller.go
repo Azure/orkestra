@@ -60,6 +60,8 @@ type ApplicationGroupReconciler struct {
 
 	// Recorder generates kubernetes events
 	Recorder record.EventRecorder
+
+	lastSuccessfulApplicationGroup *orkestrav1alpha1.ApplicationGroup
 }
 
 // +kubebuilder:rbac:groups=orkestra.azure.microsoft.com,resources=applicationgroups,verbs=get;list;watch;create;update;patch;delete
@@ -83,16 +85,17 @@ func (r *ApplicationGroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 	}
 
 	if appGroup.GetAnnotations() != nil {
-		// TODO (nitishm) Use this in error remediation by reapplying last successful appgroup spec
-		// lastSuccessfulApplicationGroup := appGroup.Annotations[lastSuccessfulApplicationGroupKey]
-		_ = appGroup.Annotations[lastSuccessfulApplicationGroupKey]
+		last := &orkestrav1alpha1.ApplicationGroup{}
+		s := appGroup.Annotations[lastSuccessfulApplicationGroupKey]
+		_ = json.Unmarshal([]byte(s), last)
+		r.lastSuccessfulApplicationGroup = last
 	}
 
-	// handle DELETE if deletion timestamp is non-zero
+	// handle deletes if deletion timestamp is non-zero
 	if !appGroup.DeletionTimestamp.IsZero() {
 		// If finalizer is found, remove it and requeue
 		if appGroup.Finalizers != nil {
-			logr.Info("Cleaning up")
+			logr.Info("cleaning up the applicationgroup resource")
 			// TODO: Take remediation action
 			// Reverse the entire workflow to remove all the Helm Releases
 			appGroup.Finalizers = nil
@@ -113,7 +116,7 @@ func (r *ApplicationGroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	// handle UPDATE if checksum mismatched
+	// handle first time install and subsequent updates
 	checksums, err := pkg.Checksum(&appGroup)
 	if err != nil {
 		// TODO (nitishm) Handle different error types here to decide remediation action
@@ -121,26 +124,26 @@ func (r *ApplicationGroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 			if appGroup.Status.Checksums != nil {
 				appGroup.Status.Update = true
 			}
-			appGroup.Status.Checksums = checksums
 			requeue, err = r.reconcile(ctx, logr, r.WorkflowNS, &appGroup)
 			if err != nil {
 				logr.Error(err, "failed to reconcile ApplicationGroup instance")
-				r.updateStatusAndEvent(ctx, appGroup, requeue, err)
+				r.handleResponseAndEvent(ctx, appGroup, requeue, err)
 				return ctrl.Result{Requeue: requeue}, err
 			}
 
+			appGroup.Status.Checksums = checksums
+
 			if appGroup.Status.Phase != v1alpha12.NodeSucceeded {
-				r.updateStatusAndEvent(ctx, appGroup, requeue, err)
+				r.handleResponseAndEvent(ctx, appGroup, requeue, err)
 				return ctrl.Result{Requeue: true, RequeueAfter: requeueAfter}, nil
 			}
 
-			r.updateStatusAndEvent(ctx, appGroup, requeue, err)
-			return ctrl.Result{Requeue: false}, nil
+			r.handleResponseAndEvent(ctx, appGroup, requeue, err)
+			return ctrl.Result{Requeue: requeue}, err
 		}
 
-		appGroup.Status.Error = err.Error()
-		_ = r.Status().Update(ctx, &appGroup)
 		logr.Error(err, "failed to calculate checksum annotations for application group specs")
+		r.handleResponseAndEvent(ctx, appGroup, false, err)
 		return ctrl.Result{Requeue: false}, err
 	}
 
@@ -155,8 +158,7 @@ func (r *ApplicationGroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 	err = r.List(ctx, &wfs, listOption)
 	if err != nil {
 		logr.Error(err, "failed to find generate workflow instance")
-		appGroup.Status.Error = err.Error()
-		_ = r.Status().Update(ctx, &appGroup)
+		r.handleResponseAndEvent(ctx, appGroup, false, err)
 		return ctrl.Result{Requeue: false}, err
 	}
 
@@ -169,18 +171,16 @@ func (r *ApplicationGroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 	switch appGroup.Status.Phase {
 	case v1alpha12.NodeRunning, v1alpha12.NodePending:
 		logr.V(1).Info("workflow in pending/running state. requeue and reconcile after a short period")
-		_ = r.Status().Update(ctx, &appGroup)
+		r.handleResponseAndEvent(ctx, appGroup, true, nil)
 		return ctrl.Result{Requeue: true, RequeueAfter: requeueAfter}, nil
 	case v1alpha12.NodeSucceeded:
 		logr.V(1).Info("workflow ran to completion and succeeded")
-		appGroup.Status.Error = ""
-		r.updateStatusAndEvent(ctx, appGroup, false, nil)
+		r.handleResponseAndEvent(ctx, appGroup, false, nil)
 		return ctrl.Result{Requeue: false}, nil
 	case v1alpha12.NodeError, v1alpha12.NodeFailed:
 		err = fmt.Errorf("workflow in failure/error condition")
 		logr.Error(err, "workflow in failure/error condition")
-		appGroup.Status.Error = err.Error()
-		_ = r.Status().Update(ctx, &appGroup)
+		r.handleResponseAndEvent(ctx, appGroup, false, err)
 		return ctrl.Result{Requeue: false}, err
 	}
 
@@ -195,9 +195,11 @@ func (r *ApplicationGroupReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *ApplicationGroupReconciler) updateStatusAndEvent(ctx context.Context, grp orkestrav1alpha1.ApplicationGroup, requeue bool, err error) {
+func (r *ApplicationGroupReconciler) handleResponseAndEvent(ctx context.Context, grp orkestrav1alpha1.ApplicationGroup, requeue bool, err error) {
 	errStr := ""
 	if err != nil {
+		// Handle the error by remediating the workflow
+		r.handleRemediation(ctx, err)
 		errStr = err.Error()
 	}
 
@@ -206,9 +208,11 @@ func (r *ApplicationGroupReconciler) updateStatusAndEvent(ctx context.Context, g
 	_ = r.Status().Update(ctx, &grp)
 
 	if grp.Status.Phase == v1alpha12.NodeSucceeded {
+		// Annotate the resource with the last successful ApplicationGroup spec
 		b, _ := json.Marshal(&grp)
 		grp.SetAnnotations(map[string]string{lastSuccessfulApplicationGroupKey: string(b)})
 		_ = r.Update(ctx, &grp)
+
 		r.Recorder.Event(&grp, "Normal", "ReconcileSuccess", fmt.Sprintf("Successfully reconciled ApplicationGroup %s", grp.Name))
 	}
 
@@ -263,4 +267,11 @@ func initApplications(appGroup *orkestrav1alpha1.ApplicationGroup) {
 		v.Spec.Applications = append(v.Spec.Applications, app)
 	}
 	appGroup.Spec.Applications = v.DeepCopy().Spec.Applications
+}
+
+func (r *ApplicationGroupReconciler) handleRemediation(ctx context.Context, err error) {
+	if r.lastSuccessfulApplicationGroup != nil {
+		r.lastSuccessfulApplicationGroup.Status.Checksums = nil
+		_ = r.Update(ctx, r.lastSuccessfulApplicationGroup)
+	}
 }
