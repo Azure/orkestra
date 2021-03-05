@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"context"
+	kerrors "errors"
 	"fmt"
 	"os"
 	"strings"
@@ -29,6 +30,10 @@ const (
 	helmReleaseExecutor = "helmrelease-executor"
 
 	valuesKeyGlobal = "global"
+)
+
+var (
+	ErrNamespaceTerminating = kerrors.New("namespace is in terminating phase")
 )
 
 type argo struct {
@@ -122,7 +127,6 @@ func (a *argo) Submit(ctx context.Context, l logr.Logger, g *v1alpha1.Applicatio
 		// FIXME (nitishm) Handle namespace in termination state by requeueing
 		err := a.cli.Get(ctx, types.NamespacedName{Name: ns.Name}, &ns)
 		if err != nil {
-			fmt.Printf("\n\n\n\n\nGET %s\n\n\n\n", err)
 			if errors.IsNotFound(err) {
 				// Add OwnershipReference
 				err = controllerutil.SetControllerReference(g, &ns, a.scheme)
@@ -132,11 +136,13 @@ func (a *argo) Submit(ctx context.Context, l logr.Logger, g *v1alpha1.Applicatio
 
 				err = a.cli.Create(ctx, &ns)
 				if err != nil {
-					fmt.Printf("\n\n\n\n\nCREATE %s\n\n\n\n", err)
-
 					return fmt.Errorf("failed to CREATE namespace %s object : %w", ns.Name, err)
 				}
 			}
+		}
+
+		if ns.Status.Phase == corev1.NamespaceTerminating {
+			return ErrNamespaceTerminating
 		}
 	}
 
