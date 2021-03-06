@@ -42,9 +42,10 @@ type ApplicationSpec struct {
 
 // ChartStatus denotes the current status of the Application Reconciliation
 type ChartStatus struct {
-	Error   string `json:"error,omitempty"`
-	Version string `json:"version,omitempty"`
-	Staged  bool   `json:"staged,omitempty"`
+	Phase   helmopv1.HelmReleasePhase `json:"phase,omitempty"`
+	Error   string                    `json:"error,omitempty"`
+	Version string                    `json:"version,omitempty"`
+	Staged  bool                      `json:"staged,omitempty"`
 }
 
 // ApplicationGroupSpec defines the desired state of ApplicationGroup

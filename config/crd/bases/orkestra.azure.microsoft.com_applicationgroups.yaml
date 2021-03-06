@@ -374,6 +374,28 @@ spec:
                       type: string
                     name:
                       type: string
+                    phase:
+                      description: 'HelmReleasePhase represents the phase a HelmRelease
+                        is in. Valid HelmReleasePhase values are: "ChartFetched",
+                        "ChartFetchFailed", "Installing", "Upgrading", "Deployed",
+                        "DeployFailed", "Testing", "TestFailed", "Tested", "Succeeded",
+                        "Failed", "RollingBack", "RolledBack", "RollbackFailed",'
+                      enum:
+                      - ChartFetched
+                      - ChartFetchFailed
+                      - Installing
+                      - Upgrading
+                      - Deployed
+                      - DeployFailed
+                      - Testing
+                      - TestFailed
+                      - Tested
+                      - Succeeded
+                      - Failed
+                      - RollingBack
+                      - RolledBack
+                      - RollbackFailed
+                      type: string
                     staged:
                       type: boolean
                     subcharts:
@@ -382,6 +404,29 @@ spec:
                           Application Reconciliation
                         properties:
                           error:
+                            type: string
+                          phase:
+                            description: 'HelmReleasePhase represents the phase a
+                              HelmRelease is in. Valid HelmReleasePhase values are:
+                              "ChartFetched", "ChartFetchFailed", "Installing", "Upgrading",
+                              "Deployed", "DeployFailed", "Testing", "TestFailed",
+                              "Tested", "Succeeded", "Failed", "RollingBack", "RolledBack",
+                              "RollbackFailed",'
+                            enum:
+                            - ChartFetched
+                            - ChartFetchFailed
+                            - Installing
+                            - Upgrading
+                            - Deployed
+                            - DeployFailed
+                            - Testing
+                            - TestFailed
+                            - Tested
+                            - Succeeded
+                            - Failed
+                            - RollingBack
+                            - RolledBack
+                            - RollbackFailed
                             type: string
                           staged:
                             type: boolean
