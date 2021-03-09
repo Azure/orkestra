@@ -11,7 +11,6 @@ import (
 	orkestrav1alpha1 "github.com/Azure/Orkestra/api/v1alpha1"
 	"github.com/Azure/Orkestra/pkg/registry"
 	"github.com/Azure/Orkestra/pkg/workflow"
-	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
 	"github.com/go-logr/logr"
 )
 
@@ -194,7 +193,7 @@ func (r *ApplicationGroupReconciler) generateWorkflow(ctx context.Context, logr 
 		return false, err
 	}
 
-	g.Status.Phase = v1alpha12.NodePending
+	g.Status.Phase = orkestrav1alpha1.Init
 
 	return true, nil
 }

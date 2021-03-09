@@ -30,6 +30,7 @@ const (
 	helmReleaseExecutor = "helmrelease-executor"
 
 	valuesKeyGlobal = "global"
+	ChartLabelKey   = "chart"
 )
 
 var (
@@ -289,7 +290,7 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, g *v1alpha1.Applicat
 			}
 
 			t.DAG = &v1alpha12.DAGTemplate{}
-			tasks, err := a.generateSubchartAndAppDAGTasks(ctx, g, &app.Spec, appStatus, scStatus, repo, app.Spec.HelmReleaseSpec.TargetNamespace)
+			tasks, err := a.generateSubchartAndAppDAGTasks(ctx, g, &app, appStatus, scStatus, repo, app.Spec.HelmReleaseSpec.TargetNamespace)
 			if err != nil {
 				return nil, fmt.Errorf("failed to generate Application Template DAG tasks : %w", err)
 			}
@@ -312,6 +313,11 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, g *v1alpha1.Applicat
 				Spec: app.DeepCopy().Spec.HelmReleaseSpec,
 			}
 
+			hr.Labels = map[string]string{
+				ChartLabelKey:  app.Name,
+				OwnershipLabel: g.Name,
+				HeritageLabel:  Project,
+			}
 			// hr.Spec.RepoChartSource.RepoURL = repo
 
 			if appStatus.Staged {
@@ -344,21 +350,32 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, g *v1alpha1.Applicat
 	return ts, nil
 }
 
-func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.ApplicationGroup, app *v1alpha1.ApplicationSpec, status *v1alpha1.ChartStatus, subchartsStatus map[string]v1alpha1.ChartStatus, repo, targetNS string) ([]v1alpha12.DAGTask, error) {
+func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.ApplicationGroup, app *v1alpha1.Application, status *v1alpha1.ChartStatus, subchartsStatus map[string]v1alpha1.ChartStatus, repo, targetNS string) ([]v1alpha12.DAGTask, error) {
 	if repo == "" {
 		return nil, fmt.Errorf("repo arg must be a valid non-empty string")
 	}
 
 	// XXX (nitishm) Should this be set to nil if no subcharts are found??
-	tasks := make([]v1alpha12.DAGTask, 0, len(app.Subcharts)+1)
+	tasks := make([]v1alpha12.DAGTask, 0, len(app.Spec.Subcharts)+1)
 
-	for _, sc := range app.Subcharts {
-		isStaged := subchartsStatus[sc.Name].Staged
-		version := subchartsStatus[sc.Name].Version
+	for _, sc := range app.Spec.Subcharts {
+		scName := sc.Name
 
-		hr := generateSubchartHelmRelease(app.HelmReleaseSpec, sc.Name, version, repo, targetNS, isStaged)
+		isStaged := subchartsStatus[scName].Staged
+		version := subchartsStatus[scName].Version
+
+		hr := generateSubchartHelmRelease(app.Spec.HelmReleaseSpec, app.Name, scName, version, repo, targetNS, isStaged)
+		hr.Annotations = map[string]string{
+			"orkestra/parent-chart": app.Name,
+		}
+		hr.Labels = map[string]string{
+			ChartLabelKey:  app.Name,
+			OwnershipLabel: g.Name,
+			HeritageLabel:  Project,
+		}
+
 		task := v1alpha12.DAGTask{
-			Name:     convertToDNS1123(sc.Name),
+			Name:     convertToDNS1123(scName),
 			Template: helmReleaseExecutor,
 			Arguments: v1alpha12.Arguments{
 				Parameters: []v1alpha12.Parameter{
@@ -381,19 +398,24 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 		},
 		ObjectMeta: v1.ObjectMeta{
 			Name:      convertToDNS1123(app.Name),
-			Namespace: app.HelmReleaseSpec.TargetNamespace,
+			Namespace: app.Spec.HelmReleaseSpec.TargetNamespace,
 		},
-		Spec: app.DeepCopy().HelmReleaseSpec,
+		Spec: app.Spec.DeepCopy().HelmReleaseSpec,
 	}
 
-	// staging repo instead of the primary repo
+	hr.Labels = map[string]string{
+		ChartLabelKey:  app.Name,
+		OwnershipLabel: g.Name,
+		HeritageLabel:  Project,
+	}
+
 	hr.Spec.RepoURL = repo
 
 	// Force disable all subchart for the staged application chart
 	// to prevent duplication and possible collision of deployed resources
 	// Since the subchart should have been deployed in a prior DAG step,
 	// we must not redeploy it along with the parent application chart.
-	for _, d := range app.Subcharts {
+	for _, d := range app.Spec.Subcharts {
 		hr.Spec.Values.Data[d.Name] = map[string]interface{}{
 			"enabled": false,
 		}
@@ -447,6 +469,7 @@ func defaultExecutor() v1alpha12.Template {
 			Action:           "apply",
 			Manifest:         "{{inputs.parameters.helmrelease}}",
 			SuccessCondition: "status.phase == Succeeded",
+			FailureCondition: "status.phase == Failed",
 		},
 	}
 }
@@ -464,14 +487,14 @@ func hrToYAML(hr helmopv1.HelmRelease) string {
 	return string(b)
 }
 
-func generateSubchartHelmRelease(a helmopv1.HelmReleaseSpec, sc, version, repo, targetNS string, isStaged bool) helmopv1.HelmRelease {
+func generateSubchartHelmRelease(a helmopv1.HelmReleaseSpec, appName, scName, version, repo, targetNS string, isStaged bool) helmopv1.HelmRelease {
 	hr := helmopv1.HelmRelease{
 		TypeMeta: v1.TypeMeta{
 			Kind:       "HelmRelease",
 			APIVersion: "helm.fluxcd.io/v1",
 		},
 		ObjectMeta: v1.ObjectMeta{
-			Name:      convertToDNS1123(sc),
+			Name:      convertToDNS1123(appName + "-sub-" + scName),
 			Namespace: targetNS,
 		},
 		Spec: helmopv1.HelmReleaseSpec{
@@ -482,14 +505,15 @@ func generateSubchartHelmRelease(a helmopv1.HelmReleaseSpec, sc, version, repo, 
 		},
 	}
 
+	// NOTE: Ownership label is added in the caller function
 	hr.Spec.ChartSource.RepoChartSource = a.DeepCopy().RepoChartSource
-	hr.Spec.ChartSource.RepoChartSource.Name = sc
+	hr.Spec.ChartSource.RepoChartSource.Name = scName
 
 	if isStaged {
 		hr.Spec.ChartSource.RepoChartSource.RepoURL = repo
 	}
 	hr.Spec.ChartSource.RepoChartSource.Version = version
-	hr.Spec.Values = subchartValues(sc, a.Values)
+	hr.Spec.Values = subchartValues(scName, a.Values)
 
 	return hr
 }

@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	appGroupCsumKey = "application-group-spec"
+	AppGroupCsumKey = "application-group-spec"
 )
 
 var (
@@ -30,13 +30,13 @@ func Checksum(ag *v1alpha1.ApplicationGroup) (map[string]string, error) {
 		return nil, fmt.Errorf("%s : %w", err.Error(), ErrChecksumGenerateFailure)
 	}
 
-	csum[appGroupCsumKey] = h
+	csum[AppGroupCsumKey] = h
 
 	if ag.Status.Checksums == nil {
 		return csum, ErrChecksumAppGroupSpecMismatch
 	}
 
-	if csum[appGroupCsumKey] != ag.Status.Checksums[appGroupCsumKey] {
+	if csum[AppGroupCsumKey] != ag.Status.Checksums[AppGroupCsumKey] {
 		return csum, ErrChecksumAppGroupSpecMismatch
 	}
 

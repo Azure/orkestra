@@ -27,6 +27,7 @@ spec:
           zookeerper:
             enabled: true
         targetNamespace: "kafka-dev-ns"
+        forceUpgrade: true
     - name: redis-dev
       spec:
         namespace: "orkestra"
@@ -46,6 +47,7 @@ spec:
             persistence: 
               size: 4Gi
         targetNamespace: "redis-dev-ns"
+        forceUpgrade: true
 
 # TODO (nitishm) - define these fields using Argo Workflow spec
 #  strategy:

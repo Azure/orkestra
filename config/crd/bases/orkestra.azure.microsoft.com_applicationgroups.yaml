@@ -364,8 +364,6 @@ spec:
               error:
                 type: string
               phase:
-                description: NodePhase is a label for the condition of a node at the
-                  current time.
                 type: string
               status:
                 items:
@@ -373,6 +371,28 @@ spec:
                     error:
                       type: string
                     name:
+                      type: string
+                    phase:
+                      description: 'HelmReleasePhase represents the phase a HelmRelease
+                        is in. Valid HelmReleasePhase values are: "ChartFetched",
+                        "ChartFetchFailed", "Installing", "Upgrading", "Deployed",
+                        "DeployFailed", "Testing", "TestFailed", "Tested", "Succeeded",
+                        "Failed", "RollingBack", "RolledBack", "RollbackFailed",'
+                      enum:
+                      - ChartFetched
+                      - ChartFetchFailed
+                      - Installing
+                      - Upgrading
+                      - Deployed
+                      - DeployFailed
+                      - Testing
+                      - TestFailed
+                      - Tested
+                      - Succeeded
+                      - Failed
+                      - RollingBack
+                      - RolledBack
+                      - RollbackFailed
                       type: string
                     staged:
                       type: boolean
@@ -382,6 +402,29 @@ spec:
                           Application Reconciliation
                         properties:
                           error:
+                            type: string
+                          phase:
+                            description: 'HelmReleasePhase represents the phase a
+                              HelmRelease is in. Valid HelmReleasePhase values are:
+                              "ChartFetched", "ChartFetchFailed", "Installing", "Upgrading",
+                              "Deployed", "DeployFailed", "Testing", "TestFailed",
+                              "Tested", "Succeeded", "Failed", "RollingBack", "RolledBack",
+                              "RollbackFailed",'
+                            enum:
+                            - ChartFetched
+                            - ChartFetchFailed
+                            - Installing
+                            - Upgrading
+                            - Deployed
+                            - DeployFailed
+                            - Testing
+                            - TestFailed
+                            - Tested
+                            - Succeeded
+                            - Failed
+                            - RollingBack
+                            - RolledBack
+                            - RollbackFailed
                             type: string
                           staged:
                             type: boolean

@@ -17,6 +17,7 @@ import (
 	"github.com/Azure/Orkestra/pkg/registry"
 	"github.com/Azure/Orkestra/pkg/workflow"
 	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
+	helmopv1 "github.com/fluxcd/helm-operator/pkg/apis/helm.fluxcd.io/v1"
 	"github.com/go-logr/logr"
 	"helm.sh/helm/v3/pkg/chart"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -25,6 +26,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	orkestrav1alpha1 "github.com/Azure/Orkestra/api/v1alpha1"
 )
@@ -34,6 +36,11 @@ const (
 	finalizer                         = "application-group-finalizer"
 	requeueAfter                      = 5 * time.Second
 	lastSuccessfulApplicationGroupKey = "orkestra/last-successful-applicationgroup"
+)
+
+var (
+	ErrWorkflowInFailureStatus    = errors.New("workflow in failure status")
+	ErrHelmReleaseInFailureStatus = errors.New("helmrelease in failure status")
 )
 
 // ApplicationGroupReconciler reconciles a ApplicationGroup object
@@ -116,10 +123,23 @@ func (r *ApplicationGroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 		return ctrl.Result{Requeue: true}, nil
 	}
 
+	if appGroup.Status.Phase == orkestrav1alpha1.Rollback {
+		logr.Info("Rolling back to last successful application group spec")
+		appGroup.Spec = r.lastSuccessfulApplicationGroup.DeepCopy().Spec
+		err = r.Update(ctx, &appGroup)
+		if err != nil {
+			logr.Error(err, "failed to update ApplicationGroup instance while rolling back")
+			return r.handleResponseAndEvent(ctx, logr, appGroup, requeue, err)
+		}
+		appGroup.Status.Phase = ""
+		requeue = true
+		err = nil
+		return r.handleResponseAndEvent(ctx, logr, appGroup, requeue, err)
+	}
+
 	// handle first time install and subsequent updates
 	checksums, err := pkg.Checksum(&appGroup)
 	if err != nil {
-		// TODO (nitishm) Handle different error types here to decide remediation action
 		if errors.Is(err, pkg.ErrChecksumAppGroupSpecMismatch) {
 			if appGroup.Status.Checksums != nil {
 				appGroup.Status.Update = true
@@ -127,24 +147,34 @@ func (r *ApplicationGroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 			requeue, err = r.reconcile(ctx, logr, r.WorkflowNS, &appGroup)
 			if err != nil {
 				logr.Error(err, "failed to reconcile ApplicationGroup instance")
-				r.handleResponseAndEvent(ctx, appGroup, requeue, err)
-				return ctrl.Result{Requeue: requeue}, err
+				return r.handleResponseAndEvent(ctx, logr, appGroup, requeue, err)
 			}
 
 			appGroup.Status.Checksums = checksums
 
-			if appGroup.Status.Phase != v1alpha12.NodeSucceeded {
-				r.handleResponseAndEvent(ctx, appGroup, requeue, err)
-				return ctrl.Result{Requeue: true, RequeueAfter: requeueAfter}, nil
+			switch appGroup.Status.Phase {
+			case orkestrav1alpha1.Init, orkestrav1alpha1.Running:
+				logr.V(1).Info("workflow in init/running state. requeue and reconcile after a short period")
+				requeue = true
+				err = nil
+			case orkestrav1alpha1.Succeeded:
+				logr.V(1).Info("workflow ran to completion and succeeded")
+				requeue = false
+				err = nil
+			case orkestrav1alpha1.Error:
+				requeue = false
+				err = fmt.Errorf("workflow in failure/error condition")
+				logr.Error(err, "workflow in failure/error condition")
+			default:
+				requeue = false
+				err = nil
 			}
 
-			r.handleResponseAndEvent(ctx, appGroup, requeue, err)
-			return ctrl.Result{Requeue: requeue}, err
+			return r.handleResponseAndEvent(ctx, logr, appGroup, requeue, err)
 		}
 
 		logr.Error(err, "failed to calculate checksum annotations for application group specs")
-		r.handleResponseAndEvent(ctx, appGroup, false, err)
-		return ctrl.Result{Requeue: false}, err
+		return r.handleResponseAndEvent(ctx, logr, appGroup, requeue, err)
 	}
 
 	appGroup.Status.Checksums = checksums
@@ -157,34 +187,96 @@ func (r *ApplicationGroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 	}
 	err = r.List(ctx, &wfs, listOption)
 	if err != nil {
-		logr.Error(err, "failed to find generate workflow instance")
-		r.handleResponseAndEvent(ctx, appGroup, false, err)
-		return ctrl.Result{Requeue: false}, err
+		logr.Error(err, "failed to find generated workflow instance")
+		requeue = false
+		return r.handleResponseAndEvent(ctx, logr, appGroup, requeue, err)
 	}
 
-	if wfs.Items.Len() > 0 {
-		appGroup.Status.Phase = wfs.Items[0].Status.Phase
+	if wfs.Items.Len() == 0 {
+		// appGroup.Status.Phase = wfs.Items[0].Status.Phase
+		err = fmt.Errorf("listed workflows len is 0")
+		logr.Error(err, "no associated workflow found")
+		requeue = false
+		return r.handleResponseAndEvent(ctx, logr, appGroup, requeue, err)
 	}
 
-	logr = logr.WithValues("phase", appGroup.Status.Phase, "status-error", appGroup.Status.Error)
+	var phase orkestrav1alpha1.ReconciliationPhase
+	wfStatus := wfs.Items[0].Status.Phase
+	switch wfStatus {
+	case v1alpha12.NodeError, v1alpha12.NodeFailed:
+		phase = orkestrav1alpha1.Error
+	case v1alpha12.NodePending, v1alpha12.NodeRunning:
+		phase = orkestrav1alpha1.Running
+	case v1alpha12.NodeSucceeded:
+		phase = orkestrav1alpha1.Succeeded
+		// case v1alpha12.NodeSkipped:
+		// 	phase = orkestrav1alpha1.Succeeded
+	}
+
+	appGroup.Status.Phase = phase
+
+	helmReleaseStatusMap := make(map[string]helmopv1.HelmReleasePhase)
+
+	// XXX (nitishm) Not sure why this happens ???
+	// Lookup all associated HelmReleases for status as well since the Workflow will not always reflect the status of the HelmRelease
+	// Lookup Workflow by ownership and heritage labels
+	helmReleases := helmopv1.HelmReleaseList{}
+	err = r.List(ctx, &helmReleases, listOption)
+	if err != nil {
+		logr.Error(err, "failed to find generated HelmRelease instance")
+		requeue = false
+		return r.handleResponseAndEvent(ctx, logr, appGroup, requeue, err)
+	}
+
+	for _, hr := range helmReleases.Items {
+		name := hr.Name
+		if v, ok := hr.GetAnnotations()["orkestra/parent-chart"]; ok {
+			// Use the parent charts name
+			name = v
+		}
+		// XXX (nitishm) Needs more thought and testing
+		if _, ok := helmReleaseStatusMap[name]; ok {
+			if hr.Status.Phase != helmopv1.HelmReleasePhaseSucceeded {
+				helmReleaseStatusMap[name] = hr.Status.Phase
+			}
+		} else {
+			helmReleaseStatusMap[name] = hr.Status.Phase
+		}
+	}
+
+	v := make([]orkestrav1alpha1.ApplicationStatus, 0)
+	for _, app := range appGroup.Status.Applications {
+		app.ChartStatus.Phase = helmReleaseStatusMap[app.Name]
+		v = append(v, app)
+	}
+	appGroup.Status.Applications = v
+
+	// This is the cumulative status from the workflow phase and the helmrelease object statuses
+	err = componentStatus(phase, helmReleaseStatusMap)
+	if err != nil {
+		// Any error arising from the workflow or the helmreleases should be marked as a NodeError
+		appGroup.Status.Phase = orkestrav1alpha1.Error
+	}
 
 	switch appGroup.Status.Phase {
-	case v1alpha12.NodeRunning, v1alpha12.NodePending:
-		logr.V(1).Info("workflow in pending/running state. requeue and reconcile after a short period")
-		r.handleResponseAndEvent(ctx, appGroup, true, nil)
-		return ctrl.Result{Requeue: true, RequeueAfter: requeueAfter}, nil
-	case v1alpha12.NodeSucceeded:
+	case orkestrav1alpha1.Running, orkestrav1alpha1.Init:
+		logr.V(1).Info("workflow in init/running state. requeue and reconcile after a short period")
+		requeue = true
+		err = nil
+	case orkestrav1alpha1.Succeeded:
 		logr.V(1).Info("workflow ran to completion and succeeded")
-		r.handleResponseAndEvent(ctx, appGroup, false, nil)
-		return ctrl.Result{Requeue: false}, nil
-	case v1alpha12.NodeError, v1alpha12.NodeFailed:
-		err = fmt.Errorf("workflow in failure/error condition")
-		logr.Error(err, "workflow in failure/error condition")
-		r.handleResponseAndEvent(ctx, appGroup, false, err)
-		return ctrl.Result{Requeue: false}, err
+		requeue = false
+		err = nil
+	case orkestrav1alpha1.Error:
+		requeue = false
+		err = fmt.Errorf("workflow in failure/error condition : %w", err)
+		logr.Error(err, "")
+	default:
+		requeue = false
+		err = nil
 	}
 
-	return ctrl.Result{Requeue: false}, nil
+	return r.handleResponseAndEvent(ctx, logr, appGroup, requeue, err)
 }
 
 func (r *ApplicationGroupReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -195,11 +287,10 @@ func (r *ApplicationGroupReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *ApplicationGroupReconciler) handleResponseAndEvent(ctx context.Context, grp orkestrav1alpha1.ApplicationGroup, requeue bool, err error) {
-	errStr := ""
+func (r *ApplicationGroupReconciler) handleResponseAndEvent(ctx context.Context, logr logr.Logger, grp orkestrav1alpha1.ApplicationGroup, requeue bool, err error) (ctrl.Result, error) {
+	var errStr string
+
 	if err != nil {
-		// Handle the error by remediating the workflow
-		r.handleRemediation(ctx, err)
 		errStr = err.Error()
 	}
 
@@ -207,10 +298,11 @@ func (r *ApplicationGroupReconciler) handleResponseAndEvent(ctx context.Context,
 
 	_ = r.Status().Update(ctx, &grp)
 
-	if grp.Status.Phase == v1alpha12.NodeSucceeded {
+	if grp.Status.Phase == orkestrav1alpha1.Succeeded {
 		// Annotate the resource with the last successful ApplicationGroup spec
 		b, _ := json.Marshal(&grp)
 		grp.SetAnnotations(map[string]string{lastSuccessfulApplicationGroupKey: string(b)})
+		r.lastSuccessfulApplicationGroup = grp.DeepCopy()
 		_ = r.Update(ctx, &grp)
 
 		r.Recorder.Event(&grp, "Normal", "ReconcileSuccess", fmt.Sprintf("Successfully reconciled ApplicationGroup %s", grp.Name))
@@ -219,6 +311,14 @@ func (r *ApplicationGroupReconciler) handleResponseAndEvent(ctx context.Context,
 	if errStr != "" {
 		r.Recorder.Event(&grp, "Warning", "ReconcileError", fmt.Sprintf("Failed to reconcile ApplicationGroup %s with Error %s", grp.Name, errStr))
 	}
+
+	if err != nil {
+		return r.handleRemediation(ctx, logr, grp, err)
+	}
+	if !requeue {
+		return reconcile.Result{Requeue: true, RequeueAfter: requeueAfter * 6}, err
+	}
+	return reconcile.Result{Requeue: requeue}, err
 }
 
 func isDependenciesEmbedded(ch *chart.Chart) bool {
@@ -269,9 +369,65 @@ func initApplications(appGroup *orkestrav1alpha1.ApplicationGroup) {
 	appGroup.Spec.Applications = v.DeepCopy().Spec.Applications
 }
 
-func (r *ApplicationGroupReconciler) handleRemediation(ctx context.Context, err error) {
+func (r *ApplicationGroupReconciler) handleRemediation(ctx context.Context, logr logr.Logger, g orkestrav1alpha1.ApplicationGroup, err error) (ctrl.Result, error) {
 	if r.lastSuccessfulApplicationGroup != nil {
-		r.lastSuccessfulApplicationGroup.Status.Checksums = nil
-		_ = r.Update(ctx, r.lastSuccessfulApplicationGroup)
+		if errors.Is(err, ErrHelmReleaseInFailureStatus) {
+			// Delete the HelmRelease(s) - parent and subchart(s)
+			// Lookup charts using the label selector.
+			// Example: chart=kafka-dev,heritage=orkestra,owner=dev, where chart=<top-level-chart>
+			logr.Info("Remediating the applicationgroup with helmrelease failure status")
+			for _, app := range g.Status.Applications {
+				switch app.ChartStatus.Phase {
+				case helmopv1.HelmReleasePhaseFailed, helmopv1.HelmReleasePhaseDeployFailed, helmopv1.HelmReleasePhaseChartFetchFailed, helmopv1.HelmReleasePhaseTestFailed, helmopv1.HelmReleasePhaseRollbackFailed:
+					listOption := client.MatchingLabels{
+						workflow.OwnershipLabel: g.Name,
+						workflow.HeritageLabel:  workflow.Project,
+						workflow.ChartLabelKey:  app.Name,
+					}
+					helmReleases := helmopv1.HelmReleaseList{}
+					err = r.List(ctx, &helmReleases, listOption)
+					if err != nil {
+						logr.Error(err, "failed to find generated HelmRelease instances")
+						return reconcile.Result{Requeue: false}, err
+					}
+
+					err = r.rollbackFailedHelmReleases(ctx, helmReleases.Items)
+					if err != nil {
+						logr.Error(err, "failed to rollback failed HelmRelease instances")
+						return reconcile.Result{Requeue: false}, err
+					}
+
+					g.Status.Phase = orkestrav1alpha1.Rollback
+					_ = r.Status().Update(ctx, &g)
+
+					return reconcile.Result{Requeue: true, RequeueAfter: requeueAfter * 3}, nil
+				}
+			}
+		}
 	}
+	return reconcile.Result{Requeue: false}, err
+}
+
+func componentStatus(phase orkestrav1alpha1.ReconciliationPhase, apps map[string]helmopv1.HelmReleasePhase) error {
+	for _, v := range apps {
+		switch v {
+		case helmopv1.HelmReleasePhaseFailed, helmopv1.HelmReleasePhaseDeployFailed, helmopv1.HelmReleasePhaseChartFetchFailed, helmopv1.HelmReleasePhaseTestFailed, helmopv1.HelmReleasePhaseRollbackFailed:
+			return ErrHelmReleaseInFailureStatus
+		}
+	}
+
+	if phase == orkestrav1alpha1.Error {
+		return ErrWorkflowInFailureStatus
+	}
+
+	return nil
+}
+
+func (r *ApplicationGroupReconciler) rollbackFailedHelmReleases(ctx context.Context, hrs []helmopv1.HelmRelease) error {
+	for _, hr := range hrs {
+		// HACK - to be fixed
+		_ = r.Delete(ctx, &hr)
+		// TODO (nitishm) Use the helm package to rollback the release instead of deleting it
+	}
+	return nil
 }
