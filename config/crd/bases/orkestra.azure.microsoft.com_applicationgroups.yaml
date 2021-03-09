@@ -364,8 +364,6 @@ spec:
               error:
                 type: string
               phase:
-                description: NodePhase is a label for the condition of a node at the
-                  current time.
                 type: string
               status:
                 items:

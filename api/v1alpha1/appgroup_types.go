@@ -4,7 +4,6 @@
 package v1alpha1
 
 import (
-	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
 	helmopv1 "github.com/fluxcd/helm-operator/pkg/apis/helm.fluxcd.io/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -68,11 +67,21 @@ type ApplicationStatus struct {
 	Subcharts   map[string]ChartStatus `json:"subcharts,omitempty"`
 }
 
+type ReconciliationPhase string
+
+const (
+	Init      ReconciliationPhase = "Init"
+	Running   ReconciliationPhase = "Running"
+	Succeeded ReconciliationPhase = "Succeeded"
+	Error     ReconciliationPhase = "Error"
+	Rollback  ReconciliationPhase = "Rollback"
+)
+
 // ApplicationGroupStatus defines the observed state of ApplicationGroup
 type ApplicationGroupStatus struct {
 	Checksums    map[string]string   `json:"checksums,omitempty"`
 	Applications []ApplicationStatus `json:"status,omitempty"`
-	Phase        v1alpha12.NodePhase `json:"phase,omitempty"`
+	Phase        ReconciliationPhase `json:"phase,omitempty"`
 	Update       bool                `json:"update,omitempty"`
 	Error        string              `json:"error,omitempty"`
 }
