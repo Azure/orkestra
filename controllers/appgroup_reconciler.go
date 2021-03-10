@@ -12,12 +12,24 @@ import (
 	"github.com/Azure/Orkestra/pkg/registry"
 	"github.com/Azure/Orkestra/pkg/workflow"
 	"github.com/go-logr/logr"
+	"helm.sh/helm/v3/pkg/chart"
 )
 
 var (
 	ErrInvalidSpec = fmt.Errorf("custom resource spec is invalid")
 	// ErrRequeue describes error while requeuing
 	ErrRequeue = fmt.Errorf("(transitory error) Requeue-ing resource to try again")
+
+	dummyConfigmapYAMLSpec = `apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-dummy
+  namespace: {{ .Release.Namespace }} 
+data:
+  name: {{ .Chart.Name }}
+  version : {{ .Chart.Version }}
+`
+	dummyConfigmapYAMLName = "templates/dummy-configmap.yaml"
 )
 
 func (r *ApplicationGroupReconciler) reconcile(ctx context.Context, l logr.Logger, ns string, appGroup *orkestrav1alpha1.ApplicationGroup) (bool, error) {
@@ -140,6 +152,18 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 				appCh.Values[dep.Name] = map[string]interface{}{
 					"enabled": false,
 				}
+			}
+
+			// If the parent chart doesnt contain any templates and all subcharts (if any) have been disabled we must create a dummy yaml to circumvent https://github.com/helm/helm/issues/4670
+			if appCh.Templates == nil || len(appCh.Templates) == 0 {
+				if appCh.Templates == nil {
+					appCh.Templates = make([]*chart.File, 0)
+				}
+				dummy := &chart.File{
+					Name: dummyConfigmapYAMLName,
+					Data: []byte(dummyConfigmapYAMLSpec),
+				}
+				appCh.Templates = append(appCh.Templates, dummy)
 			}
 
 			if err := appCh.Validate(); err != nil {
