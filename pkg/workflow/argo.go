@@ -265,7 +265,7 @@ func updateAppGroupDAG(g *v1alpha1.ApplicationGroup, entry *v1alpha12.Template, 
 		entry.DAG.Tasks[i] = v1alpha12.DAGTask{
 			Name:         convertToDNS1123(tpl.Name),
 			Template:     convertToDNS1123(tpl.Name),
-			Dependencies: g.Spec.Applications[i].Dependencies,
+			Dependencies: convertSliceToDNS1123(g.Spec.Applications[i].Dependencies),
 		}
 	}
 
@@ -385,7 +385,7 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 					},
 				},
 			},
-			Dependencies: sc.Dependencies,
+			Dependencies: convertSliceToDNS1123(sc.Dependencies),
 		}
 
 		tasks = append(tasks, task)
@@ -434,7 +434,7 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 		},
 		Dependencies: func() (out []string) {
 			for _, t := range tasks {
-				out = append(out, t.Name)
+				out = append(out, convertToDNS1123(t.Name))
 			}
 			return out
 		}(),
@@ -549,4 +549,12 @@ func defaultNamespace() string {
 
 func convertToDNS1123(in string) string {
 	return strings.ReplaceAll(in, "_", "-")
+}
+
+func convertSliceToDNS1123(in []string) []string {
+	out := []string{}
+	for _, s := range in {
+		out = append(out, convertToDNS1123(s))
+	}
+	return out
 }
