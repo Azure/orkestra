@@ -244,10 +244,6 @@ func templatesContainsYAML(ch *chart.Chart) (bool, error) {
 		return false, fmt.Errorf("chart cannot be nil")
 	}
 
-	if ch.Templates == nil || len(ch.Templates) == 0 {
-		return false, fmt.Errorf("templates dir cannot be nil or empty")
-	}
-
 	for _, f := range ch.Templates {
 		if strings.Contains(f.Name, ".yaml") {
 			return true, nil
