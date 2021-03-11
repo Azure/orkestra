@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"strings"
 
 	"fmt"
 
@@ -154,8 +155,17 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 				}
 			}
 
+			templateHasYAML, err := templatesContainsYAML(appCh)
+			if err != nil {
+				ll.Error(err, "chart templates directory yaml check failed")
+				err = fmt.Errorf("chart templates directory yaml check failed : %w", err)
+				appGroup.Status.Error = err.Error()
+				appGroup.Status.Applications[i].ChartStatus.Error = err.Error()
+				return err
+			}
+
 			// If the parent chart doesnt contain any templates and all subcharts (if any) have been disabled we must create a dummy yaml to circumvent https://github.com/helm/helm/issues/4670
-			if appCh.Templates == nil || len(appCh.Templates) == 0 {
+			if appCh.Templates == nil || len(appCh.Templates) == 0 || !templateHasYAML {
 				if appCh.Templates == nil {
 					appCh.Templates = make([]*chart.File, 0)
 				}
@@ -174,7 +184,7 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 				return err
 			}
 
-			_, err := registry.SaveChartPackage(appCh, stagingDir)
+			_, err = registry.SaveChartPackage(appCh, stagingDir)
 			if err != nil {
 				ll.Error(err, "failed to save modified app chart to filesystem")
 				err = fmt.Errorf("failed to save modified app chart to filesystem : %w", err)
@@ -227,4 +237,21 @@ func defaultNamespace() string {
 		return ns
 	}
 	return "orkestra"
+}
+
+func templatesContainsYAML(ch *chart.Chart) (bool, error) {
+	if ch == nil {
+		return false, fmt.Errorf("chart cannot be nil")
+	}
+
+	if ch.Templates == nil || len(ch.Templates) == 0 {
+		return false, fmt.Errorf("templates dir cannot be nil or empty")
+	}
+
+	for _, f := range ch.Templates {
+		if strings.Contains(f.Name, ".yaml") {
+			return true, nil
+		}
+	}
+	return false, nil
 }
