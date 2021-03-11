@@ -313,6 +313,8 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, g *v1alpha1.Applicat
 				Spec: app.DeepCopy().Spec.HelmReleaseSpec,
 			}
 
+			hr.Spec.ReleaseName = convertToDNS1123(app.Name)
+
 			hr.Labels = map[string]string{
 				ChartLabelKey:  app.Name,
 				OwnershipLabel: g.Name,
@@ -402,6 +404,8 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 		},
 		Spec: app.Spec.DeepCopy().HelmReleaseSpec,
 	}
+
+	hr.Spec.ReleaseName = convertToDNS1123(app.Name)
 
 	hr.Labels = map[string]string{
 		ChartLabelKey:  app.Name,
@@ -498,6 +502,7 @@ func generateSubchartHelmRelease(a helmopv1.HelmReleaseSpec, appName, scName, ve
 			Namespace: targetNS,
 		},
 		Spec: helmopv1.HelmReleaseSpec{
+			ReleaseName: convertToDNS1123(scName),
 			ChartSource: helmopv1.ChartSource{
 				RepoChartSource: &helmopv1.RepoChartSource{},
 			},
