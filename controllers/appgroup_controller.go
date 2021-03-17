@@ -102,12 +102,24 @@ func (r *ApplicationGroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 	if !appGroup.DeletionTimestamp.IsZero() {
 		// If finalizer is found, remove it and requeue
 		if appGroup.Finalizers != nil {
+			defer func() {
+				appGroup.Finalizers = nil
+				_ = r.Update(ctx, &appGroup)
+			}()
+
 			logr.Info("cleaning up the applicationgroup resource")
-			// TODO: Take remediation action
+
 			// Reverse the entire workflow to remove all the Helm Releases
-			appGroup.Finalizers = nil
-			_ = r.Update(ctx, &appGroup)
-			return ctrl.Result{Requeue: true}, nil
+			r.lastSuccessfulApplicationGroup = nil
+			if _, ok := appGroup.Annotations[lastSuccessfulApplicationGroupKey]; ok {
+				appGroup.Annotations[lastSuccessfulApplicationGroupKey] = ""
+			}
+			requeue = false
+			err = r.cleanupWorkflow(ctx, logr, appGroup)
+			if err != nil {
+				logr.Error(err, "failed to clean up workflow")
+				return r.handleResponseAndEvent(ctx, logr, appGroup, requeue, err)
+			}
 		}
 		// Do nothing
 		return ctrl.Result{Requeue: false}, nil
@@ -290,10 +302,6 @@ func (r *ApplicationGroupReconciler) SetupWithManager(mgr ctrl.Manager) error {
 func (r *ApplicationGroupReconciler) handleResponseAndEvent(ctx context.Context, logr logr.Logger, grp orkestrav1alpha1.ApplicationGroup, requeue bool, err error) (ctrl.Result, error) {
 	var errStr string
 
-	if err != nil {
-		errStr = err.Error()
-	}
-
 	grp.Status.Error = errStr
 
 	_ = r.Status().Update(ctx, &grp)
@@ -309,14 +317,14 @@ func (r *ApplicationGroupReconciler) handleResponseAndEvent(ctx context.Context,
 	}
 
 	if errStr != "" {
-		r.Recorder.Event(&grp, "Warning", "ReconcileError", fmt.Sprintf("Failed to reconcile ApplicationGroup %s with Error %s", grp.Name, errStr))
+		r.Recorder.Event(&grp, "Warning", "ReconcileError", fmt.Sprintf("Failed to reconcile ApplicationGroup %s with Error : %s", grp.Name, errStr))
 	}
 
 	if err != nil {
 		return r.handleRemediation(ctx, logr, grp, err)
 	}
 	if !requeue {
-		return reconcile.Result{Requeue: true, RequeueAfter: requeueAfter * 6}, err
+		return reconcile.Result{Requeue: true, RequeueAfter: requeueAfter * 3}, err
 	}
 	return reconcile.Result{Requeue: requeue}, err
 }
@@ -370,6 +378,7 @@ func initApplications(appGroup *orkestrav1alpha1.ApplicationGroup) {
 }
 
 func (r *ApplicationGroupReconciler) handleRemediation(ctx context.Context, logr logr.Logger, g orkestrav1alpha1.ApplicationGroup, err error) (ctrl.Result, error) {
+	// Rollback to previous successful spec
 	if r.lastSuccessfulApplicationGroup != nil {
 		if errors.Is(err, ErrHelmReleaseInFailureStatus) {
 			// Delete the HelmRelease(s) - parent and subchart(s)
@@ -404,7 +413,14 @@ func (r *ApplicationGroupReconciler) handleRemediation(ctx context.Context, logr
 				}
 			}
 		}
+		return reconcile.Result{Requeue: false}, err
 	}
+	// Reverse and cleanup the workflow and associated helmreleases
+	err2 := r.cleanupWorkflow(ctx, logr, g)
+	if err2 != nil {
+		err = fmt.Errorf("failed to clean up workflow : %w", err2)
+	}
+
 	return reconcile.Result{Requeue: false}, err
 }
 
@@ -428,6 +444,50 @@ func (r *ApplicationGroupReconciler) rollbackFailedHelmReleases(ctx context.Cont
 		// HACK - to be fixed
 		_ = r.Delete(ctx, &hr)
 		// TODO (nitishm) Use the helm package to rollback the release instead of deleting it
+	}
+	return nil
+}
+
+func (r *ApplicationGroupReconciler) cleanupWorkflow(ctx context.Context, logr logr.Logger, g orkestrav1alpha1.ApplicationGroup) error {
+	nodes := make(map[string]v1alpha12.NodeStatus)
+	wfs := v1alpha12.WorkflowList{}
+	listOption := client.MatchingLabels{
+		workflow.OwnershipLabel: g.Name,
+		workflow.HeritageLabel:  workflow.Project,
+	}
+	err := r.List(ctx, &wfs, listOption)
+	if err != nil {
+		return err
+	}
+
+	if wfs.Items.Len() != 0 {
+		logr.Info("Reversing the workflow")
+
+		wf := wfs.Items[0]
+		for _, node := range wf.Status.Nodes {
+			nodes[node.ID] = node
+		}
+		graph, err := workflow.Build(g.Name, nodes)
+		if err != nil {
+			logr.Error(err, "failed to build the wf status DAG")
+			return err
+		}
+
+		rev := graph.Reverse()
+
+		for _, bucket := range rev {
+			for _, hr := range bucket {
+				// HACK - to be fixed
+				_ = r.Client.Delete(ctx, &hr)
+				time.Sleep(time.Second * 2)
+				// TODO (nitishm) Use the helm package to delete the release and wait for it to be cleaned up
+			}
+		}
+
+		err = r.Client.Delete(ctx, &wf)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
