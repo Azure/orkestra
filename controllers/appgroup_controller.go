@@ -93,9 +93,10 @@ func (r *ApplicationGroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 
 	if appGroup.GetAnnotations() != nil {
 		last := &orkestrav1alpha1.ApplicationGroup{}
-		s := appGroup.Annotations[lastSuccessfulApplicationGroupKey]
-		_ = json.Unmarshal([]byte(s), last)
-		r.lastSuccessfulApplicationGroup = last
+		if s, ok := appGroup.Annotations[lastSuccessfulApplicationGroupKey]; ok {
+			_ = json.Unmarshal([]byte(s), last)
+			r.lastSuccessfulApplicationGroup = last
+		}
 	}
 
 	// handle deletes if deletion timestamp is non-zero
