@@ -313,6 +313,7 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, g *v1alpha1.Applicat
 				Spec: app.DeepCopy().Spec.HelmReleaseSpec,
 			}
 
+			hr.Spec.Wait = boolToBoolPtr(true)
 			hr.Spec.ReleaseName = convertToDNS1123(app.Name)
 
 			hr.Labels = map[string]string{
@@ -406,6 +407,7 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 	}
 
 	hr.Spec.ReleaseName = convertToDNS1123(app.Name)
+	hr.Spec.Wait = boolToBoolPtr(true)
 
 	hr.Labels = map[string]string{
 		ChartLabelKey:  app.Name,
@@ -478,10 +480,6 @@ func defaultExecutor() v1alpha12.Template {
 	}
 }
 
-func strToStrPtr(s string) *string {
-	return &s
-}
-
 func hrToYAML(hr helmopv1.HelmRelease) string {
 	b, err := yaml.Marshal(hr)
 	if err != nil {
@@ -502,6 +500,7 @@ func generateSubchartHelmRelease(a helmopv1.HelmReleaseSpec, appName, scName, ve
 			Namespace: targetNS,
 		},
 		Spec: helmopv1.HelmReleaseSpec{
+			Wait:        boolToBoolPtr(true),
 			ReleaseName: convertToDNS1123(scName),
 			ChartSource: helmopv1.ChartSource{
 				RepoChartSource: &helmopv1.RepoChartSource{},
@@ -562,4 +561,12 @@ func convertSliceToDNS1123(in []string) []string {
 		out = append(out, convertToDNS1123(s))
 	}
 	return out
+}
+
+func boolToBoolPtr(in bool) *bool {
+	return &in
+}
+
+func strToStrPtr(in string) *string {
+	return &in
 }
