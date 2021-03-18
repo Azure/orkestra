@@ -442,9 +442,14 @@ func componentStatus(phase orkestrav1alpha1.ReconciliationPhase, apps map[string
 
 func (r *ApplicationGroupReconciler) rollbackFailedHelmReleases(ctx context.Context, hrs []helmopv1.HelmRelease) error {
 	for _, hr := range hrs {
-		// HACK - to be fixed
-		_ = r.Delete(ctx, &hr)
-		// TODO (nitishm) Use the helm package to rollback the release instead of deleting it
+		err := pkg.HelmRollback(hr.Spec.ReleaseName, hr.Spec.TargetNamespace)
+		if err != nil {
+			return err
+		}
+		err = r.Client.Delete(ctx, &hr)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -478,9 +483,15 @@ func (r *ApplicationGroupReconciler) cleanupWorkflow(ctx context.Context, logr l
 
 		for _, bucket := range rev {
 			for _, hr := range bucket {
-				// HACK - to be fixed
-				_ = r.Client.Delete(ctx, &hr)
-				time.Sleep(time.Second * 2)
+				err = pkg.HelmUninstall(hr.Spec.ReleaseName, hr.Spec.TargetNamespace)
+				if err != nil {
+					logr.Error(err, "failed to uninstall helm release using helm actions")
+				}
+				err = r.Client.Delete(ctx, &hr)
+				if err != nil {
+					return err
+				}
+				// time.Sleep(time.Second * 2)
 				// TODO (nitishm) Use the helm package to delete the release and wait for it to be cleaned up
 			}
 		}
