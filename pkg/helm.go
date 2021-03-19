@@ -2,6 +2,7 @@ package pkg
 
 import (
 	"os"
+	"time"
 
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/cli"
@@ -38,6 +39,7 @@ func HelmRollback(release, namespace string) error {
 	client := action.NewRollback(actionConfig)
 	client.Wait = true
 	client.Recreate = true
+	client.Timeout = time.Minute * 5
 	err := client.Run(release)
 	if err != nil {
 		return err
