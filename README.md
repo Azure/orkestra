@@ -119,10 +119,6 @@ To solve the complex application orchestration problem Orkestra builds a [Direct
 6. Fetch and deploy Helm charts referred to by each `HelmRelease` CR to the Kubernetes cluster.
    (*optional) Embedded subcharts are fetched from the “staging” registry instead of the “primary/remote” registry.
 
-## Sequence Diagram
-
-See [sequence diagrams](./docs/SEQUENCE.md)
-
 ## Features
 
 - **Built for Kubernetes** - custom controller built using the [kubebuilder](https://github.com/kubernetes-sigs/kubebuilder) project
@@ -139,13 +135,14 @@ Try out the examples in [examples](./examples)
 
 ### Functional
 
-- [ ] Handling of `ApplicationGroup` UPDATE & DELETE reconcilation events : [#64](https://github.com/Azure/Orkestra/issues/64), [#59](https://github.com/Azure/Orkestra/issues/59)
+- [x] Handling of `ApplicationGroup` UPDATE & DELETE reconcilation events : [#64](https://github.com/Azure/Orkestra/issues/64), [#59](https://github.com/Azure/Orkestra/issues/59)
 
 ### Features
 
-- [ ] Rollback ApplicationGroup to previous version on failure by re-deploying last-applied workflow. 
+- [x] Rollback ApplicationGroup to previous version on failure by re-deploying last-applied workflow. 
 - [ ] Support multiple remediation strategies on failure
 - [ ] Make the switch from [helm-operator](https://github.com/fluxcd/helm-operator) to [helm-controller](https://github.com/fluxcd/helm-controller)
+- [ ] Bring your own executor template for Argo Workflow leaf node HelmRelease deployment (allows a user to do custom checks before deeming the leaf node successful)
 
 ## Contributing
 
