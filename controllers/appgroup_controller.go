@@ -317,7 +317,9 @@ func (r *ApplicationGroupReconciler) handleResponseAndEvent(ctx context.Context,
 	}
 
 	if err != nil {
-		return r.handleRemediation(ctx, logr, grp, err)
+		if !r.Cfg.DisableRemediation {
+			return r.handleRemediation(ctx, logr, grp, err)
+		}
 	}
 
 	if requeue {

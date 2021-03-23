@@ -51,7 +51,9 @@ func main() {
 	var configPath string
 	var stagingRepoName string
 	var tempChartStoreTargetDir string
-	var cleanup bool
+	var disableRemediation bool
+	var cleanupDownloadedCharts bool
+	var debugLevel int
 
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
@@ -60,10 +62,18 @@ func main() {
 	flag.StringVar(&configPath, "config", "", "The path to the controller config file")
 	flag.StringVar(&stagingRepoName, "staging-repo-name", "", "The nickname for the helm registry used for staging artifacts (ENV - STAGING_REPO_URL). NOTE: Flag overrides env value")
 	flag.StringVar(&tempChartStoreTargetDir, "chart-store-path", "", "The temporary storage path for the downloaded and staged chart artifacts")
-	flag.BoolVar(&cleanup, "cleanup", false, "cleanup the pull/downloaded charts from the temporary storage path")
+	flag.BoolVar(&disableRemediation, "disable-remediation", false, "Disable the remediation (delete/rollback) of the workflow on failure (useful if you wish to debug failures in the workflow/executor container")
+	flag.BoolVar(&cleanupDownloadedCharts, "cleanup-downloaded-charts", false, "Enable/disable the cleanup of the charts downloaded to the chart-store-path")
+	flag.IntVar(&debugLevel, "debug", 0, "Debug log level")
 	flag.Parse()
 
-	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
+	if debugLevel > 0 {
+		ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
+	} else {
+		ctrl.SetLogger(zap.New(zap.UseDevMode(false)))
+	}
+
+	ctrl.Log.Logger.V(debugLevel)
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:             scheme,
@@ -92,7 +102,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	cfg.Ctrl.Cleanup = cleanup
+	cfg.Ctrl.DisableRemediation = disableRemediation
+	cfg.Ctrl.CleanupDownloadedCharts = cleanupDownloadedCharts
 
 	rc, err := registry.NewClient(
 		ctrl.Log.Logger, cfg.Ctrl.Registries,

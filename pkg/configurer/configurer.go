@@ -40,8 +40,9 @@ func NewConfigurer(cfgPath string) (*Configurer, error) {
 	}
 
 	ctrlCfg := &Controller{
-		Registries: make(map[string]*registry.Config),
-		Cleanup:    false,
+		Registries:              make(map[string]*registry.Config),
+		DisableRemediation:      false,
+		CleanupDownloadedCharts: false,
 	}
 
 	err = v.Unmarshal(ctrlCfg)

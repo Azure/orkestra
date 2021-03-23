@@ -46,6 +46,18 @@ tolerations: []
 
 affinity: {}
 
+remediation:
+  disabled: false
+
+# set to dev mode until MVP
+cleanup:
+  enabled: false
+
+# set to dev mode until MVP
+debug:
+  level: 5
+
+
 # Dependency overlay values
 chartmuseum:
   env:
