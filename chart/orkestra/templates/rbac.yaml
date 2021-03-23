@@ -3,27 +3,16 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name:  {{ include "orkestra.serviceAccountName" . }}
 rules:
-- apiGroups: [""]
-  resources: ["*"]
-  verbs: ["*"]
-- apiGroups: ["apps"]
-  resources: ["*"]
-  verbs: ["*"]
-- apiGroups: ["rbac.authorization.k8s.io"]
-  resources: ["*"]
-  verbs: ["*"]
-- apiGroups: ["policy"]
-  resources: ["*"]
-  verbs: ["*"]
-- apiGroups: ["orkestra.azure.microsoft.com"]
-  resources: ["*"]
-  verbs: ["*"]
-- apiGroups: ["helm.fluxcd.io"]
-  resources: ["*"]
-  verbs: ["*"]
-- apiGroups: ["argoproj.io"]
-  resources: ["*"]
-  verbs: ["*"]
+  - apiGroups:
+      - '*'
+    resources:
+      - '*'
+    verbs:
+      - '*'
+  - nonResourceURLs:
+      - '*'
+    verbs:
+      - '*'
   
 ---
 kind: ClusterRoleBinding
