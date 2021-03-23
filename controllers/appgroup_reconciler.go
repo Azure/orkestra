@@ -77,7 +77,7 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 
 		fpath, appCh, err := r.RegistryClient.PullChart(ll, repoKey, repoPath, name, version)
 		defer func() {
-			if r.Cfg.Cleanup {
+			if r.Cfg.CleanupDownloadedCharts {
 				os.Remove(fpath)
 			}
 		}()
@@ -196,6 +196,11 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 			// Replace existing chart with modified chart
 			path := stagingDir + "/" + application.Spec.HelmReleaseSpec.Name + "-" + appCh.Metadata.Version + ".tgz"
 			err = r.RegistryClient.PushChart(ll, stagingRepoName, path, appCh)
+			defer func() {
+				if r.Cfg.CleanupDownloadedCharts {
+					os.Remove(path)
+				}
+			}()
 			if err != nil {
 				ll.Error(err, "failed to push modified application chart to staging registry")
 				err = fmt.Errorf("failed to push modified application chart to staging registry : %w", err)

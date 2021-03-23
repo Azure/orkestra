@@ -38,6 +38,13 @@ spec:
           - /etc/controller/config.yaml
           - --chart-store-path
           - /etc/orkestra/charts/pull
+          {{- if .Values.remediation.disabled }}
+          - --disable-remediation
+          {{- end }}
+          {{- if .Values.cleanup.enabled }}
+          - --cleanup-downloaded-charts
+          {{- end }}
+          - --debug={{ .Values.debug.level }}
           env:
           - name: WORKFLOW_NAMESPACE 
             value: orkestra
