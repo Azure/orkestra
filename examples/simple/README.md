@@ -48,6 +48,8 @@ orkestra-885c5ff4-kh7n9 orkestra 2021-03-23T08:04:18.902Z       DEBUG   controll
 
 (_optional_) The Argo dashboard should show the DAG nodes in Green 
 
+<p align="center"><img src="./workflow.png" width="750x" /></p>
+
 **Verify that the Application helm release have been successfully deployed**
 
 ```console
