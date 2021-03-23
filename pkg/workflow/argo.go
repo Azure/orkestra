@@ -315,7 +315,6 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, g *v1alpha1.Applicat
 
 			hr.Spec.Wait = boolToBoolPtr(true)
 			hr.Spec.ReleaseName = convertToDNS1123(app.Name)
-			hr.Spec.SkipCRDs = true
 
 			hr.Labels = map[string]string{
 				ChartLabelKey:  app.Name,
@@ -409,7 +408,6 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 
 	hr.Spec.ReleaseName = convertToDNS1123(app.Name)
 	hr.Spec.Wait = boolToBoolPtr(true)
-	hr.Spec.SkipCRDs = true
 
 	hr.Labels = map[string]string{
 		ChartLabelKey:  app.Name,
@@ -513,7 +511,6 @@ func generateSubchartHelmRelease(a helmopv1.HelmReleaseSpec, appName, scName, ve
 	// NOTE: Ownership label is added in the caller function
 	hr.Spec.ChartSource.RepoChartSource = a.DeepCopy().RepoChartSource
 	hr.Spec.ChartSource.RepoChartSource.Name = scName
-	hr.Spec.SkipCRDs = true
 	hr.Spec.Wait = boolToBoolPtr(true)
 
 	if isStaged {
