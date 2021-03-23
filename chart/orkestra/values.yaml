@@ -6,7 +6,7 @@ replicaCount: 1
 image:
   repository: azureorkestra/orkestra
   pullPolicy: Always 
-  tag: "v0.2.1"
+  tag: "latest"
 
 imagePullSecrets: []
 nameOverride: ""
@@ -20,8 +20,10 @@ serviceAccount:
 repositories:
   - name: staging 
     url: "http://orkestra-chartmuseum.orkestra:8080"
-  - name: bitnami
-    url: "https://charts.bitnami.com/bitnami"
+  - name: datawire 
+    url: "https://www.getambassador.io/helm"
+  - name: bookinfo 
+    url: "https://nitishm.github.io/istio-bookinfo-chart"
     # username: admin
     # password: password
     # authHeader: 'Authorization: Basic HTTPBASICAUTHCREDS'
