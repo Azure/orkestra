@@ -1,8 +1,8 @@
 # Instructions
 
 In this example we deploy an application group consisting of two demo applications,
-- Istio bookinfo app (with subcharts)
-- Ambassador
+- Istio bookinfo app (with subcharts) : [source](https://istio.io/latest/docs/examples/bookinfo/)
+- Ambassador : [source](https://www.getambassador.io/)
 
 ## Prerequisites
 
@@ -52,7 +52,7 @@ orkestra-885c5ff4-kh7n9 orkestra 2021-03-23T08:04:18.902Z       DEBUG   controll
 
 **Verify that the Application helm release have been successfully deployed**
 
-```console
+```terminal
 helm ls
 
 NAME            NAMESPACE       REVISION        UPDATED                                 STATUS    CHART            APP VERSION
@@ -63,4 +63,11 @@ details         bookinfo        1               2021-03-23 08:03:26.1043919 +000
 productpage     bookinfo        1               2021-03-23 08:03:47.4150589 +0000 UTC   deployed  productpage-v1   1.16.2     
 ratings         bookinfo        1               2021-03-23 08:03:25.9770024 +0000 UTC   deployed  ratings-v1       1.16.2     
 reviews         bookinfo        1               2021-03-23 08:03:36.9634599 +0000 UTC   deployed  reviews-v1       1.16.2     
+```
+
+## Make a request to productpage via ambassador gateway
+
+```terminal
+kubectl -n default exec curl -- curl -ksS https://ambassador.ambassador:443/bookinfo/ | grep -o "<title>.*</title>"
+<title>Simple Bookstore App</title>
 ```
