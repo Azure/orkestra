@@ -13,6 +13,7 @@ import (
 	"github.com/Azure/Orkestra/pkg/registry"
 	"github.com/Azure/Orkestra/pkg/workflow"
 	"github.com/go-logr/logr"
+	"github.com/jinzhu/copier"
 	"helm.sh/helm/v3/pkg/chart"
 )
 
@@ -98,48 +99,64 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 
 			stagingRepoName := r.StagingRepoName
 			// If Dependencies - extract subchart and push each to staging registry
-			if isDependenciesEmbedded(appCh) {
-				for _, sc := range appCh.Dependencies() {
-					cs := orkestrav1alpha1.ChartStatus{
-						Version: sc.Metadata.Version,
-					}
-
-					if err := sc.Validate(); err != nil {
-						ll.Error(err, "failed to validate application subchart for staging registry")
-						err = fmt.Errorf("failed to validate application subchart for staging registry : %w", err)
-						cs.Error = err.Error()
-						appGroup.Status.Applications[i].Subcharts[sc.Name()] = cs
-						appGroup.Status.Error = cs.Error
-						return err
-					}
-
-					path, err := registry.SaveChartPackage(sc, stagingDir)
-					if err != nil {
-						ll.Error(err, "failed to save subchart package as tgz")
-						err = fmt.Errorf("failed to save subchart package as tgz at location %s : %w", path, err)
-						cs.Error = err.Error()
-						appGroup.Status.Applications[i].Subcharts[sc.Name()] = cs
-						appGroup.Status.Error = cs.Error
-						return err
-					}
-
-					err = r.RegistryClient.PushChart(ll, stagingRepoName, path, sc)
-					if err != nil {
-						ll.Error(err, "failed to push application subchart to staging registry")
-						err = fmt.Errorf("failed to push application subchart to staging registry : %w", err)
-						cs.Error = err.Error()
-						appGroup.Status.Applications[i].Subcharts[sc.Name()] = cs
-						appGroup.Status.Error = cs.Error
-						return err
-					}
-
-					cs.Staged = true
-					cs.Version = sc.Metadata.Version
-					cs.Error = ""
-
-					appGroup.Status.Applications[i].Subcharts[sc.Name()] = cs
+			// if isDependenciesEmbedded(appCh) {
+			for _, sc := range appCh.Dependencies() {
+				cs := orkestrav1alpha1.ChartStatus{
+					Version: sc.Metadata.Version,
 				}
+
+				// copy sc
+				scc := &chart.Chart{}
+				_ = copier.Copy(scc, sc)
+
+				if err := scc.Validate(); err != nil {
+					ll.Error(err, "failed to validate application subchart for staging registry")
+					err = fmt.Errorf("failed to validate application subchart for staging registry : %w", err)
+					cs.Error = err.Error()
+					appGroup.Status.Applications[i].Subcharts[sc.Name()] = cs
+					appGroup.Status.Error = cs.Error
+					return err
+				}
+
+				// Copy over all non yaml files from parent chart templates to subchart templates
+				for _, f := range appCh.Templates {
+					if !isFileYAML(f.Name) {
+						t := &chart.File{}
+						_ = copier.Copy(t, f)
+						t.Name = addAppChartNameToFile(t.Name, appCh.Name())
+						scc.Templates = append(scc.Templates, t)
+					}
+				}
+				scc.Files = append(scc.Files, appCh.Files...)
+
+				scc.Metadata.Name = convertToDNS1123(appCh.Metadata.Name + "-sub-" + scc.Metadata.Name)
+				path, err := registry.SaveChartPackage(scc, stagingDir)
+				if err != nil {
+					ll.Error(err, "failed to save subchart package as tgz")
+					err = fmt.Errorf("failed to save subchart package as tgz at location %s : %w", path, err)
+					cs.Error = err.Error()
+					appGroup.Status.Applications[i].Subcharts[sc.Name()] = cs
+					appGroup.Status.Error = cs.Error
+					return err
+				}
+
+				err = r.RegistryClient.PushChart(ll, stagingRepoName, path, scc)
+				if err != nil {
+					ll.Error(err, "failed to push application subchart to staging registry")
+					err = fmt.Errorf("failed to push application subchart to staging registry : %w", err)
+					cs.Error = err.Error()
+					appGroup.Status.Applications[i].Subcharts[sc.Name()] = cs
+					appGroup.Status.Error = cs.Error
+					return err
+				}
+
+				cs.Staged = true
+				cs.Version = sc.Metadata.Version
+				cs.Error = ""
+
+				appGroup.Status.Applications[i].Subcharts[sc.Name()] = cs
 			}
+			// }
 
 			// Unset dependencies by disabling them.
 			// Using appCh.SetDependencies() does not cut it since some charts rely on subcharts for tpl helpers
@@ -250,9 +267,28 @@ func templatesContainsYAML(ch *chart.Chart) (bool, error) {
 	}
 
 	for _, f := range ch.Templates {
-		if strings.Contains(f.Name, ".yaml") {
+		if isFileYAML(f.Name) {
 			return true, nil
 		}
 	}
 	return false, nil
+}
+
+func isFileYAML(f string) bool {
+	f = strings.ToLower(f)
+	if strings.HasSuffix(f, "yml") || strings.HasSuffix(f, "yaml") {
+		return true
+	}
+	return false
+}
+
+func addAppChartNameToFile(name, a string) string {
+	prefix := "templates/"
+	name = strings.TrimPrefix(name, prefix)
+	name = a + "_" + name
+	return prefix + name
+}
+
+func convertToDNS1123(in string) string {
+	return strings.ReplaceAll(in, "_", "-")
 }
