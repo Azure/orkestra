@@ -36,7 +36,7 @@ spec:
         - name: details
           dependencies: []
         chart:
-          repository: "https://nitishm.github.io/"
+          repository: "https://nitishm.github.io/istio-bookinfo-chart"
           name: bookinfo 
           version: v1
         overlays:
