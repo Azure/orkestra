@@ -8,8 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/url"
-	"strings"
 	"time"
 
 	"github.com/Azure/Orkestra/pkg"
@@ -19,7 +17,6 @@ import (
 	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
 	helmopv1 "github.com/fluxcd/helm-operator/pkg/apis/helm.fluxcd.io/v1"
 	"github.com/go-logr/logr"
-	"helm.sh/helm/v3/pkg/chart"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
@@ -336,27 +333,27 @@ func (r *ApplicationGroupReconciler) handleResponseAndEvent(ctx context.Context,
 	return reconcile.Result{Requeue: requeue}, err
 }
 
-func isDependenciesEmbedded(ch *chart.Chart) bool {
-	// TODO (nitishm) This does not support a mix of remote and embedded dependency subcharts
-	isURI := false
-	for _, d := range ch.Metadata.Dependencies {
-		if _, err := url.ParseRequestURI(d.Repository); err == nil {
-			// If this is an "assembled" chart (https://helm.sh/docs/chart_best_practices/dependencies/#versions) we must stage the embedded subchart
-			if strings.Contains(d.Repository, "file://") {
-				isURI = false
-				break
-			}
-			isURI = true
-		}
-	}
+// func isDependenciesEmbedded(ch *chart.Chart) bool {
+// 	// TODO (nitishm) This does not support a mix of remote and embedded dependency subcharts
+// 	isURI := false
+// 	for _, d := range ch.Metadata.Dependencies {
+// 		if _, err := url.ParseRequestURI(d.Repository); err == nil {
+// 			// If this is an "assembled" chart (https://helm.sh/docs/chart_best_practices/dependencies/#versions) we must stage the embedded subchart
+// 			if strings.Contains(d.Repository, "file://") {
+// 				isURI = false
+// 				break
+// 			}
+// 			isURI = true
+// 		}
+// 	}
 
-	if !isURI {
-		if len(ch.Dependencies()) > 0 {
-			return true
-		}
-	}
-	return false
-}
+// 	if !isURI {
+// 		if len(ch.Dependencies()) > 0 {
+// 			return true
+// 		}
+// 	}
+// 	return false
+// }
 
 func initApplications(appGroup *orkestrav1alpha1.ApplicationGroup) {
 	// Initialize the Status fields if not already setup
