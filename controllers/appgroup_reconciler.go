@@ -129,7 +129,7 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 				}
 				scc.Files = append(scc.Files, appCh.Files...)
 
-				scc.Metadata.Name = convertToDNS1123(appCh.Metadata.Name + "-sub-" + scc.Metadata.Name)
+				scc.Metadata.Name = appCh.Metadata.Name + "-sub-" + scc.Metadata.Name
 				path, err := registry.SaveChartPackage(scc, stagingDir)
 				if err != nil {
 					ll.Error(err, "failed to save subchart package as tgz")
@@ -287,8 +287,4 @@ func addAppChartNameToFile(name, a string) string {
 	name = strings.TrimPrefix(name, prefix)
 	name = a + "_" + name
 	return prefix + name
-}
-
-func convertToDNS1123(in string) string {
-	return strings.ReplaceAll(in, "_", "-")
 }
