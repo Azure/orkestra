@@ -34,7 +34,8 @@ const (
 )
 
 var (
-	ErrNamespaceTerminating = kerrors.New("namespace is in terminating phase")
+	ErrNamespaceTerminating       = kerrors.New("namespace is in terminating phase")
+	timeout                 int64 = 3600
 )
 
 type argo struct {
@@ -314,6 +315,7 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, g *v1alpha1.Applicat
 			}
 
 			hr.Spec.Wait = boolToBoolPtr(true)
+			hr.Spec.Timeout = &timeout
 			hr.Spec.ReleaseName = convertToDNS1123(app.Name)
 
 			hr.Labels = map[string]string{
@@ -408,6 +410,7 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 
 	hr.Spec.ReleaseName = convertToDNS1123(app.Name)
 	hr.Spec.Wait = boolToBoolPtr(true)
+	hr.Spec.Timeout = &timeout
 
 	hr.Labels = map[string]string{
 		ChartLabelKey:  app.Name,
@@ -509,6 +512,7 @@ func generateSubchartHelmRelease(a helmopv1.HelmReleaseSpec, appName, scName, ve
 	}
 
 	hr.Spec.Wait = boolToBoolPtr(true)
+	hr.Spec.Timeout = &timeout
 
 	// NOTE: Ownership label is added in the caller function
 	hr.Spec.ChartSource.RepoChartSource = a.DeepCopy().RepoChartSource
