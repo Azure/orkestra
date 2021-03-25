@@ -12,6 +12,7 @@ require (
 	github.com/gofrs/flock v0.7.1
 	github.com/golang/protobuf v1.4.3 // indirect
 	github.com/google/go-cmp v0.5.2
+	github.com/jinzhu/copier v0.2.8
 	github.com/mitchellh/hashstructure/v2 v2.0.1
 	github.com/onsi/ginkgo v1.14.0
 	github.com/onsi/gomega v1.10.1

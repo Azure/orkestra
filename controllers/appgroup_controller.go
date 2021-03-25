@@ -297,12 +297,15 @@ func (r *ApplicationGroupReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 func (r *ApplicationGroupReconciler) handleResponseAndEvent(ctx context.Context, logr logr.Logger, grp orkestrav1alpha1.ApplicationGroup, requeue bool, err error) (ctrl.Result, error) {
 	var errStr string
+	if err != nil {
+		errStr = err.Error()
+	}
 
 	grp.Status.Error = errStr
 
 	_ = r.Status().Update(ctx, &grp)
 
-	if grp.Status.Phase == orkestrav1alpha1.Succeeded {
+	if grp.Status.Error == "" && grp.Status.Phase == orkestrav1alpha1.Succeeded {
 		// Annotate the resource with the last successful ApplicationGroup spec
 		b, _ := json.Marshal(&grp)
 		grp.SetAnnotations(map[string]string{lastSuccessfulApplicationGroupKey: string(b)})
@@ -409,15 +412,13 @@ func (r *ApplicationGroupReconciler) handleRemediation(ctx context.Context, logr
 						logr.Error(err, "failed to rollback failed HelmRelease instances")
 						return reconcile.Result{Requeue: false}, err
 					}
-
-					g.Status.Phase = orkestrav1alpha1.Rollback
-					_ = r.Status().Update(ctx, &g)
-
-					return reconcile.Result{Requeue: true, RequeueAfter: requeueAfter}, nil
 				}
 			}
 		}
-		return reconcile.Result{Requeue: false}, err
+		g.Status.Phase = orkestrav1alpha1.Rollback
+		_ = r.Status().Update(ctx, &g)
+
+		return reconcile.Result{Requeue: true, RequeueAfter: requeueAfter}, nil
 	}
 	// Reverse and cleanup the workflow and associated helmreleases
 	_ = r.cleanupWorkflow(ctx, logr, g)
