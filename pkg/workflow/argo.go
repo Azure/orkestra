@@ -508,15 +508,14 @@ func generateSubchartHelmRelease(a helmopv1.HelmReleaseSpec, appName, scName, ve
 		},
 	}
 
-	// NOTE: Ownership label is added in the caller function
-	hr.Spec.ChartSource.RepoChartSource = a.DeepCopy().RepoChartSource
-	hr.Spec.ChartSource.RepoChartSource.Name = scName
 	hr.Spec.Wait = boolToBoolPtr(true)
 
-	if isStaged {
-		hr.Spec.ChartSource.RepoChartSource.RepoURL = repo
-	}
+	// NOTE: Ownership label is added in the caller function
+	hr.Spec.ChartSource.RepoChartSource = a.DeepCopy().RepoChartSource
+	hr.Spec.ChartSource.RepoChartSource.Name = appName + "-sub-" + scName
+	hr.Spec.ChartSource.RepoChartSource.RepoURL = repo
 	hr.Spec.ChartSource.RepoChartSource.Version = version
+
 	hr.Spec.Values = subchartValues(scName, a.Values)
 
 	return hr
