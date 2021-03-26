@@ -5,9 +5,9 @@ import (
 	kerrors "errors"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/Azure/Orkestra/api/v1alpha1"
+	"github.com/Azure/Orkestra/pkg"
 	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
 	helmopv1 "github.com/fluxcd/helm-operator/pkg/apis/helm.fluxcd.io/v1"
 	"github.com/go-logr/logr"
@@ -264,8 +264,8 @@ func updateAppGroupDAG(g *v1alpha1.ApplicationGroup, entry *v1alpha12.Template, 
 
 	for i, tpl := range tpls {
 		entry.DAG.Tasks[i] = v1alpha12.DAGTask{
-			Name:         convertToDNS1123(tpl.Name),
-			Template:     convertToDNS1123(tpl.Name),
+			Name:         pkg.ConvertToDNS1123(tpl.Name),
+			Template:     pkg.ConvertToDNS1123(tpl.Name),
 			Dependencies: convertSliceToDNS1123(g.Spec.Applications[i].Dependencies),
 		}
 	}
@@ -287,7 +287,7 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, g *v1alpha1.Applicat
 		if len(app.Spec.Subcharts) > 0 {
 			hasSubcharts = true
 			t := v1alpha12.Template{
-				Name: convertToDNS1123(app.Name),
+				Name: pkg.ConvertToDNS1123(app.Name),
 			}
 
 			t.DAG = &v1alpha12.DAGTemplate{}
@@ -308,7 +308,7 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, g *v1alpha1.Applicat
 					APIVersion: "helm.fluxcd.io/v1",
 				},
 				ObjectMeta: v1.ObjectMeta{
-					Name:      convertToDNS1123(app.Name),
+					Name:      pkg.ConvertToDNS1123(app.Name),
 					Namespace: app.Spec.TargetNamespace,
 				},
 				Spec: app.DeepCopy().Spec.HelmReleaseSpec,
@@ -316,7 +316,7 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, g *v1alpha1.Applicat
 
 			hr.Spec.Wait = boolToBoolPtr(true)
 			hr.Spec.Timeout = &timeout
-			hr.Spec.ReleaseName = convertToDNS1123(app.Name)
+			hr.Spec.ReleaseName = pkg.ConvertToDNS1123(app.Name)
 
 			hr.Labels = map[string]string{
 				ChartLabelKey:  app.Name,
@@ -330,11 +330,11 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, g *v1alpha1.Applicat
 			}
 
 			tApp := v1alpha12.Template{
-				Name: convertToDNS1123(app.Name),
+				Name: pkg.ConvertToDNS1123(app.Name),
 				DAG: &v1alpha12.DAGTemplate{
 					Tasks: []v1alpha12.DAGTask{
 						{
-							Name:     convertToDNS1123(app.Name),
+							Name:     pkg.ConvertToDNS1123(app.Name),
 							Template: helmReleaseExecutor,
 							Arguments: v1alpha12.Arguments{
 								Parameters: []v1alpha12.Parameter{
@@ -380,7 +380,7 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 		}
 
 		task := v1alpha12.DAGTask{
-			Name:     convertToDNS1123(scName),
+			Name:     pkg.ConvertToDNS1123(scName),
 			Template: helmReleaseExecutor,
 			Arguments: v1alpha12.Arguments{
 				Parameters: []v1alpha12.Parameter{
@@ -402,13 +402,13 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 			APIVersion: "helm.fluxcd.io/v1",
 		},
 		ObjectMeta: v1.ObjectMeta{
-			Name:      convertToDNS1123(app.Name),
+			Name:      pkg.ConvertToDNS1123(app.Name),
 			Namespace: app.Spec.HelmReleaseSpec.TargetNamespace,
 		},
 		Spec: app.Spec.DeepCopy().HelmReleaseSpec,
 	}
 
-	hr.Spec.ReleaseName = convertToDNS1123(app.Name)
+	hr.Spec.ReleaseName = pkg.ConvertToDNS1123(app.Name)
 	hr.Spec.Wait = boolToBoolPtr(true)
 	hr.Spec.Timeout = &timeout
 
@@ -431,7 +431,7 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 	}
 
 	task := v1alpha12.DAGTask{
-		Name:     convertToDNS1123(app.Name),
+		Name:     pkg.ConvertToDNS1123(app.Name),
 		Template: helmReleaseExecutor,
 		Arguments: v1alpha12.Arguments{
 			Parameters: []v1alpha12.Parameter{
@@ -443,7 +443,7 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 		},
 		Dependencies: func() (out []string) {
 			for _, t := range tasks {
-				out = append(out, convertToDNS1123(t.Name))
+				out = append(out, pkg.ConvertToDNS1123(t.Name))
 			}
 			return out
 		}(),
@@ -499,11 +499,11 @@ func generateSubchartHelmRelease(a helmopv1.HelmReleaseSpec, appName, scName, ve
 			APIVersion: "helm.fluxcd.io/v1",
 		},
 		ObjectMeta: v1.ObjectMeta{
-			Name:      convertToDNS1123(appName + "-sub-" + scName),
+			Name:      pkg.ConvertToDNS1123(pkg.ToInitials(appName) + "-" + scName),
 			Namespace: targetNS,
 		},
 		Spec: helmopv1.HelmReleaseSpec{
-			ReleaseName: convertToDNS1123(scName),
+			ReleaseName: pkg.ConvertToDNS1123(scName),
 			ChartSource: helmopv1.ChartSource{
 				RepoChartSource: &helmopv1.RepoChartSource{},
 			},
@@ -516,7 +516,7 @@ func generateSubchartHelmRelease(a helmopv1.HelmReleaseSpec, appName, scName, ve
 
 	// NOTE: Ownership label is added in the caller function
 	hr.Spec.ChartSource.RepoChartSource = a.DeepCopy().RepoChartSource
-	hr.Spec.ChartSource.RepoChartSource.Name = convertToDNS1123(appName + "-sub-" + scName)
+	hr.Spec.ChartSource.RepoChartSource.Name = pkg.ConvertToDNS1123(pkg.ToInitials(appName) + "-" + scName)
 	hr.Spec.ChartSource.RepoChartSource.RepoURL = repo
 	hr.Spec.ChartSource.RepoChartSource.Version = version
 
@@ -554,14 +554,10 @@ func defaultNamespace() string {
 	return "orkestra"
 }
 
-func convertToDNS1123(in string) string {
-	return strings.ReplaceAll(in, "_", "-")
-}
-
 func convertSliceToDNS1123(in []string) []string {
 	out := []string{}
 	for _, s := range in {
-		out = append(out, convertToDNS1123(s))
+		out = append(out, pkg.ConvertToDNS1123(s))
 	}
 	return out
 }
