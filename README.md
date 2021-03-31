@@ -29,7 +29,7 @@ For getting started you will need,
 
 Install the `ApplicationGroup` and custom resource definitions (CRDs) using `make install`
 
-```console
+```terminal
 /home/nitishm/go/bin/controller-gen "crd:trivialVersions=true" rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 kustomize build config/crd | kubectl apply -f -
 customresourcedefinition.apiextensions.k8s.io/applicationgroups.orkestra.azure.microsoft.com configured
@@ -41,13 +41,13 @@ Alternatively, you can use the integrated `kustomize` flag directly to install t
 
 Install the orkestra controller and supporting services like, Argo Workflow, Flux Helm-operator and Chartmuseum using the provided helm chart
 
-```console
+```terminal
 helm install orkestra chart/orkestra/  --namespace orkestra --create-namespace  
 ```
 
 You should see resources spin up in the _orkestra_ namespace as shown below,
 
-```console
+```terminal
 NAME                                                          NAMESPACE  AGE
 configmap/orkestra-helm-operator-kube-config                  orkestra   4s     
 configmap/orkestra-workflow-controller-configmap              orkestra   4s     
@@ -91,7 +91,7 @@ endpointslice.discovery.k8s.io/orkestra-helm-operator-w88tw   orkestra   4s
 
 The following command should open a browser window to the Argo Workflow Dashboard (the command port-forwards the Argo server to http://localhost:2476).
 
-```console
+```terminal
 argo server --browser
 
 INFO[2021-02-03T01:02:15.839Z]                                               authModes="[server]" baseHRef=/ managedNamespace= namespace=orkestra secure=false
