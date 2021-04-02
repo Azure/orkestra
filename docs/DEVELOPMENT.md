@@ -26,6 +26,12 @@
 
 ### Manually
 1. Build a docker image and push to your own personal docker registry (careful not to override the latest tag)
+
+```terminal
+docker build . -t <your-registry>/orkestra:<your-tag>
+docker push <your-registry>/orkestra:<your-tag>
+```
+
 2. Update the orkestra deployment with your registry/image:tag
  
 ```terminal
