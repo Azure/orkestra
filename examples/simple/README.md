@@ -10,7 +10,7 @@ In this example we deploy an application group consisting of two demo applicatio
 
 Install the `ApplicationGroup`: 
 
-```console
+```terminal
 kubectl apply -f examples/simple/bookinfo.yaml
 
 applicationgroup.orkestra.azure.microsoft.com/bookinfo created
