@@ -1,4 +1,14 @@
 # Guide for contributors and developers
+
+## Prerequisites
+
+**Kubernetes Cluster** ([KinD](https://kind.sigs.k8s.io/)/Minikube/AKS/GKE/EKS/others) v1.18 or higher
+**kubectl** - v1.18 or higher
+**helm** - v3.5.2 or higher
+**kubebuilder** - v2.3.1 or higher (Kubebuilder and controller-runtime binaries. Install using `make setup-kubebuilder` )
+
+## Workspace Organization
+
 | Package | Files | Description |
 |---------|-------|-------------|
 | | **Dockerfile** | Docker manifest to build and deploy the orkestra controller docker image
@@ -18,11 +28,11 @@
 | | **registry/** | Helm Registry functions using the office helmv2 package and chartmuseum for pull and push functionality, respectively
 | | **workflow/** | DAG workflow generation and submission interface, implemented using Argo Workflows
 
-## Reconciler Flow
+## `Reconcile()`
 
 <p align="center"><img src="./assets/../../assets/reconciler-flow.png" width="750x" /></p>
 
-## Building and running
+## Build & Run
 
 ### Manually
 1. Build a docker image and push to your own personal docker registry (careful not to override the latest tag)
