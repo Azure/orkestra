@@ -21,3 +21,27 @@
 ## Reconciler Flow
 
 <p align="center"><img src="./assets/../../assets/reconciler-flow.png" width="750x" /></p>
+
+## Building and running
+
+### Manually
+1. Build a docker image and push to your own personal docker registry (careful not to override the latest tag)
+2. Update the orkestra deployment with your registry/image:tag
+ 
+```terminal
+helm upgrade orkestra chart/orkestra -n orkestra --create-namespace --set image.repository=<your-registry> --set image.tag=<your-tag>
+```
+
+### Using Tilt
+Install the `tilt` binary using instructions provided at [intallation](https://docs.tilt.dev/install.html)
+
+```terminal
+tilt up
+Tilt started on http://localhost:10350/
+v0.19.0, built 2021-03-19
+
+(space) to open the browser
+(s) to stream logs (--stream=true)
+(t) to open legacy terminal mode (--legacy=true)
+(ctrl-c) to exit
+```
