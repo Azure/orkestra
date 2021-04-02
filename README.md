@@ -25,17 +25,19 @@ For getting started you will need,
 - A Kubernetes cluster
 - `kubectl` - Kubernetes client
 - `helm` - Helm client
+- `kubebuilder` - Kubebuilder and controller-runtime binaries. (run `make setup-kubebuilder`)
 - (_optional_) `argo` - Argo workflow client (follow the instructions to install the binary at https://github.com/argoproj/argo/releases)
 
-Install the `ApplicationGroup` and custom resource definitions (CRDs) using `make install`
-
+Install the `ApplicationGroup` and custom resource definitions (CRDs) 
 ```terminal
+make install
+
 /home/nitishm/go/bin/controller-gen "crd:trivialVersions=true" rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 kustomize build config/crd | kubectl apply -f -
 customresourcedefinition.apiextensions.k8s.io/applicationgroups.orkestra.azure.microsoft.com configured
 ```
 
-Alternatively, you can use the integrated `kustomize` flag directly to install the CRDs using `kubectl` by issuing the following command - `kubectl -k config/bases`
+Alternatively, you can use the `kustomize` directly to install the CRDs using `kubectl` by issuing the following command - `kubectl -k config/bases`
 
 ### Using helm
 
@@ -113,11 +115,10 @@ To solve the complex application orchestration problem Orkestra builds a [Direct
 
 1. Submit `ApplicationGroup` CRs
 2. For each application in `ApplicationGroup` download Helm chart from “primary” Helm Registry
-3. (*optional) For each dependency in the Application chart, if dependency chart is embedded in `charts/` directory, push to ”staging” Helm Registry (Chart-museum).
+3. (*optional) For each dependency in the Application chart, if subcharts found in `charts/` directory, push to ”staging” Helm Registry (Chart-museum).
 4. Generate and submit Argo Workflow DAG
-5. (Executor nodes only) Submit and probe deployment state of `HelmRelease` CR.
+5. (Executor nodes only) Submit and probe deployment state of `HelmRelease` CR (`.Status.Phase`)
 6. Fetch and deploy Helm charts referred to by each `HelmRelease` CR to the Kubernetes cluster.
-   (*optional) Embedded subcharts are fetched from the “staging” registry instead of the “primary/remote” registry.
 
 ## Features
 
@@ -129,20 +130,21 @@ To solve the complex application orchestration problem Orkestra builds a [Direct
 
 ## Examples
 
-Try out the examples in [examples](./examples)
+Try out the [examples](./examples)
 
 ## Roadmap
 
-### Functional
-
-- [x] Handling of `ApplicationGroup` UPDATE & DELETE reconcilation events : [#64](https://github.com/Azure/Orkestra/issues/64), [#59](https://github.com/Azure/Orkestra/issues/59)
-
 ### Features
 
-- [x] Rollback ApplicationGroup to previous version on failure by re-deploying last-applied workflow. 
+- [x] Rollback ApplicationGroup to previous version on failure by re-deploying last-applied workflow. (MVP)
+- [ ] Switch from [helm-operator](https://github.com/fluxcd/helm-operator) to [helm-controller](https://github.com/fluxcd/helm-controller) (MVP)
 - [ ] Support multiple remediation strategies on failure
-- [ ] Make the switch from [helm-operator](https://github.com/fluxcd/helm-operator) to [helm-controller](https://github.com/fluxcd/helm-controller)
 - [ ] Bring your own executor template for Argo Workflow leaf node HelmRelease deployment (allows a user to do custom checks before deeming the leaf node successful)
+
+
+## Development
+
+[docs](./docs/DEVELOPMENT.md)
 
 ## Contributing
 
