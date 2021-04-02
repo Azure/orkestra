@@ -65,7 +65,7 @@ ratings         bookinfo        1               2021-03-23 08:03:25.9770024 +000
 reviews         bookinfo        1               2021-03-23 08:03:36.9634599 +0000 UTC   deployed  reviews-v1       1.16.2     
 ```
 
-## Make a request to productpage via ambassador gateway
+## Send request to `productpage` via Ambassador gateway/proxy
 
 ```terminal
 kubectl -n default exec curl -- curl -ksS https://ambassador.ambassador:443/bookinfo/ | grep -o "<title>.*</title>"
