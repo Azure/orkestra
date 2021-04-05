@@ -8,7 +8,6 @@
 package v1alpha1
 
 import (
-	"github.com/Azure/Orkestra/pkg/registry"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -150,11 +149,7 @@ func (in *ApplicationSpec) DeepCopyInto(out *ApplicationSpec) {
 		}
 	}
 	in.Overlays.DeepCopyInto(&out.Overlays)
-	if in.Repo != nil {
-		in, out := &in.Repo, &out.Repo
-		*out = new(registry.Config)
-		**out = **in
-	}
+	out.Repo = in.Repo
 	in.HelmReleaseSpec.DeepCopyInto(&out.HelmReleaseSpec)
 }
 

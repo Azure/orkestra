@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Azure/Orkestra/pkg"
+	"github.com/Azure/Orkestra/pkg/api"
 	"github.com/Azure/Orkestra/pkg/registry"
 	"github.com/Azure/Orkestra/pkg/workflow"
 	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
@@ -162,10 +163,10 @@ func (r *ApplicationGroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 	}
 
 	// handle first time install and subsequent updates
-	checksums, err := pkg.Checksum(&appGroup)
+	checksums, err := api.Checksum(&appGroup)
 	if err != nil {
 		// determine if the spec has changed
-		if errors.Is(err, pkg.ErrChecksumAppGroupSpecMismatch) {
+		if errors.Is(err, api.ErrChecksumAppGroupSpecMismatch) {
 			if appGroup.Status.Checksums != nil {
 				// flag this as requiring workflow updates for the reconciler
 				appGroup.Status.Update = true

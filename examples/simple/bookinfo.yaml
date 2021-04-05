@@ -11,6 +11,15 @@ spec:
         repo: 
           url: https://www.getambassador.io/helm 
           name: datawire
+          # Authorization Object Reference (Kind: Secret)
+          # this secret holds all auth information and credentials
+          # to register a protected/private helm registry
+          # Uncomment the lines below if you wish to register a private helm registry
+          # and make sure you deploy the Secret object to the given namespace/name 
+          # as well
+          # authRef: 
+          #   name: <secret-name>
+          #   namespace: <secret-namespace>
         groupID: "bookinfo"
         subcharts: []
         chart:

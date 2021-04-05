@@ -21,6 +21,9 @@ import (
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/getter"
 	"helm.sh/helm/v3/pkg/repo"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -207,4 +210,68 @@ func chartURL(repo, repoPath, chart, version string) string {
 
 func SaveChartPackage(ch *chart.Chart, dir string) (string, error) {
 	return helm.CreateChartPackage(&helm.Chart{V3: ch}, dir)
+}
+
+type RepoInfo struct {
+	Name    string                     `yaml:"name" json:"name"`
+	URL     string                     `yaml:"url" json:"url"`
+	AuthRef CredentialsObjectReference `yaml:"authRef" json:"authRef,omitempty"`
+}
+
+func (r RepoInfo) Config(c client.Client) (*Config, error) {
+	cfg := &Config{
+		Name: r.Name,
+		URL:  r.URL,
+	}
+
+	if r.AuthRef.Name != "" {
+		if r.AuthRef.Namespace == "" {
+			r.AuthRef.Namespace = "default"
+		}
+		creds := &v1.Secret{}
+		key := types.NamespacedName{
+			Name:      r.AuthRef.Name,
+			Namespace: r.AuthRef.Namespace,
+		}
+
+		err := c.Get(context.Background(), key, creds)
+		if err != nil {
+			return nil, err
+		}
+
+		data := creds.Data
+
+		if v, ok := data["username"]; ok {
+			cfg.Username = string(v)
+		}
+
+		if v, ok := data["password"]; ok {
+			cfg.Password = string(v)
+		}
+
+		if v, ok := data["username"]; ok {
+			cfg.Username = string(v)
+		}
+
+		if v, ok := data["tls.crt"]; ok {
+			cfg.CertFile = string(v)
+		}
+
+		if v, ok := data["tls.key"]; ok {
+			cfg.KeyFile = string(v)
+		}
+
+		if v, ok := data["ca.crt"]; ok {
+			cfg.CaFile = string(v)
+		}
+	}
+	return cfg, nil
+}
+
+type CredentialsObjectReference struct {
+	// Name of the referent
+	Name string `yaml:"name" json:"name,omitempty"`
+
+	// Namespace of the referent,
+	Namespace string `yaml:"namespace" json:"namespace,omitempty"`
 }

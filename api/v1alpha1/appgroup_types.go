@@ -32,7 +32,7 @@ type ApplicationSpec struct {
 	Overlays helmopv1.HelmValues `json:"overlays,omitempty"`
 
 	// Repo is the repository configuration
-	Repo *registry.Config `json:"repo,omitempty"`
+	Repo registry.RepoInfo `json:"repo,omitempty"`
 
 	// RepoPath provides the subdir path to the actual chart artifact within a Helm Registry
 	// Artifactory for instance utilizes folders to store charts

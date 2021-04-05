@@ -68,7 +68,15 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 		ll := l.WithValues("application", application.Name)
 		ll.V(3).Info("performing chart actions")
 
-		err := r.RegistryClient.AddRepo(application.Spec.Repo)
+		repoCfg, err := application.Spec.Repo.Config(r.Client)
+		if err != nil {
+			err = fmt.Errorf("failed to get repo configuration for repo at %s at URL %s: %w", application.Spec.Repo.Name, application.Spec.Repo.URL, err)
+			appGroup.Status.Error = err.Error()
+			ll.Error(err, "failed to add helm repo ")
+			return err
+		}
+
+		err = r.RegistryClient.AddRepo(repoCfg)
 		if err != nil {
 			err = fmt.Errorf("failed to add helm repo %s at URL %s: %w", application.Spec.Repo.Name, application.Spec.Repo.URL, err)
 			appGroup.Status.Error = err.Error()

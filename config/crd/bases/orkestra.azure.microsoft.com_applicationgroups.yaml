@@ -153,26 +153,22 @@ spec:
                         repo:
                           description: Repo is the repository configuration
                           properties:
-                            access_token:
-                              type: string
-                            auth_header:
-                              type: string
-                            ca_file:
-                              type: string
-                            cert_file:
-                              type: string
-                            insecure_skip_verify:
-                              type: boolean
-                            key_file:
-                              type: string
+                            authRef:
+                              properties:
+                                name:
+                                  description: Name of the referent
+                                  type: string
+                                namespace:
+                                  description: Namespace of the referent,
+                                  type: string
+                              type: object
                             name:
-                              type: string
-                            password:
                               type: string
                             url:
                               type: string
-                            username:
-                              type: string
+                          required:
+                          - name
+                          - url
                           type: object
                         repoPath:
                           description: RepoPath provides the subdir path to the actual
