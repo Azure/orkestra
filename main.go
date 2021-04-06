@@ -7,7 +7,6 @@ import (
 	"flag"
 	"os"
 
-	"github.com/Azure/Orkestra/pkg/configurer"
 	"github.com/Azure/Orkestra/pkg/registry"
 	"github.com/Azure/Orkestra/pkg/workflow"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -24,7 +23,7 @@ import (
 )
 
 const (
-	stagingRepoNameEnv = "STAGING_REPO_NAME"
+	stagingRepoURLEnv = "STAGING_REPO_URL"
 )
 
 var (
@@ -49,7 +48,7 @@ func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
 	var configPath string
-	var stagingRepoName string
+	var stagingRepoURL string
 	var tempChartStoreTargetDir string
 	var disableRemediation bool
 	var cleanupDownloadedCharts bool
@@ -60,7 +59,7 @@ func main() {
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.StringVar(&configPath, "config", "", "The path to the controller config file")
-	flag.StringVar(&stagingRepoName, "staging-repo-name", "", "The nickname for the helm registry used for staging artifacts (ENV - STAGING_REPO_URL). NOTE: Flag overrides env value")
+	flag.StringVar(&stagingRepoURL, "staging-repo-url", "", "The URL for the helm registry used for staging artifacts (ENV - STAGING_REPO_URL). NOTE: Flag overrides env value")
 	flag.StringVar(&tempChartStoreTargetDir, "chart-store-path", "", "The temporary storage path for the downloaded and staged chart artifacts")
 	flag.BoolVar(&disableRemediation, "disable-remediation", false, "Disable the remediation (delete/rollback) of the workflow on failure (useful if you wish to debug failures in the workflow/executor container")
 	flag.BoolVar(&cleanupDownloadedCharts, "cleanup-downloaded-charts", false, "Enable/disable the cleanup of the charts downloaded to the chart-store-path")
@@ -87,26 +86,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	if stagingRepoName == "" {
-		if s := os.Getenv(stagingRepoNameEnv); s != "" {
-			stagingRepoName = s
+	if stagingRepoURL == "" {
+		if s := os.Getenv(stagingRepoURLEnv); s != "" {
+			stagingRepoURL = s
 		} else {
 			setupLog.Error(err, "staging repo URL must be set")
 			os.Exit(1)
 		}
 	}
 
-	cfg, err := configurer.NewConfigurer(configPath)
-	if err != nil {
-		setupLog.Error(err, "unable to create new configurer instance", "controller", "config")
-		os.Exit(1)
-	}
-
-	cfg.Ctrl.DisableRemediation = disableRemediation
-	cfg.Ctrl.CleanupDownloadedCharts = cleanupDownloadedCharts
-
 	rc, err := registry.NewClient(
-		ctrl.Log.Logger, cfg.Ctrl.Registries,
+		ctrl.Log.Logger,
 		registry.TargetDir(tempChartStoreTargetDir),
 	)
 	if err != nil {
@@ -114,22 +104,27 @@ func main() {
 		os.Exit(1)
 	}
 
-	sCfg, err := cfg.Ctrl.RegistryConfig(stagingRepoName)
+	// Register the staging helm repository/registry
+	err = rc.AddRepo(&registry.Config{
+		Name: "staging",
+		URL:  stagingRepoURL,
+	})
 	if err != nil {
-		setupLog.Error(err, "unable to find staging repo configuration", "controller", "registry-config")
+		setupLog.Error(err, "failed to add staging helm repo")
 		os.Exit(1)
 	}
 
 	if err = (&controllers.ApplicationGroupReconciler{
-		Client:          mgr.GetClient(),
-		Log:             ctrl.Log.WithName("controllers").WithName("ApplicationGroup"),
-		Scheme:          mgr.GetScheme(),
-		Cfg:             cfg.Ctrl,
-		RegistryClient:  rc,
-		Engine:          workflow.Argo(scheme, mgr.GetClient(), sCfg.URL),
-		StagingRepoName: stagingRepoName,
-		TargetDir:       tempChartStoreTargetDir,
-		Recorder:        mgr.GetEventRecorderFor("appgroup-controller"),
+		Client:                  mgr.GetClient(),
+		Log:                     ctrl.Log.WithName("controllers").WithName("ApplicationGroup"),
+		Scheme:                  mgr.GetScheme(),
+		RegistryClient:          rc,
+		StagingRepoName:         "staging",
+		Engine:                  workflow.Argo(scheme, mgr.GetClient(), stagingRepoURL),
+		TargetDir:               tempChartStoreTargetDir,
+		Recorder:                mgr.GetEventRecorderFor("appgroup-controller"),
+		DisableRemediation:      disableRemediation,
+		CleanupDownloadedCharts: cleanupDownloadedCharts,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ApplicationGroup")
 		os.Exit(1)

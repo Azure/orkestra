@@ -149,6 +149,7 @@ func (in *ApplicationSpec) DeepCopyInto(out *ApplicationSpec) {
 		}
 	}
 	in.Overlays.DeepCopyInto(&out.Overlays)
+	out.Repo = in.Repo
 	in.HelmReleaseSpec.DeepCopyInto(&out.HelmReleaseSpec)
 }
 

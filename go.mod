@@ -25,7 +25,7 @@ require (
 	google.golang.org/appengine v1.6.6
 	google.golang.org/genproto v0.0.0-20201109203340-2640f1f9cdfb // indirect
 	google.golang.org/grpc v1.33.2 // indirect
-	gopkg.in/yaml.v2 v2.3.0
+	gopkg.in/yaml.v2 v2.4.0
 	helm.sh/helm/v3 v3.3.4
 	k8s.io/api v0.17.5
 	k8s.io/apimachinery v0.17.5

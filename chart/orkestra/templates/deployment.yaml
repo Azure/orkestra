@@ -32,8 +32,8 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args: 
-          - --staging-repo-name
-          - staging
+          - --staging-repo-url
+          - http://orkestra-chartmuseum.orkestra:8080 
           - --config
           - /etc/controller/config.yaml
           - --chart-store-path
@@ -50,15 +50,8 @@ spec:
             value: orkestra
           - name: SERVICE_ACCOUNT_NAME 
             value: {{ include "orkestra.serviceAccountName" . }} 
-          volumeMounts:
-          - name: registry-config
-            mountPath: /etc/controller/
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-      volumes:
-      - name: registry-config 
-        configMap:
-          name: registry-config 
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

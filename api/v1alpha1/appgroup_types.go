@@ -4,6 +4,7 @@
 package v1alpha1
 
 import (
+	"github.com/Azure/Orkestra/pkg/registry"
 	helmopv1 "github.com/fluxcd/helm-operator/pkg/apis/helm.fluxcd.io/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -13,9 +14,6 @@ type ApplicationSpec struct {
 	// Subcharts provides the dependency order among the subcharts of the application
 	Subcharts []DAG  `json:"subcharts,omitempty"`
 	GroupID   string `json:"groupID,omitempty"`
-
-	// ChartRepoNickname is used to lookup the repository config in the registries config map
-	ChartRepoNickname string `json:"repo,omitempty"`
 
 	// XXX (nitishm) **IMPORTANT**: DO NOT USE HelmReleaseSpec.Values!!!
 	// ApplicationSpec.Overlays field replaces HelmReleaseSpec.Values field.
@@ -32,6 +30,9 @@ type ApplicationSpec struct {
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:XPreserveUnknownFields
 	Overlays helmopv1.HelmValues `json:"overlays,omitempty"`
+
+	// Repo is the repository configuration
+	Repo registry.RepoInfo `json:"repo,omitempty"`
 
 	// RepoPath provides the subdir path to the actual chart artifact within a Helm Registry
 	// Artifactory for instance utilizes folders to store charts
