@@ -66,6 +66,9 @@ type ApplicationGroupReconciler struct {
 	// Recorder generates kubernetes events
 	Recorder record.EventRecorder
 
+	// lastSuccessfulApplicationGroup holds the applicationgroup spec body from the last
+	// successful reconciliation of the ApplicationGroup. This is set after every successful
+	// reconciliation.
 	lastSuccessfulApplicationGroup *orkestrav1alpha1.ApplicationGroup
 }
 
@@ -89,6 +92,9 @@ func (r *ApplicationGroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 		return ctrl.Result{}, err
 	}
 
+	// Check if this is an update event to the ApplicationGroup
+	// in which case unmarshal the last successful spec into a
+	// variable
 	if appGroup.GetAnnotations() != nil {
 		last := &orkestrav1alpha1.ApplicationGroup{}
 		if s, ok := appGroup.Annotations[lastSuccessfulApplicationGroupKey]; ok {
@@ -97,13 +103,17 @@ func (r *ApplicationGroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 		}
 	}
 
-	// handle deletes if deletion timestamp is non-zero
+	// handle deletes if deletion timestamp is non-zero.
+	// controller-runtime cannot guarantee the order of events
+	// , so it is upto us to determine the type of event
 	if !appGroup.DeletionTimestamp.IsZero() {
 		// If finalizer is found, remove it and requeue
 		if appGroup.Finalizers != nil {
 			logr.Info("cleaning up the applicationgroup resource")
 
 			// Reverse the entire workflow to remove all the Helm Releases
+
+			// unset the last successful spec annotation
 			r.lastSuccessfulApplicationGroup = nil
 			if _, ok := appGroup.Annotations[lastSuccessfulApplicationGroupKey]; ok {
 				appGroup.Annotations[lastSuccessfulApplicationGroupKey] = ""
@@ -128,6 +138,9 @@ func (r *ApplicationGroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 		return ctrl.Result{Requeue: true}, nil
 	}
 
+	// If the (needs) Rollback phase is present in the reconciled version,
+	// we must rollback the application group to the last successful spec.
+	// This should only happen on updates and not during installs.
 	if appGroup.Status.Phase == orkestrav1alpha1.Rollback {
 		logr.Info("Rolling back to last successful application group spec")
 		appGroup.Spec = r.lastSuccessfulApplicationGroup.DeepCopy().Spec
@@ -145,8 +158,10 @@ func (r *ApplicationGroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 	// handle first time install and subsequent updates
 	checksums, err := pkg.Checksum(&appGroup)
 	if err != nil {
+		// determine if the spec has changed
 		if errors.Is(err, pkg.ErrChecksumAppGroupSpecMismatch) {
 			if appGroup.Status.Checksums != nil {
+				// flag this as requiring workflow updates for the reconciler
 				appGroup.Status.Update = true
 			}
 			requeue, err = r.reconcile(ctx, logr, r.WorkflowNS, &appGroup)
@@ -184,7 +199,13 @@ func (r *ApplicationGroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 
 	appGroup.Status.Checksums = checksums
 
+	// Calculate the cumulative status of the generated Workflow
+	// and the generated HelmRelease objects
+
 	// Lookup Workflow by ownership and heritage labels
+	// We are expecting to find at most one workflow in
+	// the returned list that is associated with this
+	// ApplicationGroup object.
 	wfs := v1alpha12.WorkflowList{}
 	listOption := client.MatchingLabels{
 		workflow.OwnershipLabel: appGroup.Name,
@@ -198,13 +219,13 @@ func (r *ApplicationGroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 	}
 
 	if wfs.Items.Len() == 0 {
-		// appGroup.Status.Phase = wfs.Items[0].Status.Phase
 		err = fmt.Errorf("listed workflows len is 0")
 		logr.Error(err, "no associated workflow found")
 		requeue = false
 		return r.handleResponseAndEvent(ctx, logr, appGroup, requeue, err)
 	}
 
+	// determine the associated/generated workflow status
 	var phase orkestrav1alpha1.ReconciliationPhase
 	wfStatus := wfs.Items[0].Status.Phase
 	switch wfStatus {
@@ -249,6 +270,7 @@ func (r *ApplicationGroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 		}
 	}
 
+	// Update each application status using the HelmRelease status
 	v := make([]orkestrav1alpha1.ApplicationStatus, 0)
 	for _, app := range appGroup.Status.Applications {
 		app.ChartStatus.Phase = helmReleaseStatusMap[app.Name]
@@ -333,28 +355,6 @@ func (r *ApplicationGroupReconciler) handleResponseAndEvent(ctx context.Context,
 	return reconcile.Result{Requeue: requeue}, err
 }
 
-// func isDependenciesEmbedded(ch *chart.Chart) bool {
-// 	// TODO (nitishm) This does not support a mix of remote and embedded dependency subcharts
-// 	isURI := false
-// 	for _, d := range ch.Metadata.Dependencies {
-// 		if _, err := url.ParseRequestURI(d.Repository); err == nil {
-// 			// If this is an "assembled" chart (https://helm.sh/docs/chart_best_practices/dependencies/#versions) we must stage the embedded subchart
-// 			if strings.Contains(d.Repository, "file://") {
-// 				isURI = false
-// 				break
-// 			}
-// 			isURI = true
-// 		}
-// 	}
-
-// 	if !isURI {
-// 		if len(ch.Dependencies()) > 0 {
-// 			return true
-// 		}
-// 	}
-// 	return false
-// }
-
 func initApplications(appGroup *orkestrav1alpha1.ApplicationGroup) {
 	// Initialize the Status fields if not already setup
 	if len(appGroup.Status.Applications) == 0 {
@@ -382,8 +382,11 @@ func initApplications(appGroup *orkestrav1alpha1.ApplicationGroup) {
 }
 
 func (r *ApplicationGroupReconciler) handleRemediation(ctx context.Context, logr logr.Logger, g orkestrav1alpha1.ApplicationGroup, err error) (ctrl.Result, error) {
-	// Rollback to previous successful spec
+	// Rollback to previous successful spec since the annotation was set and this is
+	// an UPDATE event
 	if r.lastSuccessfulApplicationGroup != nil {
+		// If this is a HelmRelease failure then we must remediate by cleaning up
+		// all the helm releases deployed by the workflow and helm operator
 		if errors.Is(err, ErrHelmReleaseInFailureStatus) {
 			// Delete the HelmRelease(s) - parent and subchart(s)
 			// Lookup charts using the label selector.
@@ -412,6 +415,9 @@ func (r *ApplicationGroupReconciler) handleRemediation(ctx context.Context, logr
 				}
 			}
 		}
+		// mark the object as requiring rollback so that we can rollback
+		// to the previous versions of all the applications in the ApplicationGroup
+		// using the last successful spec
 		g.Status.Phase = orkestrav1alpha1.Rollback
 		_ = r.Status().Update(ctx, &g)
 

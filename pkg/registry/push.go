@@ -13,6 +13,7 @@ import (
 
 // PushChart pushes the chart to the repository specified by the repoKey. The repository setting is fetched from the associated registry config file
 func (c *Client) PushChart(l logr.Logger, repoKey, pkgPath string, ch *chart.Chart) error {
+	// logic is derived from the "helm push" extension from the chartmuseum folks
 	chartName := ch.Name()
 	version := ch.Metadata.Version
 
