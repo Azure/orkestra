@@ -151,9 +151,29 @@ spec:
                             namespace to the resource name.
                           type: string
                         repo:
-                          description: ChartRepoNickname is used to lookup the repository
-                            config in the registries config map
-                          type: string
+                          description: Repo is the repository configuration
+                          properties:
+                            access_token:
+                              type: string
+                            auth_header:
+                              type: string
+                            ca_file:
+                              type: string
+                            cert_file:
+                              type: string
+                            insecure_skip_verify:
+                              type: boolean
+                            key_file:
+                              type: string
+                            name:
+                              type: string
+                            password:
+                              type: string
+                            url:
+                              type: string
+                            username:
+                              type: string
+                          type: object
                         repoPath:
                           description: RepoPath provides the subdir path to the actual
                             chart artifact within a Helm Registry Artifactory for

@@ -8,7 +8,9 @@ spec:
       dependencies: []
       spec:
         namespace: orkestra
-        repo: datawire 
+        repo: 
+          url: https://www.getambassador.io/helm 
+          name: datawire
         groupID: "bookinfo"
         subcharts: []
         chart:
@@ -24,7 +26,9 @@ spec:
       dependencies: [ambassador]
       spec:
         namespace: orkestra 
-        repo: bookinfo 
+        repo:
+          url: https://nitishm.github.io/istio-bookinfo-chart
+          name: bookinfo 
         groupID: "bookinfo"
         subcharts:
         - name: productpage

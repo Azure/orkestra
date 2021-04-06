@@ -17,13 +17,13 @@ serviceAccount:
   annotations: {}
   name: *serviceAccount
 
-repositories:
-  - name: staging 
-    url: "http://orkestra-chartmuseum.orkestra:8080"
-  - name: datawire 
-    url: "https://www.getambassador.io/helm"
-  - name: bookinfo 
-    url: "https://nitishm.github.io/istio-bookinfo-chart"
+# repositories:
+#   - name: staging 
+#     url: "http://orkestra-chartmuseum.orkestra:8080"
+#   - name: datawire 
+#     url: "https://www.getambassador.io/helm"
+#   - name: bookinfo 
+#     url: "https://nitishm.github.io/istio-bookinfo-chart"
     # username: admin
     # password: password
     # authHeader: 'Authorization: Basic HTTPBASICAUTHCREDS'

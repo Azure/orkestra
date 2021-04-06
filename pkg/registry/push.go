@@ -20,7 +20,7 @@ func (c *Client) PushChart(l logr.Logger, repoKey, pkgPath string, ch *chart.Cha
 	l.WithValues("repo-key", repoKey, "chart-name", chartName, "chart-version", version)
 	l.V(3).Info("pushing chart")
 
-	rCfg, err := c.registries.RegistryConfig(repoKey)
+	rCfg, err := c.RegistryConfig(repoKey)
 	if err != nil {
 		l.Error(err, "failed to find registry with provided key in registries map")
 		return fmt.Errorf("failed to find registry with repoKey %s Name %s Version %s in registries map : %w", repoKey, chartName, version, err)

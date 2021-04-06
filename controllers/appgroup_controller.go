@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/Azure/Orkestra/pkg"
-	"github.com/Azure/Orkestra/pkg/configurer"
 	"github.com/Azure/Orkestra/pkg/registry"
 	"github.com/Azure/Orkestra/pkg/workflow"
 	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
@@ -47,8 +46,6 @@ type ApplicationGroupReconciler struct {
 	Log    logr.Logger
 	Scheme *runtime.Scheme
 
-	// Cfg is the controller configuration that gives access to the helm registry configuration (and more as we add options to configure the controller)
-	Cfg    *configurer.Controller
 	Engine workflow.Engine
 
 	// RegistryClient interacts with the helm registries to pull and push charts
@@ -65,6 +62,15 @@ type ApplicationGroupReconciler struct {
 
 	// Recorder generates kubernetes events
 	Recorder record.EventRecorder
+
+	// DisableRemediation for debugging purposes
+	// The object and associated Workflow, HelmReleases will
+	// not be cleaned up
+	DisableRemediation bool
+
+	// CleanupDownloadedCharts signals the controller to delete the
+	// fetched charts after they have been repackaged and pushed to staging
+	CleanupDownloadedCharts bool
 
 	// lastSuccessfulApplicationGroup holds the applicationgroup spec body from the last
 	// successful reconciliation of the ApplicationGroup. This is set after every successful
@@ -339,7 +345,7 @@ func (r *ApplicationGroupReconciler) handleResponseAndEvent(ctx context.Context,
 	}
 
 	if err != nil {
-		if !r.Cfg.DisableRemediation {
+		if !r.DisableRemediation {
 			return r.handleRemediation(ctx, logr, grp, err)
 		}
 	}

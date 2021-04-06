@@ -15,7 +15,7 @@ func (c *Client) PullChart(l logr.Logger, repoKey, repoPath, chartName, version 
 
 	l.V(3).Info("pulling chart")
 
-	rCfg, err := c.registries.RegistryConfig(repoKey)
+	rCfg, err := c.RegistryConfig(repoKey)
 	if err != nil {
 		l.Error(err, "failed to find registry with provided key in registries map")
 		return "", nil, fmt.Errorf("failed to find registry with repoKey %s Name %s Version %s in registries map : %w", repoKey, chartName, version, err)
