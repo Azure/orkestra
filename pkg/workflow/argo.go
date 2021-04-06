@@ -126,7 +126,6 @@ func (a *argo) Submit(ctx context.Context, l logr.Logger, g *v1alpha1.Applicatio
 			},
 		}
 		// Create the namespace since helm-operator does not do this
-		// FIXME (nitishm) Handle namespace in termination state by requeueing
 		err := a.cli.Get(ctx, types.NamespacedName{Name: ns.Name}, &ns)
 		if err != nil {
 			if errors.IsNotFound(err) {
