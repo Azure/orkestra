@@ -10,6 +10,7 @@ import (
 )
 
 func (c *Client) PullChart(l logr.Logger, repoKey, repoPath, chartName, version string) (string, *chart.Chart, error) {
+	// logic is derived from the "helm pull" command from the helm cli package
 	l.WithValues("repo-key", repoKey, "chart-name", chartName, "chart-version", version)
 
 	l.V(3).Info("pulling chart")
