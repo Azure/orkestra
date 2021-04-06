@@ -34,6 +34,18 @@
 
 ## Build & Run
 
+> Run the following `make` targets everytime the types are changed (`api/xxx_types.go`)
+
+```terminal
+make generate
+/usr/local/bin/controller-gen object:headerFile="hack/boilerplate.go.txt" paths="./..."
+```
+
+```terminal
+make manifests
+/usr/local/bin/controller-gen "crd:trivialVersions=true" rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+```
+
 ### Manually
 1. Build a docker image and push to your own personal docker registry (careful not to override the latest tag)
 

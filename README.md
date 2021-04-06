@@ -137,7 +137,8 @@ Try out the [examples](./examples)
 ### Features
 
 - [x] Rollback ApplicationGroup to previous version on failure by re-deploying last-applied workflow. (MVP)
-- [ ] Switch from [helm-operator](https://github.com/fluxcd/helm-operator) to [helm-controller](https://github.com/fluxcd/helm-controller) (MVP)
+- [ ] Switch from [helm-operator](https://github.com/fluxcd/helm-operator) to [helm-controller](https://github.com/fluxcd/helm-controller) (MVP [#65](https://github.com/Azure/Orkestra/issues/65))
+- [ ] Leverage helm-controller's remediation and rollback features for remediation on failures/errors. (MVP [#144](https://github.com/Azure/Orkestra/issues/144))
 - [ ] Support multiple remediation strategies on failure
 - [ ] Bring your own executor template for Argo Workflow leaf node HelmRelease deployment (allows a user to do custom checks before deeming the leaf node successful)
 
