@@ -89,8 +89,8 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 		}
 
 		repoPath := application.Spec.RepoPath
-		name := application.Spec.HelmReleaseSpec.Name
-		version := application.Spec.HelmReleaseSpec.Version
+		name := application.Spec.Release.ReleaseName
+		version := application.Spec.Release.HelmVersion
 		repoKey := application.Spec.Repo.Name
 
 		fpath, appCh, err := r.RegistryClient.PullChart(ll, repoKey, repoPath, name, version)
@@ -228,7 +228,7 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 			}
 
 			// Replace existing chart with modified chart
-			path := stagingDir + "/" + application.Spec.HelmReleaseSpec.Name + "-" + appCh.Metadata.Version + ".tgz"
+			path := stagingDir + "/" + application.Spec.Release.ReleaseName + "-" + appCh.Metadata.Version + ".tgz"
 			err = r.RegistryClient.PushChart(ll, stagingRepoName, path, appCh)
 			defer func() {
 				if r.CleanupDownloadedCharts {

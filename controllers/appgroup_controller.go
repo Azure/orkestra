@@ -369,7 +369,7 @@ func initApplications(appGroup *orkestrav1alpha1.ApplicationGroup) {
 		for _, app := range appGroup.Spec.Applications {
 			status := orkestrav1alpha1.ApplicationStatus{
 				Name:        app.Name,
-				ChartStatus: orkestrav1alpha1.ChartStatus{Version: app.Spec.Version},
+				ChartStatus: orkestrav1alpha1.ChartStatus{Version: app.Spec.Release.HelmVersion},
 				Subcharts:   make(map[string]orkestrav1alpha1.ChartStatus),
 			}
 			appGroup.Status.Applications = append(appGroup.Status.Applications, status)
@@ -382,7 +382,7 @@ func initApplications(appGroup *orkestrav1alpha1.ApplicationGroup) {
 		if app.Spec.Overlays.Data == nil {
 			app.Spec.Overlays.Data = make(map[string]interface{})
 		}
-		app.Spec.Values = app.Spec.Overlays
+		app.Spec.Release.Values = app.Spec.Overlays
 		v.Spec.Applications = append(v.Spec.Applications, app)
 	}
 	appGroup.Spec.Applications = v.DeepCopy().Spec.Applications

@@ -38,8 +38,52 @@ type ApplicationSpec struct {
 	// Artifactory for instance utilizes folders to store charts
 	RepoPath string `json:"repoPath,omitempty"`
 
-	// Inline HelmReleaseSpec from the flux helm-operator package
-	helmopv1.HelmReleaseSpec `json:",inline"`
+	// +optional
+	Release *ReleaseSpec `json:"releaseSpec,omitempty"`
+}
+
+type ReleaseSpec struct {
+	// HelmVersion is the version of Helm to target. If not supplied,
+	// the lowest _enabled Helm version_ will be targeted.
+	// +kubebuilder:validation:Enum=v2;v3
+	// +kubebuilder:default:=v2
+	// +required
+	HelmVersion string `json:"helmVersion"`
+
+	// +required
+	ChartSource helmopv1.ChartSource `json:"chart"`
+
+	// Name specifies the name of the release
+	// +required
+	ReleaseName string `json:"name"`
+
+	// TargetNamespace overrides the targeted namespace for the Helm
+	// release. The default namespace equals to the namespace of the
+	// HelmRelease resource.
+	// +optional
+	TargetNamespace string `json:"targetNamespace,omitempty"`
+
+	// Timeout is the time to wait for any individual Kubernetes
+	// operation (like Jobs for hooks) during installation and
+	// upgrade operations.
+	// +optional
+	Timeout *int64 `json:"timeout,omitempty"`
+
+	// Wait will mark this Helm release to wait until all Pods,
+	// PVCs, Services, and minimum number of Pods of a Deployment,
+	// StatefulSet, or ReplicaSet are in a ready state before marking
+	// the release as successful.
+	// +optional
+	Wait *bool `json:"wait,omitempty"`
+
+	// Force will mark this Helm release to `--force` upgrades. This
+	// forces the resource updates through delete/recreate if needed.
+	// +optional
+	ForceUpgrade bool `json:"forceUpgrade,omitempty"`
+
+	// Values holds the values for this Helm release.
+	// +optional
+	Values helmopv1.HelmValues `json:"values,omitempty"`
 }
 
 // ChartStatus shows the current status of the Application Reconciliation process
