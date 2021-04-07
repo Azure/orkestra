@@ -22,15 +22,16 @@ spec:
           #   namespace: <secret-namespace>
         groupID: "bookinfo"
         subcharts: []
-        chart:
-          repository: "https://www.getambassador.io"
-          name: ambassador 
-          version: 6.6.0
+        release:
+          chart:
+            repository: "https://www.getambassador.io"
+            name: ambassador 
+            version: 6.6.0
+          forceUpgrade: true
+          targetNamespace: ambassador 
         overlays:
           service:
             type: ClusterIP
-        forceUpgrade: true
-        targetNamespace: ambassador 
     - name: bookinfo 
       dependencies: [ambassador]
       spec:
@@ -48,10 +49,13 @@ spec:
           dependencies: []
         - name: details
           dependencies: []
-        chart:
-          repository: "https://nitishm.github.io/istio-bookinfo-chart"
-          name: bookinfo 
-          version: v1
+        release:
+          chart:
+            repository: "https://nitishm.github.io/istio-bookinfo-chart"
+            name: bookinfo 
+            version: v1
+          forceUpgrade: true
+          targetNamespace: bookinfo
         overlays:
           productpage:
             replicaCount: 1
@@ -61,5 +65,3 @@ spec:
             replicaCount: 1
           ratings:
             replicaCount: 1
-        forceUpgrade: true
-        targetNamespace: bookinfo

@@ -39,7 +39,7 @@ type ApplicationSpec struct {
 	RepoPath string `json:"repoPath,omitempty"`
 
 	// +optional
-	Release *ReleaseSpec `json:"releaseSpec,omitempty"`
+	Release *ReleaseSpec `json:"release,omitempty"`
 }
 
 type ReleaseSpec struct {
