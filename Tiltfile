@@ -1,6 +1,3 @@
-load('ext://kubebuilder', 'kubebuilder') 
-kubebuilder("azure.microsoft.com", "orkestra", "v1beta1", "*") 
-
 load('ext://namespace', 'namespace_yaml')
 k8s_yaml(namespace_yaml("orkestra"),allow_duplicates=True)
 
