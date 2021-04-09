@@ -220,14 +220,14 @@ func GetHelmRepoConfig(app *orkestrav1alpha1.Application, c client.Client) (*Con
 		URL:  app.Spec.Chart.RepoURL,
 	}
 
-	if app.Spec.Chart.HelmRepoSecretRef != nil {
-		if app.Spec.Chart.HelmRepoSecretRef.Namespace == "" {
-			app.Spec.Chart.HelmRepoSecretRef.Namespace = "default"
+	if app.Spec.Chart.AuthSecretRef != nil {
+		if app.Spec.Chart.AuthSecretRef.Namespace == "" {
+			app.Spec.Chart.AuthSecretRef.Namespace = "default"
 		}
 		creds := &v1.Secret{}
 		key := types.NamespacedName{
-			Name:      app.Spec.Chart.HelmRepoSecretRef.Name,
-			Namespace: app.Spec.Chart.HelmRepoSecretRef.Namespace,
+			Name:      app.Spec.Chart.AuthSecretRef.Name,
+			Namespace: app.Spec.Chart.AuthSecretRef.Namespace,
 		}
 
 		err := c.Get(context.Background(), key, creds)

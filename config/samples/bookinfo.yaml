@@ -12,7 +12,7 @@ spec:
         chart:
           repository: "https://www.getambassador.io/helm"
           name: datawire 
-          version: 5.2.0
+          version: 6.6.0
           # Authorization Object Reference (Kind: Secret)
           # this secret holds all auth information and credentials
           # to register a protected/private helm registry

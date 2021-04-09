@@ -77,10 +77,10 @@ type ChartRef struct {
 	// +optional
 	helmopv1.RepoChartSource `json:",inline"`
 
-	// HelmRepoSecretRef is a reference to the auth secret
+	// AuthSecretRef is a reference to the auth secret
 	// to access a private helm repository
 	// +optional
-	HelmRepoSecretRef *corev1.ObjectReference `json:"helmRepoSecretRef,omitempty"`
+	AuthSecretRef *corev1.ObjectReference `json:"authSecretRef,omitempty"`
 }
 
 // ChartStatus shows the current status of the Application Reconciliation process
