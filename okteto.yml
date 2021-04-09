@@ -1,0 +1,14 @@
+name: orkestra
+namespace: orkestra
+image: okteto/golang:1
+command: bash
+securityContext:
+  capabilities:
+    add:
+    - SYS_PTRACE
+volumes:
+- /go/pkg/
+- /root/.cache/go-build/
+- /root/.vscode-server    # persist vscode extensions
+sync:
+- .:/usr/src/app
