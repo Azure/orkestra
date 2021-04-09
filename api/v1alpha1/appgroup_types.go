@@ -4,58 +4,52 @@
 package v1alpha1
 
 import (
-	"github.com/Azure/Orkestra/pkg/registry"
 	helmopv1 "github.com/fluxcd/helm-operator/pkg/apis/helm.fluxcd.io/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // ApplicationSpec defines the desired state of Application
 type ApplicationSpec struct {
 	// Subcharts provides the dependency order among the subcharts of the application
-	Subcharts []DAG  `json:"subcharts,omitempty"`
-	GroupID   string `json:"groupID,omitempty"`
+	// +optional
+	Subcharts []DAG `json:"subcharts,omitempty"`
 
-	// XXX (nitishm) **IMPORTANT**: DO NOT USE HelmReleaseSpec.Values!!!
-	// ApplicationSpec.Overlays field replaces HelmReleaseSpec.Values field.
-	// Setting the HelmReleaseSpec.Values field will not reflect in the deployed Application object
-	//
-	// Explanation
-	// ===========
-	// HelmValues uses a map[string]interface{} structure for holding helm values Data.
-	// kubebuilder prunes the field value when deploying the Application resource as it considers the field to be an
-	// Unknown field. HelmOperator v1 being in maintenance mode, we do not expect them to merge PRs
-	// to add the  +kubebuilder:pruning:PreserveUnknownFields
-	// https://github.com/fluxcd/helm-operator/issues/585
+	// +required
+	GroupID string `json:"groupId,omitempty"`
 
+	// +required
+	Chart *ChartRef `json:"chart"`
+
+	// +required
+	Release *Release `json:",inline"`
+
+	// Values holds the values for this Helm release.
+	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:XPreserveUnknownFields
-	Overlays helmopv1.HelmValues `json:"overlays,omitempty"`
-
-	// Repo is the repository configuration
-	Repo registry.RepoInfo `json:"repo,omitempty"`
-
-	// RepoPath provides the subdir path to the actual chart artifact within a Helm Registry
-	// Artifactory for instance utilizes folders to store charts
-	RepoPath string `json:"repoPath,omitempty"`
-
-	// +optional
-	Release *ReleaseSpec `json:"release,omitempty"`
+	Values helmopv1.HelmValues `json:"values,omitempty"`
 }
 
-type ReleaseSpec struct {
+type Release struct {
 	// HelmVersion is the version of Helm to target. If not supplied,
 	// the lowest _enabled Helm version_ will be targeted.
 	// +kubebuilder:validation:Enum=v2;v3
-	// +kubebuilder:default:=v2
-	// +required
+	// +kubebuilder:default:=v3
+	// +optional
 	HelmVersion string `json:"helmVersion"`
 
-	// +required
-	ChartSource helmopv1.ChartSource `json:"chart"`
+	// Force will mark this Helm release to `--force` upgrades. This
+	// forces the resource updates through delete/recreate if needed.
+	// +optional
+	ForceUpgrade bool `json:"forceUpgrade,omitempty"`
 
-	// Name specifies the name of the release
-	// +required
-	ReleaseName string `json:"name"`
+	// Wait will mark this Helm release to wait until all Pods,
+	// PVCs, Services, and minimum number of Pods of a Deployment,
+	// StatefulSet, or ReplicaSet are in a ready state before marking
+	// the release as successful.
+	// +optional
+	Wait *bool `json:"wait,omitempty"`
 
 	// TargetNamespace overrides the targeted namespace for the Helm
 	// release. The default namespace equals to the namespace of the
@@ -68,22 +62,17 @@ type ReleaseSpec struct {
 	// upgrade operations.
 	// +optional
 	Timeout *int64 `json:"timeout,omitempty"`
+}
 
-	// Wait will mark this Helm release to wait until all Pods,
-	// PVCs, Services, and minimum number of Pods of a Deployment,
-	// StatefulSet, or ReplicaSet are in a ready state before marking
-	// the release as successful.
+type ChartRef struct {
 	// +optional
-	Wait *bool `json:"wait,omitempty"`
+	helmopv1.GitChartSource `json:",inline"`
 
-	// Force will mark this Helm release to `--force` upgrades. This
-	// forces the resource updates through delete/recreate if needed.
 	// +optional
-	ForceUpgrade bool `json:"forceUpgrade,omitempty"`
+	helmopv1.RepoChartSource `json:",inline"`
 
-	// Values holds the values for this Helm release.
 	// +optional
-	Values helmopv1.HelmValues `json:"values,omitempty"`
+	HelmRepoSecretRef *corev1.ObjectReference `json:"helmRepoSecretRef,omitempty"`
 }
 
 // ChartStatus shows the current status of the Application Reconciliation process
@@ -116,7 +105,13 @@ type Application struct {
 // DAG contains the dependency information
 type DAG struct {
 	// Name of the application
+	// +required
 	Name string `json:"name,omitempty"`
+
+	// Namespace of the application
+	// +required
+	Namespace string `json:"namespace,omitempty"`
+
 	// Dependencies on other applications by name
 	Dependencies []string `json:"dependencies,omitempty"`
 }

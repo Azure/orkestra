@@ -277,8 +277,6 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, g *v1alpha1.Applicat
 
 	for i, app := range g.Spec.Applications {
 		var hasSubcharts bool
-		app.Spec.Release.Values = app.Spec.Overlays
-
 		appStatus := &g.Status.Applications[i].ChartStatus
 		scStatus := g.Status.Applications[i].Subcharts
 
@@ -311,14 +309,17 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, g *v1alpha1.Applicat
 					Namespace: app.Spec.Release.TargetNamespace,
 				},
 				Spec: helmopv1.HelmReleaseSpec{
-					HelmVersion:     helmopv1.HelmVersion(app.Spec.Release.HelmVersion),
-					ChartSource:     app.Spec.Release.ChartSource,
-					ReleaseName:     app.Spec.Release.ReleaseName,
+					HelmVersion: helmopv1.HelmVersion(app.Spec.Release.HelmVersion),
+					ChartSource: helmopv1.ChartSource{
+						GitChartSource:  &app.Spec.Chart.GitChartSource,
+						RepoChartSource: &app.Spec.Chart.RepoChartSource,
+					},
+					ReleaseName:     app.Name,
 					TargetNamespace: app.Spec.Release.TargetNamespace,
 					Timeout:         app.Spec.Release.Timeout,
 					Wait:            app.Spec.Release.Wait,
 					ForceUpgrade:    app.Spec.Release.ForceUpgrade,
-					Values:          app.Spec.Release.Values,
+					Values:          app.Spec.Values,
 				},
 			}
 
@@ -377,7 +378,7 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 		isStaged := subchartsStatus[scName].Staged
 		version := subchartsStatus[scName].Version
 
-		hr := generateSubchartHelmRelease(*app.Spec.Release, app.Name, scName, version, repo, targetNS, isStaged)
+		hr := generateSubchartHelmRelease(*app, app.Name, scName, version, repo, targetNS, isStaged)
 		hr.Annotations = map[string]string{
 			"orkestra/parent-chart": app.Name,
 		}
@@ -414,14 +415,17 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 			Namespace: app.Spec.Release.TargetNamespace,
 		},
 		Spec: helmopv1.HelmReleaseSpec{
-			HelmVersion:     helmopv1.HelmVersion(app.Spec.Release.HelmVersion),
-			ChartSource:     app.Spec.Release.ChartSource,
-			ReleaseName:     app.Spec.Release.ReleaseName,
+			HelmVersion: helmopv1.HelmVersion(app.Spec.Release.HelmVersion),
+			ChartSource: helmopv1.ChartSource{
+				GitChartSource:  &app.Spec.Chart.GitChartSource,
+				RepoChartSource: &app.Spec.Chart.RepoChartSource,
+			},
+			ReleaseName:     app.Name,
 			TargetNamespace: app.Spec.Release.TargetNamespace,
 			Timeout:         app.Spec.Release.Timeout,
 			Wait:            app.Spec.Release.Wait,
 			ForceUpgrade:    app.Spec.Release.ForceUpgrade,
-			Values:          app.Spec.Release.Values,
+			Values:          app.Spec.Values,
 		},
 	}
 
@@ -509,7 +513,7 @@ func hrToYAML(hr helmopv1.HelmRelease) string {
 	return string(b)
 }
 
-func generateSubchartHelmRelease(a v1alpha1.ReleaseSpec, appName, scName, version, repo, targetNS string, isStaged bool) helmopv1.HelmRelease {
+func generateSubchartHelmRelease(a v1alpha1.Application, appName, scName, version, repo, targetNS string, isStaged bool) helmopv1.HelmRelease {
 	hr := helmopv1.HelmRelease{
 		TypeMeta: v1.TypeMeta{
 			Kind:       "HelmRelease",
@@ -532,12 +536,12 @@ func generateSubchartHelmRelease(a v1alpha1.ReleaseSpec, appName, scName, versio
 	hr.Spec.Timeout = &timeout
 
 	// NOTE: Ownership label is added in the caller function
-	hr.Spec.ChartSource.RepoChartSource = a.DeepCopy().ChartSource.RepoChartSource
+	hr.Spec.ChartSource.RepoChartSource = &a.DeepCopy().Spec.Chart.RepoChartSource
 	hr.Spec.ChartSource.RepoChartSource.Name = pkg.ConvertToDNS1123(pkg.ToInitials(appName) + "-" + scName)
 	hr.Spec.ChartSource.RepoChartSource.RepoURL = repo
 	hr.Spec.ChartSource.RepoChartSource.Version = version
 
-	hr.Spec.Values = subchartValues(scName, a.Values)
+	hr.Spec.Values = subchartValues(scName, a.Spec.Values)
 
 	return hr
 }

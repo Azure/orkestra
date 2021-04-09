@@ -24,10 +24,12 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	orkestrav1alpha1 "github.com/Azure/Orkestra/api/v1alpha1"
 )
 
 const (
-	defaultTargetDir = "/etc/orkestra/charts/pull/"
+	defaultTargetDir = "/Users/jonathaninnis/orkestra"
 )
 
 var (
@@ -212,26 +214,20 @@ func SaveChartPackage(ch *chart.Chart, dir string) (string, error) {
 	return helm.CreateChartPackage(&helm.Chart{V3: ch}, dir)
 }
 
-type RepoInfo struct {
-	Name    string                     `yaml:"name" json:"name"`
-	URL     string                     `yaml:"url" json:"url"`
-	AuthRef CredentialsObjectReference `yaml:"authRef" json:"authRef,omitempty"`
-}
-
-func (r RepoInfo) Config(c client.Client) (*Config, error) {
+func GetHelmRepoConfig(app *orkestrav1alpha1.Application, c client.Client) (*Config, error) {
 	cfg := &Config{
-		Name: r.Name,
-		URL:  r.URL,
+		Name: app.Name,
+		URL:  app.Spec.Chart.RepoURL,
 	}
 
-	if r.AuthRef.Name != "" {
-		if r.AuthRef.Namespace == "" {
-			r.AuthRef.Namespace = "default"
+	if app.Spec.Chart.HelmRepoSecretRef != nil {
+		if app.Spec.Chart.HelmRepoSecretRef.Namespace == "" {
+			app.Spec.Chart.HelmRepoSecretRef.Namespace = "default"
 		}
 		creds := &v1.Secret{}
 		key := types.NamespacedName{
-			Name:      r.AuthRef.Name,
-			Namespace: r.AuthRef.Namespace,
+			Name:      app.Spec.Chart.HelmRepoSecretRef.Name,
+			Namespace: app.Spec.Chart.HelmRepoSecretRef.Namespace,
 		}
 
 		err := c.Get(context.Background(), key, creds)

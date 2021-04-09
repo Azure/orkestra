@@ -5,12 +5,14 @@ metadata:
 spec:
   applications:
     - name: ambassador
+      namespace: ambassador
       dependencies: []
       spec:
-        namespace: orkestra
-        repo: 
-          url: https://www.getambassador.io/helm 
-          name: datawire
+        groupId: "bookinfo"
+        chart:
+          repository: "https://www.getambassador.io/helm"
+          name: datawire 
+          version: 5.2.0
           # Authorization Object Reference (Kind: Secret)
           # this secret holds all auth information and credentials
           # to register a protected/private helm registry
@@ -20,26 +22,19 @@ spec:
           # authRef: 
           #   name: <secret-name>
           #   namespace: <secret-namespace>
-        groupID: "bookinfo"
-        subcharts: []
-        release:
-          chart:
-            repository: "https://www.getambassador.io"
-            name: ambassador 
-            version: 6.6.0
-          forceUpgrade: true
-          targetNamespace: ambassador 
-        overlays:
+        forceUpgrade: true
+        values:
           service:
             type: ClusterIP
     - name: bookinfo 
+      namespace: bookinfo
       dependencies: [ambassador]
       spec:
-        namespace: orkestra 
-        repo:
-          url: https://nitishm.github.io/istio-bookinfo-chart
+        groupId: "bookinfo"
+        chart:
+          repository: "https://nitishm.github.io/istio-bookinfo-chart"
           name: bookinfo 
-        groupID: "bookinfo"
+          version: v1
         subcharts:
         - name: productpage
           dependencies: [reviews]
@@ -49,14 +44,8 @@ spec:
           dependencies: []
         - name: details
           dependencies: []
-        release:
-          chart:
-            repository: "https://nitishm.github.io/istio-bookinfo-chart"
-            name: bookinfo 
-            version: v1
-          forceUpgrade: true
-          targetNamespace: bookinfo
-        overlays:
+        forceUpgrade: true
+        values:
           productpage:
             replicaCount: 1
           details:

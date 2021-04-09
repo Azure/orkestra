@@ -54,7 +54,7 @@ func main() {
 	var cleanupDownloadedCharts bool
 	var debugLevel int
 
-	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
+	flag.StringVar(&metricsAddr, "metrics-addr", ":8081", "The address the metric endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
@@ -86,9 +86,10 @@ func main() {
 		os.Exit(1)
 	}
 
+	stagingRepoURL = "http://localhost:8080"
 	if stagingRepoURL == "" {
 		if s := os.Getenv(stagingRepoURLEnv); s != "" {
-			stagingRepoURL = s
+			stagingRepoURL = "http://orkestra-chartmuseum.orkestra:8080"
 		} else {
 			setupLog.Error(err, "staging repo URL must be set")
 			os.Exit(1)
