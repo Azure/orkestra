@@ -319,7 +319,7 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, g *v1alpha1.Applicat
 					Timeout:         app.Spec.Release.Timeout,
 					Wait:            app.Spec.Release.Wait,
 					ForceUpgrade:    app.Spec.Release.ForceUpgrade,
-					Values:          app.Spec.Values,
+					Values:          app.Spec.Release.Values,
 				},
 			}
 
@@ -425,7 +425,7 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 			Timeout:         app.Spec.Release.Timeout,
 			Wait:            app.Spec.Release.Wait,
 			ForceUpgrade:    app.Spec.Release.ForceUpgrade,
-			Values:          app.Spec.Values,
+			Values:          app.Spec.Release.Values,
 		},
 	}
 
@@ -541,7 +541,7 @@ func generateSubchartHelmRelease(a v1alpha1.Application, appName, scName, versio
 	hr.Spec.ChartSource.RepoChartSource.RepoURL = repo
 	hr.Spec.ChartSource.RepoChartSource.Version = version
 
-	hr.Spec.Values = subchartValues(scName, a.Spec.Values)
+	hr.Spec.Values = subchartValues(scName, a.Spec.Release.Values)
 
 	return hr
 }

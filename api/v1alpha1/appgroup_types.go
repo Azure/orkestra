@@ -20,13 +20,7 @@ type ApplicationSpec struct {
 
 	// Release holds the values to apply to the helm release
 	// +required
-	Release *Release `json:",inline"`
-
-	// Values holds the values for this Helm release.
-	// +optional
-	// +kubebuilder:pruning:PreserveUnknownFields
-	// +kubebuilder:validation:XPreserveUnknownFields
-	Values helmopv1.HelmValues `json:"values,omitempty"`
+	Release *Release `json:"release"`
 
 	// Subcharts provides the dependency order among the subcharts of the application
 	// +optional
@@ -56,7 +50,7 @@ type Release struct {
 	// TargetNamespace overrides the targeted namespace for the Helm
 	// release. The default namespace equals to the namespace of the
 	// HelmRelease resource.
-	// +optional
+	// +required
 	TargetNamespace string `json:"targetNamespace,omitempty"`
 
 	// Timeout is the time to wait for any individual Kubernetes
@@ -64,6 +58,12 @@ type Release struct {
 	// upgrade operations.
 	// +optional
 	Timeout *int64 `json:"timeout,omitempty"`
+
+	// Values holds the values for this Helm release.
+	// +optional
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:XPreserveUnknownFields
+	Values helmopv1.HelmValues `json:"values,omitempty"`
 }
 
 type ChartRef struct {
@@ -72,7 +72,7 @@ type ChartRef struct {
 	// +optional
 	helmopv1.GitChartSource `json:",inline"`
 
-	// RepoChartSource references teh chart repository of
+	// RepoChartSource references the chart repository of
 	// a normal helm chart repo
 	// +optional
 	helmopv1.RepoChartSource `json:",inline"`

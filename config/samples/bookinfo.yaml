@@ -11,7 +11,7 @@ spec:
         groupId: "bookinfo"
         chart:
           repository: "https://www.getambassador.io/helm"
-          name: datawire 
+          name: ambassador 
           version: 6.6.0
           # Authorization Object Reference (Kind: Secret)
           # this secret holds all auth information and credentials
@@ -22,10 +22,13 @@ spec:
           # authRef: 
           #   name: <secret-name>
           #   namespace: <secret-namespace>
-        forceUpgrade: true
-        values:
-          service:
-            type: ClusterIP
+        release:
+          forceUpgrade: true
+          wait: true
+          targetNamespace: ambassador 
+          values:
+            service:
+              type: ClusterIP
     - name: bookinfo 
       namespace: bookinfo
       dependencies: [ambassador]
@@ -44,13 +47,16 @@ spec:
           dependencies: []
         - name: details
           dependencies: []
-        forceUpgrade: true
-        values:
-          productpage:
-            replicaCount: 1
-          details:
-            replicaCount: 1
-          reviews:
-            replicaCount: 1
-          ratings:
-            replicaCount: 1
+        release:
+          forceUpgrade: true
+          wait: true
+          targetNamespace: bookinfo 
+          values:
+            productpage:
+              replicaCount: 1
+            details:
+              replicaCount: 1
+            reviews:
+              replicaCount: 1
+            ratings:
+              replicaCount: 1

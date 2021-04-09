@@ -375,13 +375,6 @@ func initApplications(appGroup *orkestrav1alpha1.ApplicationGroup) {
 			appGroup.Status.Applications = append(appGroup.Status.Applications, status)
 		}
 	}
-
-	// Initialize fields in the Application spec for every app in the appgroup
-	v := orkestrav1alpha1.ApplicationGroup{}
-	for _, app := range appGroup.Spec.Applications {
-		v.Spec.Applications = append(v.Spec.Applications, app)
-	}
-	appGroup.Spec.Applications = v.DeepCopy().Spec.Applications
 }
 
 func (r *ApplicationGroupReconciler) handleRemediation(ctx context.Context, logr logr.Logger, g orkestrav1alpha1.ApplicationGroup, err error) (ctrl.Result, error) {

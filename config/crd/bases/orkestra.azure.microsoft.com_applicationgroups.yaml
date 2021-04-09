@@ -4,7 +4,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.1
+    controller-gen.kubebuilder.io/version: v0.5.0
   creationTimestamp: null
   name: applicationgroups.orkestra.azure.microsoft.com
 spec:
@@ -164,22 +164,49 @@ spec:
                                 e.g. 7.0.1.
                               type: string
                           type: object
-                        forceUpgrade:
-                          description: Force will mark this Helm release to `--force`
-                            upgrades. This forces the resource updates through delete/recreate
-                            if needed.
-                          type: boolean
                         groupId:
                           type: string
-                        helmVersion:
-                          default: v3
-                          description: HelmVersion is the version of Helm to target.
-                            If not supplied, the lowest _enabled Helm version_ will
-                            be targeted.
-                          enum:
-                          - v2
-                          - v3
-                          type: string
+                        release:
+                          description: Release holds the values to apply to the helm
+                            release
+                          properties:
+                            forceUpgrade:
+                              description: Force will mark this Helm release to `--force`
+                                upgrades. This forces the resource updates through
+                                delete/recreate if needed.
+                              type: boolean
+                            helmVersion:
+                              default: v3
+                              description: HelmVersion is the version of Helm to target.
+                                If not supplied, the lowest _enabled Helm version_
+                                will be targeted.
+                              enum:
+                              - v2
+                              - v3
+                              type: string
+                            targetNamespace:
+                              description: TargetNamespace overrides the targeted
+                                namespace for the Helm release. The default namespace
+                                equals to the namespace of the HelmRelease resource.
+                              type: string
+                            timeout:
+                              description: Timeout is the time to wait for any individual
+                                Kubernetes operation (like Jobs for hooks) during
+                                installation and upgrade operations.
+                              format: int64
+                              type: integer
+                            values:
+                              description: Values holds the values for this Helm release.
+                              type: object
+                              x-kubernetes-preserve-unknown-fields: true
+                            wait:
+                              description: Wait will mark this Helm release to wait
+                                until all Pods, PVCs, Services, and minimum number
+                                of Pods of a Deployment, StatefulSet, or ReplicaSet
+                                are in a ready state before marking the release as
+                                successful.
+                              type: boolean
+                          type: object
                         subcharts:
                           description: Subcharts provides the dependency order among
                             the subcharts of the application
@@ -200,29 +227,9 @@ spec:
                                 type: string
                             type: object
                           type: array
-                        targetNamespace:
-                          description: TargetNamespace overrides the targeted namespace
-                            for the Helm release. The default namespace equals to
-                            the namespace of the HelmRelease resource.
-                          type: string
-                        timeout:
-                          description: Timeout is the time to wait for any individual
-                            Kubernetes operation (like Jobs for hooks) during installation
-                            and upgrade operations.
-                          format: int64
-                          type: integer
-                        values:
-                          description: Values holds the values for this Helm release.
-                          type: object
-                          x-kubernetes-preserve-unknown-fields: true
-                        wait:
-                          description: Wait will mark this Helm release to wait until
-                            all Pods, PVCs, Services, and minimum number of Pods of
-                            a Deployment, StatefulSet, or ReplicaSet are in a ready
-                            state before marking the release as successful.
-                          type: boolean
                       required:
                       - chart
+                      - release
                       type: object
                   type: object
                 type: array
