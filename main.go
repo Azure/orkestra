@@ -86,10 +86,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	stagingRepoURL = "http://localhost:8080"
 	if stagingRepoURL == "" {
 		if s := os.Getenv(stagingRepoURLEnv); s != "" {
-			stagingRepoURL = "http://orkestra-chartmuseum.orkestra:8080"
+			stagingRepoURL = s
 		} else {
 			setupLog.Error(err, "staging repo URL must be set")
 			os.Exit(1)

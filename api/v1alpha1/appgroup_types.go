@@ -11,16 +11,14 @@ import (
 
 // ApplicationSpec defines the desired state of Application
 type ApplicationSpec struct {
-	// Subcharts provides the dependency order among the subcharts of the application
-	// +optional
-	Subcharts []DAG `json:"subcharts,omitempty"`
-
 	// +required
 	GroupID string `json:"groupId,omitempty"`
 
+	// Chart holds the values needed to pull the chart
 	// +required
 	Chart *ChartRef `json:"chart"`
 
+	// Release holds the values to apply to the helm release
 	// +required
 	Release *Release `json:",inline"`
 
@@ -29,6 +27,10 @@ type ApplicationSpec struct {
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:XPreserveUnknownFields
 	Values helmopv1.HelmValues `json:"values,omitempty"`
+
+	// Subcharts provides the dependency order among the subcharts of the application
+	// +optional
+	Subcharts []DAG `json:"subcharts,omitempty"`
 }
 
 type Release struct {
@@ -65,12 +67,18 @@ type Release struct {
 }
 
 type ChartRef struct {
+	// GitChartSource references the chart repository if the
+	// the helm chart is stored in a git repo
 	// +optional
 	helmopv1.GitChartSource `json:",inline"`
 
+	// RepoChartSource references teh chart repository of
+	// a normal helm chart repo
 	// +optional
 	helmopv1.RepoChartSource `json:",inline"`
 
+	// HelmRepoSecretRef is a reference to the auth secret
+	// to access a private helm repository
 	// +optional
 	HelmRepoSecretRef *corev1.ObjectReference `json:"helmRepoSecretRef,omitempty"`
 }
@@ -113,6 +121,7 @@ type DAG struct {
 	Namespace string `json:"namespace,omitempty"`
 
 	// Dependencies on other applications by name
+	// +optional
 	Dependencies []string `json:"dependencies,omitempty"`
 }
 

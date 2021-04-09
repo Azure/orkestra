@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	defaultTargetDir = "/Users/jonathaninnis/orkestra"
+	defaultTargetDir = "/etc/orkestra/charts/pull/"
 )
 
 var (

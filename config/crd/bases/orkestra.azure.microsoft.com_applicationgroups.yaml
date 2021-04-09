@@ -64,6 +64,7 @@ spec:
                         chart info and overlay values
                       properties:
                         chart:
+                          description: Chart holds the values needed to pull the chart
                           properties:
                             chartPullSecret:
                               description: ChartPullSecret holds the reference to
@@ -81,8 +82,8 @@ spec:
                                 or `ssh://git@example.com:2222/org/repo.git`.
                               type: string
                             helmRepoSecretRef:
-                              description: ObjectReference contains enough information
-                                to let you inspect or modify the referred object.
+                              description: HelmRepoSecretRef is a reference to the
+                                auth secret to access a private helm repository
                               properties:
                                 apiVersion:
                                   description: API version of the referent.
