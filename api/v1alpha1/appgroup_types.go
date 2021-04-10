@@ -4,6 +4,9 @@
 package v1alpha1
 
 import (
+	"fmt"
+
+	"github.com/Azure/Orkestra/pkg/meta"
 	helmopv1 "github.com/fluxcd/helm-operator/pkg/apis/helm.fluxcd.io/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -125,11 +128,20 @@ type DAG struct {
 // ApplicationStatus shows the current status of the application helm release
 type ApplicationStatus struct {
 	// Name of the application
+	// +optional
 	Name string `json:"name"`
+
 	// ChartStatus for the application helm chart
+	// +optional
 	ChartStatus `json:",inline"`
+
 	// Subcharts contains the subchart chart status
+	// +optional
 	Subcharts map[string]ChartStatus `json:"subcharts,omitempty"`
+
+	// Conditions holds the conditions for the Application
+	// +optional
+	Conditions []metav1.ConditionStatus `json:"conditions,omitempty"`
 }
 
 // ReconciliationPhase is an enum
@@ -165,6 +177,58 @@ type ApplicationGroupStatus struct {
 	// that was captured and completed by the reconciler
 	// +optional
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+
+	// Conditions holds the conditions of the ApplicationGroup
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
+}
+
+// Starting resets teh conditions of the ApplicationGroup to
+// metav1.Condition of type meta.ReadyCondition with status 'Unknown' and
+// meta.StartingReason reason and message.
+func (in *ApplicationGroup) Starting() {
+	in.Status.ObservedGeneration = in.Generation
+	in.Status.Conditions = []metav1.Condition{}
+	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionUnknown, meta.StartingReason, "starting the workflow")
+}
+
+// Running resets the conditions of the ApplicationGroup to
+// metav1.Condition of type meta.ReadyCondition with status 'Unknown' and
+// meta.RunningReason reason and message.
+func (in *ApplicationGroup) Running() {
+	in.Status.ObservedGeneration = in.Generation
+	in.Status.Conditions = []metav1.Condition{}
+	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionUnknown, meta.RunningReason, "workflow is running, haven't reached a terminal state yet")
+}
+
+// Succeeded sets the meta.Readycondition to 'True', with the given
+// meta.Succeeded reason and message
+func (in *ApplicationGroup) Succeeded() {
+	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionTrue, meta.SucceededReason, "reconciliation succeeded")
+}
+
+// Failed sets the meta.Readycondition to 'True' and
+// meta.FailedReason reason and message
+func (in *ApplicationGroup) Failed(message string) {
+	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionTrue, meta.FailedReason,
+		fmt.Sprintf("workflow in failure/error condition : %s", message))
+}
+
+func (in *ApplicationGroup) HelmReleaseFailed() {
+	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionTrue, meta.HelmReleaseFailedReason, "helm release failed to reach a successful state")
+}
+
+func (in *ApplicationGroup) RollingBack() {
+	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionTrue, meta.RollingBackReason, "rolling back because of failed helm releases")
+}
+
+func (in *ApplicationGroup) GetReadyConditionReason() string {
+	condition := meta.GetResourceCondition(in, meta.ReadyCondition)
+	return condition.Reason
+}
+
+func (in *ApplicationGroup) GetStatusConditions() *[]metav1.Condition {
+	return &in.Status.Conditions
 }
 
 // +kubebuilder:object:root=true

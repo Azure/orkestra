@@ -266,7 +266,7 @@ func (r *ApplicationGroupReconciler) generateWorkflow(ctx context.Context, logr 
 		return false, err
 	}
 
-	g.Status.Phase = orkestrav1alpha1.Init
+	g.Starting()
 
 	return true, nil
 }

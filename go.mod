@@ -5,34 +5,22 @@ go 1.15
 require (
 	github.com/argoproj/argo v2.5.2+incompatible
 	github.com/chartmuseum/helm-push v0.9.0
-	github.com/cnf/structhash v0.0.0-20201127153200-e1b16c1ebc08
 	github.com/fluxcd/helm-operator v1.2.0
-	github.com/go-delve/delve v1.5.1 // indirect
-	github.com/go-logr/logr v0.1.0
-	github.com/gofrs/flock v0.7.1
-	github.com/golang/protobuf v1.4.3 // indirect
+	github.com/go-logr/logr v0.3.0
+	github.com/gofrs/flock v0.8.0
 	github.com/google/go-cmp v0.5.2
 	github.com/jinzhu/copier v0.2.8
 	github.com/mitchellh/hashstructure/v2 v2.0.1
-	github.com/onsi/ginkgo v1.14.0
-	github.com/onsi/gomega v1.10.1
-	github.com/spf13/viper v1.7.0
 	go.opencensus.io v0.22.5 // indirect
 	golang.org/x/oauth2 v0.0.0-20200902213428-5d25da1a8d43 // indirect
-	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9 // indirect
-	golang.org/x/sys v0.0.0-20200826173525-f9321e4c35a6 // indirect
-	golang.org/x/text v0.3.4 // indirect
-	google.golang.org/appengine v1.6.6
-	google.golang.org/genproto v0.0.0-20201109203340-2640f1f9cdfb // indirect
 	google.golang.org/grpc v1.33.2 // indirect
 	gopkg.in/yaml.v2 v2.4.0
 	helm.sh/helm/v3 v3.3.4
-	k8s.io/api v0.17.5
-	k8s.io/apimachinery v0.17.5
+	k8s.io/api v0.20.2
+	k8s.io/apimachinery v0.20.2
 	k8s.io/client-go v11.0.0+incompatible
-	k8s.io/helm v2.16.12+incompatible
-	sigs.k8s.io/controller-runtime v0.4.0
-	sigs.k8s.io/yaml v1.1.0
+	sigs.k8s.io/controller-runtime v0.8.3
+	sigs.k8s.io/yaml v1.2.0
 )
 
 // Hack to import helm-operator package
@@ -45,15 +33,9 @@ replace (
 	github.com/fluxcd/flux => github.com/fluxcd/flux v1.19.0
 	github.com/fluxcd/flux/pkg/install => github.com/fluxcd/flux/pkg/install v0.0.0-20200402061723-01a239a69319
 	github.com/fluxcd/helm-operator/pkg/install => github.com/fluxcd/helm-operator/pkg/install v0.0.0-20200407140510-8d71b0072a3e
+	k8s.io/api => k8s.io/api v0.20.2
+	k8s.io/client-go => k8s.io/client-go v0.20.2
 )
-
-// Pin Flux to 1.18.0
-
-// Force upgrade because of a transitive downgrade.
-// github.com/fluxcd/helm-operator
-// +-> github.com/fluxcd/flux@v1.17.2
-//     +-> k8s.io/client-go@v11.0.0+incompatible
-replace k8s.io/client-go => k8s.io/client-go v0.17.2
 
 // Force upgrade because of a transitive downgrade.
 // github.com/fluxcd/flux
@@ -61,7 +43,7 @@ replace k8s.io/client-go => k8s.io/client-go v0.17.2
 //     +-> helm.sh/helm/v3@v3.1.2
 //     +-> helm.sh/helm@v2.16.1
 replace (
-	helm.sh/helm/v3 => helm.sh/helm/v3 v3.1.2
+	helm.sh/helm/v3 => helm.sh/helm/v3 v3.5.3
 	k8s.io/helm => k8s.io/helm v2.16.3+incompatible
 )
 
