@@ -68,9 +68,9 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 		ll := l.WithValues("application", application.Name)
 		ll.V(3).Info("performing chart actions")
 
-		repoCfg, err := application.Spec.Repo.Config(r.Client)
+		repoCfg, err := registry.GetHelmRepoConfig(&application, r.Client)
 		if err != nil {
-			err = fmt.Errorf("failed to get repo configuration for repo at %s at URL %s: %w", application.Spec.Repo.Name, application.Spec.Repo.URL, err)
+			err = fmt.Errorf("failed to get repo configuration for repo at URL %s: %w", application.Spec.Chart.RepoURL, err)
 			appGroup.Status.Error = err.Error()
 			ll.Error(err, "failed to add helm repo ")
 			return err
@@ -78,7 +78,7 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 
 		err = r.RegistryClient.AddRepo(repoCfg)
 		if err != nil {
-			err = fmt.Errorf("failed to add helm repo %s at URL %s: %w", application.Spec.Repo.Name, application.Spec.Repo.URL, err)
+			err = fmt.Errorf("failed to add helm repo at URL %s: %w", application.Spec.Chart.RepoURL, err)
 			appGroup.Status.Error = err.Error()
 			ll.Error(err, "failed to add helm repo ")
 			return err
@@ -88,10 +88,10 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 			appGroup.Status.Applications[i].Subcharts = make(map[string]orkestrav1alpha1.ChartStatus)
 		}
 
-		repoPath := application.Spec.RepoPath
-		name := application.Spec.HelmReleaseSpec.Name
-		version := application.Spec.HelmReleaseSpec.Version
-		repoKey := application.Spec.Repo.Name
+		repoPath := application.Spec.Chart.Path
+		name := application.Spec.Chart.Name
+		version := application.Spec.Chart.Version
+		repoKey := application.Name
 
 		fpath, appCh, err := r.RegistryClient.PullChart(ll, repoKey, repoPath, name, version)
 		defer func() {
@@ -228,7 +228,7 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 			}
 
 			// Replace existing chart with modified chart
-			path := stagingDir + "/" + application.Spec.HelmReleaseSpec.Name + "-" + appCh.Metadata.Version + ".tgz"
+			path := stagingDir + "/" + application.Spec.Chart.Name + "-" + appCh.Metadata.Version + ".tgz"
 			err = r.RegistryClient.PushChart(ll, stagingRepoName, path, appCh)
 			defer func() {
 				if r.CleanupDownloadedCharts {

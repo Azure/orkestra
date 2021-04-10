@@ -3,6 +3,7 @@ package registry
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/go-logr/logr"
 	"helm.sh/helm/v3/pkg/chart"
@@ -29,7 +30,7 @@ func (c *Client) PullChart(l logr.Logger, repoKey, repoPath, chartName, version 
 	c.cfg.pull.KeyFile = rCfg.KeyFile
 	c.cfg.pull.DestDir = c.TargetDir
 
-	filePath := fmt.Sprintf("%s/%s-%s.tgz", c.TargetDir, chartName, version)
+	filePath := fmt.Sprintf("%s/%s-%s.tgz", strings.TrimSuffix(c.TargetDir, "/"), chartName, version)
 
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		l.V(3).Info("chart artifact not found in target directory - downloading")
