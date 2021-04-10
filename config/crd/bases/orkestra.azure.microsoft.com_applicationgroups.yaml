@@ -164,8 +164,6 @@ spec:
                                 e.g. 7.0.1.
                               type: string
                           type: object
-                        groupId:
-                          type: string
                         release:
                           description: Release holds the values to apply to the helm
                             release

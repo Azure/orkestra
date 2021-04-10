@@ -11,9 +11,6 @@ import (
 
 // ApplicationSpec defines the desired state of Application
 type ApplicationSpec struct {
-	// +required
-	GroupID string `json:"groupId,omitempty"`
-
 	// Chart holds the values needed to pull the chart
 	// +required
 	Chart *ChartRef `json:"chart"`
