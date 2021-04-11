@@ -161,10 +161,10 @@ type ApplicationGroupStatus struct {
 	// +optional
 	Error string `json:"error,omitempty"`
 
-	// LastUpdatedGeneration captures the last generation
+	// ObservedGeneration captures the last generation
 	// that was captured and completed by the reconciler
 	// +optional
-	LastUpdatedGeneration int64 `json:"lastUpdatedGeneration,omitempty"`
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 // +kubebuilder:object:root=true

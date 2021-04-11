@@ -164,8 +164,8 @@ func (r *ApplicationGroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 	// Create/Update scenario
 	// Compares the current generation to the generation that was last
 	// seen and updated by the reconciler
-	if appGroup.Generation != appGroup.Status.LastUpdatedGeneration {
-		if appGroup.Status.LastUpdatedGeneration != 0 {
+	if appGroup.Generation != appGroup.Status.ObservedGeneration {
+		if appGroup.Status.ObservedGeneration != 0 {
 			appGroup.Status.Update = true
 		}
 		requeue, err = r.reconcile(ctx, logr, r.WorkflowNS, &appGroup)
@@ -174,7 +174,7 @@ func (r *ApplicationGroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 			return r.handleResponseAndEvent(ctx, logr, appGroup, requeue, err)
 		}
 
-		appGroup.Status.LastUpdatedGeneration = appGroup.Generation
+		appGroup.Status.ObservedGeneration = appGroup.Generation
 		switch appGroup.Status.Phase {
 		case orkestrav1alpha1.Init, orkestrav1alpha1.Running:
 			logr.V(1).Info("workflow in init/running state. requeue and reconcile after a short period")
