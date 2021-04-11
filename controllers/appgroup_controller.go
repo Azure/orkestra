@@ -340,10 +340,10 @@ func (r *ApplicationGroupReconciler) handleResponseAndEvent(ctx context.Context,
 		if grp.GetReadyConditionReason() != meta.RunningReason {
 			interval = requeueAfterLong
 		}
-		return reconcile.Result{Requeue: true, RequeueAfter: interval}, err
+		return reconcile.Result{RequeueAfter: interval}, nil
 	}
 
-	return reconcile.Result{Requeue: requeue}, err
+	return reconcile.Result{Requeue: requeue}, nil
 }
 
 func initApplications(appGroup *orkestrav1alpha1.ApplicationGroup) {
@@ -384,13 +384,13 @@ func (r *ApplicationGroupReconciler) handleRemediation(ctx context.Context, logr
 					err = r.List(ctx, &helmReleases, listOption)
 					if err != nil {
 						logr.Error(err, "failed to find generated HelmRelease instances")
-						return reconcile.Result{Requeue: false}, err
+						return reconcile.Result{Requeue: false}, nil
 					}
 
 					err = r.rollbackFailedHelmReleases(ctx, helmReleases.Items)
 					if err != nil {
 						logr.Error(err, "failed to rollback failed HelmRelease instances")
-						return reconcile.Result{Requeue: false}, err
+						return reconcile.Result{Requeue: false}, nil
 					}
 				}
 			}
@@ -401,12 +401,12 @@ func (r *ApplicationGroupReconciler) handleRemediation(ctx context.Context, logr
 		g.RollingBack()
 		_ = r.Status().Update(ctx, &g)
 
-		return reconcile.Result{Requeue: true, RequeueAfter: requeueAfter}, nil
+		return reconcile.Result{RequeueAfter: requeueAfter}, nil
 	}
 	// Reverse and cleanup the workflow and associated helmreleases
 	_ = r.cleanupWorkflow(ctx, logr, g)
 
-	return reconcile.Result{Requeue: false}, err
+	return reconcile.Result{}, nil
 }
 
 func allHelmReleaseStatus(appGroup orkestrav1alpha1.ApplicationGroup, apps map[string]helmopv1.HelmReleasePhase) error {

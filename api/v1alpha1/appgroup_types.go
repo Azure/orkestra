@@ -223,6 +223,14 @@ func (in *ApplicationGroup) GetReadyConditionReason() string {
 	return condition.Reason
 }
 
+func (in *ApplicationGroup) GetDeployConditionReason() string {
+	condition := meta.GetResourceCondition(in, meta.DeployCondition)
+	if condition == nil {
+		return meta.RunningReason
+	}
+	return condition.Reason
+}
+
 func (in *ApplicationGroup) GetStatusConditions() *[]metav1.Condition {
 	return &in.Status.Conditions
 }
@@ -230,7 +238,7 @@ func (in *ApplicationGroup) GetStatusConditions() *[]metav1.Condition {
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:path=applicationgroups,scope=Cluster
 // +kubebuilder:subresource:status
-// +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=`.status.phase`
+// +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=`.status.conditions[?(@.type==\"Ready\")].reason`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=`.metadata.creationTimestamp`
 // ApplicationGroup is the Schema for the applicationgroups API
 type ApplicationGroup struct {
