@@ -155,7 +155,7 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			logr.Error(err, "failed to update ApplicationGroup instance while rolling back")
 			return r.handleResponseAndEvent(ctx, logr, appGroup, requeue, err)
 		}
-		appGroup.Status.Phase = ""
+		appGroup.Succeeded()
 		requeue = true
 		err = nil
 		return r.handleResponseAndEvent(ctx, logr, appGroup, requeue, err)

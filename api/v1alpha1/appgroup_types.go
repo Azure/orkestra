@@ -100,6 +100,10 @@ type ChartStatus struct {
 type ApplicationGroupSpec struct {
 	// Applications that make up the application group
 	Applications []Application `json:"applications,omitempty"`
+
+	// Rollback marks whether this should application group should
+	// be in the rollback to the previous version
+	Rollback bool `json:"rollback,omitempty"`
 }
 
 // Application spec and dependency on other applications
@@ -162,16 +166,7 @@ type ApplicationGroupStatus struct {
 	Applications []ApplicationStatus `json:"status,omitempty"`
 
 	// Phase is the reconciliation phase
-	// +optional
-	Phase ReconciliationPhase `json:"phase,omitempty"`
-
-	// Update is an internal flag used to trigger a workflow update
-	// +optional
 	Update bool `json:"update,omitempty"`
-
-	// Error string from errors during reconciliation
-	// +optional
-	Error string `json:"error,omitempty"`
 
 	// ObservedGeneration captures the last generation
 	// that was captured and completed by the reconciler
@@ -201,29 +196,30 @@ func (in *ApplicationGroup) Running() {
 	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionUnknown, meta.RunningReason, "workflow is running, haven't reached a terminal state yet")
 }
 
-// Succeeded sets the meta.Readycondition to 'True', with the given
+// Succeeded sets the meta.ReadyCondition to 'True', with the given
 // meta.Succeeded reason and message
 func (in *ApplicationGroup) Succeeded() {
 	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionTrue, meta.SucceededReason, "reconciliation succeeded")
 }
 
-// Failed sets the meta.Readycondition to 'True' and
+// Failed sets the meta.ReadyCondition to 'True' and
 // meta.FailedReason reason and message
 func (in *ApplicationGroup) Failed(message string) {
 	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionTrue, meta.FailedReason,
 		fmt.Sprintf("workflow in failure/error condition : %s", message))
 }
 
-func (in *ApplicationGroup) HelmReleaseFailed() {
-	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionTrue, meta.HelmReleaseFailedReason, "helm release failed to reach a successful state")
-}
-
+// RollingBack sets the meta.ReadyCondition to 'True' and
+// meta.RollingBack reason and message
 func (in *ApplicationGroup) RollingBack() {
 	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionTrue, meta.RollingBackReason, "rolling back because of failed helm releases")
 }
 
 func (in *ApplicationGroup) GetReadyConditionReason() string {
 	condition := meta.GetResourceCondition(in, meta.ReadyCondition)
+	if condition == nil {
+		return meta.RunningReason
+	}
 	return condition.Reason
 }
 

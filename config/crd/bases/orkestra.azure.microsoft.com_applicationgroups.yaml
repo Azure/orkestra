@@ -178,6 +178,10 @@ spec:
                       type: object
                   type: object
                 type: array
+              rollback:
+                description: Rollback marks whether this should application group
+                  should be in the rollback to the previous version
+                type: boolean
             type: object
           status:
             description: ApplicationGroupStatus defines the observed state of ApplicationGroup
@@ -226,16 +230,10 @@ spec:
                   - type
                   type: object
                 type: array
-              error:
-                description: Error string from errors during reconciliation
-                type: string
               observedGeneration:
                 description: ObservedGeneration captures the last generation that was captured and completed by the reconciler
                 format: int64
                 type: integer
-              phase:
-                description: Phase is the reconciliation phase
-                type: string
               status:
                 description: Applications status
                 items:

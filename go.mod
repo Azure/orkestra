@@ -57,6 +57,4 @@ replace github.com/opencontainers/runc => github.com/opencontainers/runc v1.0.0-
 
 // End hack
 
-replace github.com/googleapis/gnostic => github.com/googleapis/gnostic v0.3.1
-
 replace github.com/docker/distribution => github.com/docker/distribution v0.0.0-20191216044856-a8371794149d

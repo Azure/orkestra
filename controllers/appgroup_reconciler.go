@@ -42,7 +42,6 @@ func (r *ApplicationGroupReconciler) reconcile(ctx context.Context, l logr.Logge
 	if len(appGroup.Spec.Applications) == 0 {
 		l.Error(ErrInvalidSpec, "ApplicationGroup must list atleast one Application")
 		err := fmt.Errorf("application group must list atleast one Application : %w", ErrInvalidSpec)
-		appGroup.Status.Error = err.Error()
 		return false, err
 	}
 
@@ -71,7 +70,6 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 		repoCfg, err := registry.GetHelmRepoConfig(&application, r.Client)
 		if err != nil {
 			err = fmt.Errorf("failed to get repo configuration for repo at URL %s: %w", application.Spec.Chart.RepoURL, err)
-			appGroup.Status.Error = err.Error()
 			ll.Error(err, "failed to add helm repo ")
 			return err
 		}
@@ -79,7 +77,6 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 		err = r.RegistryClient.AddRepo(repoCfg)
 		if err != nil {
 			err = fmt.Errorf("failed to add helm repo at URL %s: %w", application.Spec.Chart.RepoURL, err)
-			appGroup.Status.Error = err.Error()
 			ll.Error(err, "failed to add helm repo ")
 			return err
 		}
@@ -101,7 +98,6 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 		}()
 		if err != nil || appCh == nil {
 			err = fmt.Errorf("failed to pull application chart %s/%s:%s : %w", repoKey, name, version, err)
-			appGroup.Status.Error = err.Error()
 			ll.Error(err, "failed to pull application chart")
 			return err
 		}
@@ -131,7 +127,6 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 					err = fmt.Errorf("failed to validate application subchart for staging registry : %w", err)
 					cs.Error = err.Error()
 					appGroup.Status.Applications[i].Subcharts[sc.Name()] = cs
-					appGroup.Status.Error = cs.Error
 					return err
 				}
 
@@ -153,7 +148,6 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 					err = fmt.Errorf("failed to save subchart package as tgz at location %s : %w", path, err)
 					cs.Error = err.Error()
 					appGroup.Status.Applications[i].Subcharts[sc.Name()] = cs
-					appGroup.Status.Error = cs.Error
 					return err
 				}
 
@@ -163,7 +157,6 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 					err = fmt.Errorf("failed to push application subchart to staging registry : %w", err)
 					cs.Error = err.Error()
 					appGroup.Status.Applications[i].Subcharts[sc.Name()] = cs
-					appGroup.Status.Error = cs.Error
 					return err
 				}
 
@@ -193,7 +186,6 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 			if err != nil {
 				ll.Error(err, "chart templates directory yaml check failed")
 				err = fmt.Errorf("chart templates directory yaml check failed : %w", err)
-				appGroup.Status.Error = err.Error()
 				appGroup.Status.Applications[i].ChartStatus.Error = err.Error()
 				return err
 			}
@@ -213,7 +205,6 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 			if err := appCh.Validate(); err != nil {
 				ll.Error(err, "failed to validate application chart for staging registry")
 				err = fmt.Errorf("failed to validate application chart for staging registry : %w", err)
-				appGroup.Status.Error = err.Error()
 				appGroup.Status.Applications[i].ChartStatus.Error = err.Error()
 				return err
 			}
@@ -222,7 +213,6 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 			if err != nil {
 				ll.Error(err, "failed to save modified app chart to filesystem")
 				err = fmt.Errorf("failed to save modified app chart to filesystem : %w", err)
-				appGroup.Status.Error = err.Error()
 				appGroup.Status.Applications[i].ChartStatus.Error = err.Error()
 				return err
 			}
@@ -239,7 +229,6 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 				ll.Error(err, "failed to push modified application chart to staging registry")
 				err = fmt.Errorf("failed to push modified application chart to staging registry : %w", err)
 				appGroup.Status.Applications[i].ChartStatus.Error = err.Error()
-				appGroup.Status.Error = err.Error()
 				return err
 			}
 

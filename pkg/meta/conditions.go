@@ -30,10 +30,6 @@ const (
 	// FailedReason represents the fact that the the reconciliation failed
 	FailedReason string = "Failed"
 
-	// HelmReleaseFailedReason represents the fact that the underlying HelmRelease has failed
-	// so we need to perform a rollback to remediate
-	HelmReleaseFailedReason = "HelmReleaseFailed"
-
 	// RunningReason represents the fact that the workflow is in a running state
 	RunningReason string = "Running"
 

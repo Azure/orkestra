@@ -5,7 +5,6 @@ metadata:
 spec:
   applications:
     - name: ambassador
-      namespace: ambassador
       dependencies: []
       spec:
         chart:
@@ -29,7 +28,6 @@ spec:
             service:
               type: ClusterIP
     - name: bookinfo 
-      namespace: bookinfo
       dependencies: [ambassador]
       spec:
         chart:
