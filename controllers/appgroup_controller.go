@@ -246,61 +246,12 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		appGroup.ReadySucceeded()
 	}
 
-	helmReleaseStatusMap := make(map[string]helmopv1.HelmReleasePhase)
-	helmReleaseConditionMap := make(map[string][]metav1.Condition)
-	subChartConditionMap := make(map[string]map[string][]metav1.Condition)
-
-	// XXX (nitishm) Not sure why this happens ???
-	// Lookup all associated HelmReleases for status as well since the Workflow will not always reflect the status of the HelmRelease
-	// Lookup Workflow by ownership and heritage labels
-	helmReleases := helmopv1.HelmReleaseList{}
-	err = r.List(ctx, &helmReleases, listOption)
+	helmReleaseStatusMap, chartConditionMap, subChartConditionMap, err := r.marshallChartStatus(ctx, appGroup)
 	if err != nil {
-		logr.Error(err, "failed to find generated HelmRelease instance")
-		requeue = false
-		return r.handleResponseAndEvent(ctx, logr, appGroup, requeue, err)
+		return r.handleResponseAndEvent(ctx, logr, appGroup, false, err)
 	}
 
-	for _, hr := range helmReleases.Items {
-		parent := hr.Name
-		if v, ok := hr.GetAnnotations()["orkestra/parent-chart"]; ok {
-			// Use the parent charts name
-			parent = v
-		}
-
-		// Add the associated conditions for that helm chart to the helm chart condition
-		// If the helm chart is a subchart, then add that to the subchart condition
-		if parent == hr.Name {
-			helmReleaseConditionMap[parent] = append(helmReleaseConditionMap[parent], meta.ToStatusConditions(hr.Status.Conditions)...)
-		} else {
-			if _, ok := subChartConditionMap[parent]; !ok {
-				subChartConditionMap[parent] = make(map[string][]metav1.Condition)
-			}
-			subChartConditionMap[parent][hr.Spec.ReleaseName] = append(subChartConditionMap[parent][hr.Spec.ReleaseName], meta.ToStatusConditions(hr.Status.Conditions)...)
-		}
-
-		// XXX (nitishm) Needs more thought and testing
-		if _, ok := helmReleaseStatusMap[parent]; ok {
-			if hr.Status.Phase != helmopv1.HelmReleasePhaseSucceeded {
-				helmReleaseStatusMap[parent] = hr.Status.Phase
-			}
-		} else {
-			helmReleaseStatusMap[parent] = hr.Status.Phase
-		}
-	}
-
-	// Update each application status using the HelmRelease status
-	v := make([]orkestrav1alpha1.ApplicationStatus, 0)
-	for _, app := range appGroup.Status.Applications {
-		app.ChartStatus.Conditions = helmReleaseConditionMap[app.Name]
-		app.ChartStatus.Phase = helmReleaseStatusMap[app.Name]
-		for subchartName, subchartStatus := range app.Subcharts {
-			subchartStatus.Conditions = subChartConditionMap[app.Name][subchartName]
-			app.Subcharts[subchartName] = subchartStatus
-		}
-		v = append(v, app)
-	}
-	appGroup.Status.Applications = v
+	appGroup.Status.Applications = getAppStatus(&appGroup, helmReleaseStatusMap, chartConditionMap, subChartConditionMap)
 
 	// This is the cumulative status from the workflow phase and the helmrelease object statuses
 	err = allHelmReleaseStatus(appGroup, helmReleaseStatusMap)
@@ -444,6 +395,83 @@ func (r *ApplicationGroupReconciler) handleRemediation(ctx context.Context, logr
 	_ = r.cleanupWorkflow(ctx, logr, g)
 
 	return reconcile.Result{}, nil
+}
+
+// marshallChartStatus lists all of the HelmRelease objects that were deployed and assigns
+// their status to the appropriate maps corresponding to their chart of subchart.
+// These statuses are used to update the application status above
+func (r *ApplicationGroupReconciler) marshallChartStatus(ctx context.Context, appGroup orkestrav1alpha1.ApplicationGroup) (
+	helmReleaseStatusMap map[string]helmopv1.HelmReleasePhase,
+	chartConditionMap map[string][]metav1.Condition,
+	subChartConditionMap map[string]map[string][]metav1.Condition,
+	err error) {
+	listOption := client.MatchingLabels{
+		workflow.OwnershipLabel: appGroup.Name,
+		workflow.HeritageLabel:  workflow.Project,
+	}
+
+	// Init the mappings
+	helmReleaseStatusMap = make(map[string]helmopv1.HelmReleasePhase)
+	chartConditionMap = make(map[string][]metav1.Condition)
+	subChartConditionMap = make(map[string]map[string][]metav1.Condition)
+
+	// XXX (nitishm) Not sure why this happens ???
+	// Lookup all associated HelmReleases for status as well since the Workflow will not always reflect the status of the HelmRelease
+	// Lookup Workflow by ownership and heritage labels
+	helmReleases := helmopv1.HelmReleaseList{}
+	err = r.List(ctx, &helmReleases, listOption)
+	if err != nil {
+		r.Log.Error(err, "failed to find generated HelmRelease instance")
+		return nil, nil, nil, err
+	}
+
+	for _, hr := range helmReleases.Items {
+		parent := hr.Name
+		if v, ok := hr.GetAnnotations()["orkestra/parent-chart"]; ok {
+			// Use the parent charts name
+			parent = v
+		}
+
+		// Add the associated conditions for that helm chart to the helm chart condition
+		// If the helm chart is a subchart, then add that to the subchart condition
+		if parent == hr.Name {
+			chartConditionMap[parent] = append(chartConditionMap[parent], meta.ToStatusConditions(hr.Status.Conditions)...)
+		} else {
+			if _, ok := subChartConditionMap[parent]; !ok {
+				subChartConditionMap[parent] = make(map[string][]metav1.Condition)
+			}
+			subChartConditionMap[parent][hr.Spec.ReleaseName] = append(subChartConditionMap[parent][hr.Spec.ReleaseName], meta.ToStatusConditions(hr.Status.Conditions)...)
+		}
+
+		// XXX (nitishm) Needs more thought and testing
+		if _, ok := helmReleaseStatusMap[parent]; ok {
+			if hr.Status.Phase != helmopv1.HelmReleasePhaseSucceeded {
+				helmReleaseStatusMap[parent] = hr.Status.Phase
+			}
+		} else {
+			helmReleaseStatusMap[parent] = hr.Status.Phase
+		}
+	}
+	return helmReleaseStatusMap, chartConditionMap, subChartConditionMap, nil
+}
+
+func getAppStatus(
+	appGroup *orkestrav1alpha1.ApplicationGroup,
+	helmReleaseStatusMap map[string]helmopv1.HelmReleasePhase,
+	chartConditionMap map[string][]metav1.Condition,
+	subChartConditionMap map[string]map[string][]metav1.Condition) []orkestrav1alpha1.ApplicationStatus {
+	// Update each application status using the HelmRelease status
+	var v []orkestrav1alpha1.ApplicationStatus
+	for _, app := range appGroup.Status.Applications {
+		app.ChartStatus.Conditions = chartConditionMap[app.Name]
+		app.ChartStatus.Phase = helmReleaseStatusMap[app.Name]
+		for subchartName, subchartStatus := range app.Subcharts {
+			subchartStatus.Conditions = subChartConditionMap[app.Name][subchartName]
+			app.Subcharts[subchartName] = subchartStatus
+		}
+		v = append(v, app)
+	}
+	return v
 }
 
 func allHelmReleaseStatus(appGroup orkestrav1alpha1.ApplicationGroup, apps map[string]helmopv1.HelmReleasePhase) error {
