@@ -255,7 +255,7 @@ func (r *ApplicationGroupReconciler) generateWorkflow(ctx context.Context, logr 
 		return false, err
 	}
 
-	g.Starting()
+	g.Progressing()
 
 	return true, nil
 }

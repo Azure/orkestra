@@ -4,8 +4,6 @@
 package v1alpha1
 
 import (
-	"fmt"
-
 	"github.com/Azure/Orkestra/pkg/meta"
 	helmopv1 "github.com/fluxcd/helm-operator/pkg/apis/helm.fluxcd.io/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -100,10 +98,6 @@ type ChartStatus struct {
 type ApplicationGroupSpec struct {
 	// Applications that make up the application group
 	Applications []Application `json:"applications,omitempty"`
-
-	// Rollback marks whether this should application group should
-	// be in the rollback to the previous version
-	Rollback bool `json:"rollback,omitempty"`
 }
 
 // Application spec and dependency on other applications
@@ -178,59 +172,69 @@ type ApplicationGroupStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
-// Starting resets teh conditions of the ApplicationGroup to
+// Progressing resets the conditions of the ApplicationGroup to
 // metav1.Condition of type meta.ReadyCondition with status 'Unknown' and
 // meta.StartingReason reason and message.
-func (in *ApplicationGroup) Starting() {
+func (in *ApplicationGroup) Progressing() {
 	in.Status.ObservedGeneration = in.Generation
 	in.Status.Conditions = []metav1.Condition{}
-	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionUnknown, meta.StartingReason, "starting the workflow")
-}
-
-// Running resets the conditions of the ApplicationGroup to
-// metav1.Condition of type meta.ReadyCondition with status 'Unknown' and
-// meta.RunningReason reason and message.
-func (in *ApplicationGroup) Running() {
-	in.Status.ObservedGeneration = in.Generation
-	in.Status.Conditions = []metav1.Condition{}
-	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionUnknown, meta.RunningReason, "workflow is running, haven't reached a terminal state yet")
-}
-
-// Succeeded sets the meta.ReadyCondition to 'True', with the given
-// meta.Succeeded reason and message
-func (in *ApplicationGroup) Succeeded() {
-	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionTrue, meta.SucceededReason, "reconciliation succeeded")
-}
-
-// Failed sets the meta.ReadyCondition to 'True' and
-// meta.FailedReason reason and message
-func (in *ApplicationGroup) Failed(message string) {
-	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionTrue, meta.FailedReason,
-		fmt.Sprintf("workflow in failure/error condition : %s", message))
+	meta.SetResourceCondition(in, meta.WorkflowCondition, metav1.ConditionUnknown, meta.ProgressingReason, "workflow is reconciling...")
+	meta.SetResourceCondition(in, meta.DeployCondition, metav1.ConditionUnknown, meta.ProgressingReason, "application group is reconciling...")
 }
 
 // RollingBack sets the meta.ReadyCondition to 'True' and
 // meta.RollingBack reason and message
 func (in *ApplicationGroup) RollingBack() {
-	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionTrue, meta.RollingBackReason, "rolling back because of failed helm releases")
+	meta.SetResourceCondition(in, meta.WorkflowCondition, metav1.ConditionTrue, meta.FailedReason, "workflow failed because of helmreleases, rolling back...")
+	meta.SetResourceCondition(in, meta.DeployCondition, metav1.ConditionTrue, meta.RollingBackReason, "rolling back because of failed helm releases...")
 }
 
-func (in *ApplicationGroup) GetReadyConditionReason() string {
-	condition := meta.GetResourceCondition(in, meta.ReadyCondition)
+// Succeeded sets the meta.WorkflowCondition to 'True', with the given
+// meta.Succeeded reason and message
+func (in *ApplicationGroup) WorkflowSucceeded() {
+	meta.SetResourceCondition(in, meta.WorkflowCondition, metav1.ConditionTrue, meta.SucceededReason, "workflow and reconciliation succeeded")
+}
+
+// Failed sets the meta.WorkflowCondition to 'True' and
+// meta.FailedReason reason and message
+func (in *ApplicationGroup) WorkflowFailed(message string) {
+	meta.SetResourceCondition(in, meta.WorkflowCondition, metav1.ConditionTrue, meta.FailedReason, message)
+}
+
+// Succeeded sets the meta.DeployCondition to 'True', with the given
+// meta.Succeeded reason and message
+func (in *ApplicationGroup) DeploySucceeded() {
+	meta.SetResourceCondition(in, meta.DeployCondition, metav1.ConditionTrue, meta.SucceededReason, "application group reconciliation succeeded")
+}
+
+// Failed sets the meta.DeployCondition to 'True' and
+// meta.FailedReason reason and message
+func (in *ApplicationGroup) DeployFailed(message string) {
+	meta.SetResourceCondition(in, meta.DeployCondition, metav1.ConditionTrue, meta.FailedReason, message)
+}
+
+// GetWorkflowCondition gets the string condition.Reason of the
+// meta.ReadyCondition type
+func (in *ApplicationGroup) GetWorkflowCondition() string {
+	condition := meta.GetResourceCondition(in, meta.WorkflowCondition)
 	if condition == nil {
-		return meta.RunningReason
+		return meta.ProgressingReason
 	}
 	return condition.Reason
 }
 
-func (in *ApplicationGroup) GetDeployConditionReason() string {
+// GetDeployCondition gets the string condition.Reason of the
+// meta.ReadyCondition type
+func (in *ApplicationGroup) GetDeployCondition() string {
 	condition := meta.GetResourceCondition(in, meta.DeployCondition)
 	if condition == nil {
-		return meta.RunningReason
+		return meta.ProgressingReason
 	}
 	return condition.Reason
 }
 
+// GetStatusConditions gets the status conditions from the
+// ApplicationGroup status
 func (in *ApplicationGroup) GetStatusConditions() *[]metav1.Condition {
 	return &in.Status.Conditions
 }
@@ -238,8 +242,11 @@ func (in *ApplicationGroup) GetStatusConditions() *[]metav1.Condition {
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:path=applicationgroups,scope=Cluster
 // +kubebuilder:subresource:status
-// +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=`.status.conditions[?(@.type==\"Ready\")].reason`
-// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=`.metadata.creationTimestamp`
+// +kubebuilder:printcolumn:name="Deploy",type="string",JSONPath=".status.conditions[?(@.type==\"Deploy\")].reason"
+// +kubebuilder:printcolumn:name="Workflow",type="string",JSONPath=".status.conditions[?(@.type==\"Workflow\")].reason"
+// +kubebuilder:printcolumn:name="Message",type="string",JSONPath=".status.conditions[?(@.type==\"Workflow\")].message"
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+
 // ApplicationGroup is the Schema for the applicationgroups API
 type ApplicationGroup struct {
 	metav1.TypeMeta   `json:",inline"`

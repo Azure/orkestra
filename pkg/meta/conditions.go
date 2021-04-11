@@ -19,8 +19,13 @@ import (
 )
 
 const (
-	// ReadyCondition is the name of the Ready condition
-	ReadyCondition string = "Ready"
+	// WorkflowCondition is the name of the workflow condition
+	// This captures the status of the workflow of the ApplicationGroup
+	WorkflowCondition string = "Workflow"
+
+	// DeployCondition is the name of the Deploy condition
+	// This captures the state of receiving and reacting to the spec by the reconciler
+	DeployCondition string = "Deploy"
 )
 
 const (
@@ -30,12 +35,9 @@ const (
 	// FailedReason represents the fact that the the reconciliation failed
 	FailedReason string = "Failed"
 
-	// RunningReason represents the fact that the workflow is in a running state
-	RunningReason string = "Running"
-
-	// StartingReason represents the fact that the workflow has been initialized and has
-	// not yet reached the running state
-	StartingReason string = "Starting"
+	// ProgressingReason represents the fact that the workflow is in a starting
+	// or running state, we have not reached a terminal state yet
+	ProgressingReason string = "Progressing"
 
 	// RollbackReason represents the fact that we are entering a rollback state
 	// and is transitioning into a non-terminal state

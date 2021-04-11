@@ -17,8 +17,14 @@ spec:
   scope: Cluster
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .status.phase
-      name: Phase
+    - jsonPath: .status.conditions[?(@.type=="Deploy")].reason
+      name: Deploy
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Workflow")].reason
+      name: Workflow
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Workflow")].message
+      name: Message
       type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
@@ -178,14 +184,15 @@ spec:
                       type: object
                   type: object
                 type: array
-              rollback:
-                description: Rollback marks whether this should application group
-                  should be in the rollback to the previous version
-                type: boolean
             type: object
           status:
             description: ApplicationGroupStatus defines the observed state of ApplicationGroup
             properties:
+              checksums:
+                additionalProperties:
+                  type: string
+                description: Checksums for each application are calculated from the application spec The status/metadata information is ignored
+                type: object
               conditions:
                 description: Conditions holds the conditions of the ApplicationGroup
                 items:

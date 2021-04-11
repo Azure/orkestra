@@ -117,6 +117,10 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		if appGroup.Finalizers != nil {
 			logr.Info("cleaning up the applicationgroup resource")
 
+			// Change the app group spec into a progressing state
+			appGroup.Progressing()
+			_ = r.Status().Update(ctx, &appGroup)
+
 			// Reverse the entire workflow to remove all the Helm Releases
 
 			// unset the last successful spec annotation
@@ -147,24 +151,35 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// If the (needs) Rollback phase is present in the reconciled version,
 	// we must rollback the application group to the last successful spec.
 	// This should only happen on updates and not during installs.
-	if appGroup.GetReadyConditionReason() == meta.RollingBackReason {
+	if appGroup.GetDeployCondition() == meta.RollingBackReason {
 		logr.Info("Rolling back to last successful application group spec")
 		appGroup.Spec = r.lastSuccessfulApplicationGroup.DeepCopy().Spec
 		err = r.Update(ctx, &appGroup)
 		if err != nil {
+			appGroup.DeployFailed(err.Error())
 			logr.Error(err, "failed to update ApplicationGroup instance while rolling back")
 			return r.handleResponseAndEvent(ctx, logr, appGroup, requeue, err)
 		}
-		appGroup.Succeeded()
+
+		// If we are able to update to the previous spec
+		// Change the app group spec into a progressing state
+		appGroup.Progressing()
+		_ = r.Status().Update(ctx, &appGroup)
+
 		requeue = true
 		err = nil
 		return r.handleResponseAndEvent(ctx, logr, appGroup, requeue, err)
 	}
 
+<<<<<<< HEAD
 	// Create/Update scenario
 	// Compares the current generation to the generation that was last
 	// seen and updated by the reconciler
 	if appGroup.Generation != appGroup.Status.ObservedGeneration {
+		// Change the app group spec into a progressing state
+		appGroup.Progressing()
+		_ = r.Status().Update(ctx, &appGroup)
+
 		if appGroup.Status.ObservedGeneration != 0 {
 			appGroup.Status.Update = true
 		}
@@ -173,10 +188,11 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			logr.Error(err, "failed to reconcile ApplicationGroup instance")
 			return r.handleResponseAndEvent(ctx, logr, appGroup, requeue, err)
 		}
+
 		appGroup.Status.ObservedGeneration = appGroup.Generation
 
-		switch appGroup.GetReadyConditionReason() {
-		case meta.StartingReason, meta.RunningReason:
+		switch appGroup.GetWorkflowCondition() {
+		case meta.ProgressingReason:
 			logr.V(1).Info("workflow in init/running state. requeue and reconcile after a short period")
 			requeue = true
 			err = nil
@@ -216,7 +232,7 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	if wfs.Items.Len() == 0 {
-		err = fmt.Errorf("listed workflows len is 0")
+		err = fmt.Errorf("no associated workflow found")
 		logr.Error(err, "no associated workflow found")
 		requeue = false
 		return r.handleResponseAndEvent(ctx, logr, appGroup, requeue, err)
@@ -225,11 +241,9 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	wfStatus := wfs.Items[0].Status.Phase
 	switch wfStatus {
 	case v1alpha12.NodeError, v1alpha12.NodeFailed:
-		appGroup.Failed(string(wfStatus))
-	case v1alpha12.NodePending, v1alpha12.NodeRunning:
-		appGroup.Running()
+		appGroup.WorkflowFailed(string(wfStatus))
 	case v1alpha12.NodeSucceeded:
-		appGroup.Succeeded()
+		appGroup.WorkflowSucceeded()
 	}
 
 	helmReleaseStatusMap := make(map[string]helmopv1.HelmReleasePhase)
@@ -274,11 +288,11 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if err != nil {
 		// Any error arising from the workflow or the helmreleases should be marked as a NodeError
 		logr.Error(err, "")
-		appGroup.Failed(err.Error())
+		appGroup.WorkflowFailed(err.Error())
 	}
 
-	switch appGroup.GetReadyConditionReason() {
-	case meta.RunningReason, meta.StartingReason:
+	switch appGroup.GetWorkflowCondition() {
+	case meta.ProgressingReason:
 		logr.V(1).Info("workflow in init/running state. requeue and reconcile after a short period")
 		requeue = true
 		err = nil
@@ -310,12 +324,14 @@ func (r *ApplicationGroupReconciler) handleResponseAndEvent(ctx context.Context,
 	var errStr string
 	if err != nil {
 		errStr = err.Error()
-		grp.Failed(errStr)
+		grp.WorkflowFailed(errStr)
+	} else {
+		grp.DeploySucceeded()
 	}
 
 	_ = r.Status().Update(ctx, &grp)
 
-	if err == nil && grp.GetReadyConditionReason() == meta.SucceededReason {
+	if err == nil && grp.GetWorkflowCondition() == meta.SucceededReason {
 		// Annotate the resource with the last successful ApplicationGroup spec
 		b, _ := json.Marshal(&grp)
 		grp.SetAnnotations(map[string]string{lastSuccessfulApplicationGroupKey: string(b)})
@@ -337,7 +353,7 @@ func (r *ApplicationGroupReconciler) handleResponseAndEvent(ctx context.Context,
 
 	if requeue {
 		interval := requeueAfter
-		if grp.GetReadyConditionReason() != meta.RunningReason {
+		if grp.GetWorkflowCondition() != meta.ProgressingReason {
 			interval = requeueAfterLong
 		}
 		return reconcile.Result{RequeueAfter: interval}, nil
@@ -400,10 +416,12 @@ func (r *ApplicationGroupReconciler) handleRemediation(ctx context.Context, logr
 		// using the last successful spec
 		g.RollingBack()
 		_ = r.Status().Update(ctx, &g)
-
 		return reconcile.Result{RequeueAfter: requeueAfter}, nil
 	}
 	// Reverse and cleanup the workflow and associated helmreleases
+	g.RollingBack()
+	_ = r.Status().Update(ctx, &g)
+
 	_ = r.cleanupWorkflow(ctx, logr, g)
 
 	return reconcile.Result{}, nil
@@ -417,7 +435,7 @@ func allHelmReleaseStatus(appGroup orkestrav1alpha1.ApplicationGroup, apps map[s
 		}
 	}
 
-	if appGroup.GetReadyConditionReason() == meta.FailedReason {
+	if appGroup.GetWorkflowCondition() == meta.FailedReason {
 		return ErrWorkflowInFailureStatus
 	}
 	return nil
