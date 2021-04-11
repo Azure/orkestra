@@ -254,9 +254,6 @@ func (r *ApplicationGroupReconciler) generateWorkflow(ctx context.Context, logr 
 		logr.Error(err, "engine failed to submit workflow")
 		return false, err
 	}
-
-	g.Progressing()
-
 	return true, nil
 }
 
