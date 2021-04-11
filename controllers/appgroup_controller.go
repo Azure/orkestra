@@ -18,6 +18,7 @@ import (
 	helmopv1 "github.com/fluxcd/helm-operator/pkg/apis/helm.fluxcd.io/v1"
 	"github.com/go-logr/logr"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -171,7 +172,6 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return r.handleResponseAndEvent(ctx, logr, appGroup, requeue, err)
 	}
 
-<<<<<<< HEAD
 	// Create/Update scenario
 	// Compares the current generation to the generation that was last
 	// seen and updated by the reconciler
@@ -191,7 +191,7 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 		appGroup.Status.ObservedGeneration = appGroup.Generation
 
-		switch appGroup.GetWorkflowCondition() {
+		switch appGroup.GetReadyCondition() {
 		case meta.ProgressingReason:
 			logr.V(1).Info("workflow in init/running state. requeue and reconcile after a short period")
 			requeue = true
@@ -241,12 +241,14 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	wfStatus := wfs.Items[0].Status.Phase
 	switch wfStatus {
 	case v1alpha12.NodeError, v1alpha12.NodeFailed:
-		appGroup.WorkflowFailed(string(wfStatus))
+		appGroup.ReadyFailed(string(wfStatus))
 	case v1alpha12.NodeSucceeded:
-		appGroup.WorkflowSucceeded()
+		appGroup.ReadySucceeded()
 	}
 
 	helmReleaseStatusMap := make(map[string]helmopv1.HelmReleasePhase)
+	helmReleaseConditionMap := make(map[string][]metav1.Condition)
+	subChartConditionMap := make(map[string]map[string][]metav1.Condition)
 
 	// XXX (nitishm) Not sure why this happens ???
 	// Lookup all associated HelmReleases for status as well since the Workflow will not always reflect the status of the HelmRelease
@@ -260,25 +262,42 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	for _, hr := range helmReleases.Items {
-		name := hr.Name
+		parent := hr.Name
 		if v, ok := hr.GetAnnotations()["orkestra/parent-chart"]; ok {
 			// Use the parent charts name
-			name = v
+			parent = v
 		}
+
+		// Add the associated conditions for that helm chart to the helm chart condition
+		// If the helm chart is a subchart, then add that to the subchart condition
+		if parent == hr.Name {
+			helmReleaseConditionMap[parent] = append(helmReleaseConditionMap[parent], meta.ToStatusConditions(hr.Status.Conditions)...)
+		} else {
+			if _, ok := subChartConditionMap[parent]; !ok {
+				subChartConditionMap[parent] = make(map[string][]metav1.Condition)
+			}
+			subChartConditionMap[parent][hr.Spec.ReleaseName] = append(subChartConditionMap[parent][hr.Spec.ReleaseName], meta.ToStatusConditions(hr.Status.Conditions)...)
+		}
+
 		// XXX (nitishm) Needs more thought and testing
-		if _, ok := helmReleaseStatusMap[name]; ok {
+		if _, ok := helmReleaseStatusMap[parent]; ok {
 			if hr.Status.Phase != helmopv1.HelmReleasePhaseSucceeded {
-				helmReleaseStatusMap[name] = hr.Status.Phase
+				helmReleaseStatusMap[parent] = hr.Status.Phase
 			}
 		} else {
-			helmReleaseStatusMap[name] = hr.Status.Phase
+			helmReleaseStatusMap[parent] = hr.Status.Phase
 		}
 	}
 
 	// Update each application status using the HelmRelease status
 	v := make([]orkestrav1alpha1.ApplicationStatus, 0)
 	for _, app := range appGroup.Status.Applications {
+		app.ChartStatus.Conditions = helmReleaseConditionMap[app.Name]
 		app.ChartStatus.Phase = helmReleaseStatusMap[app.Name]
+		for subchartName, subchartStatus := range app.Subcharts {
+			subchartStatus.Conditions = subChartConditionMap[app.Name][subchartName]
+			app.Subcharts[subchartName] = subchartStatus
+		}
 		v = append(v, app)
 	}
 	appGroup.Status.Applications = v
@@ -288,10 +307,10 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if err != nil {
 		// Any error arising from the workflow or the helmreleases should be marked as a NodeError
 		logr.Error(err, "")
-		appGroup.WorkflowFailed(err.Error())
+		appGroup.ReadyFailed(err.Error())
 	}
 
-	switch appGroup.GetWorkflowCondition() {
+	switch appGroup.GetReadyCondition() {
 	case meta.ProgressingReason:
 		logr.V(1).Info("workflow in init/running state. requeue and reconcile after a short period")
 		requeue = true
@@ -324,14 +343,14 @@ func (r *ApplicationGroupReconciler) handleResponseAndEvent(ctx context.Context,
 	var errStr string
 	if err != nil {
 		errStr = err.Error()
-		grp.WorkflowFailed(errStr)
+		grp.ReadyFailed(errStr)
 	} else {
 		grp.DeploySucceeded()
 	}
 
-	_ = r.Status().Update(ctx, &grp)
+	err = r.Status().Update(ctx, &grp)
 
-	if err == nil && grp.GetWorkflowCondition() == meta.SucceededReason {
+	if err == nil && grp.GetReadyCondition() == meta.SucceededReason {
 		// Annotate the resource with the last successful ApplicationGroup spec
 		b, _ := json.Marshal(&grp)
 		grp.SetAnnotations(map[string]string{lastSuccessfulApplicationGroupKey: string(b)})
@@ -353,7 +372,7 @@ func (r *ApplicationGroupReconciler) handleResponseAndEvent(ctx context.Context,
 
 	if requeue {
 		interval := requeueAfter
-		if grp.GetWorkflowCondition() != meta.ProgressingReason {
+		if grp.GetReadyCondition() != meta.ProgressingReason {
 			interval = requeueAfterLong
 		}
 		return reconcile.Result{RequeueAfter: interval}, nil
@@ -435,7 +454,7 @@ func allHelmReleaseStatus(appGroup orkestrav1alpha1.ApplicationGroup, apps map[s
 		}
 	}
 
-	if appGroup.GetWorkflowCondition() == meta.FailedReason {
+	if appGroup.GetReadyCondition() == meta.FailedReason {
 		return ErrWorkflowInFailureStatus
 	}
 	return nil

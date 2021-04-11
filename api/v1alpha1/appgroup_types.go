@@ -84,14 +84,25 @@ type ChartRef struct {
 // ChartStatus shows the current status of the Application Reconciliation process
 type ChartStatus struct {
 	// Phase reflects the current state of the HelmRelease
+	// +optional
 	Phase helmopv1.HelmReleasePhase `json:"phase,omitempty"`
+
 	// Error string from the error during reconciliation (if any)
+	// +optional
 	Error string `json:"error,omitempty"`
+
 	// Version of the chart/subchart
+	// +optional
 	Version string `json:"version,omitempty"`
+
 	// Staged if true denotes that the chart/subchart has been pushed to the
 	// staging helm repo
+	// +optional
 	Staged bool `json:"staged,omitempty"`
+
+	// +optional
+	// Conditions holds the conditions for the ChartStatus
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // ApplicationGroupSpec defines the desired state of ApplicationGroup
@@ -136,10 +147,6 @@ type ApplicationStatus struct {
 	// Subcharts contains the subchart chart status
 	// +optional
 	Subcharts map[string]ChartStatus `json:"subcharts,omitempty"`
-
-	// Conditions holds the conditions for the Application
-	// +optional
-	Conditions []metav1.ConditionStatus `json:"conditions,omitempty"`
 }
 
 // ReconciliationPhase is an enum
@@ -160,6 +167,7 @@ type ApplicationGroupStatus struct {
 	Applications []ApplicationStatus `json:"status,omitempty"`
 
 	// Phase is the reconciliation phase
+	// +optional
 	Update bool `json:"update,omitempty"`
 
 	// ObservedGeneration captures the last generation
@@ -178,27 +186,27 @@ type ApplicationGroupStatus struct {
 func (in *ApplicationGroup) Progressing() {
 	in.Status.ObservedGeneration = in.Generation
 	in.Status.Conditions = []metav1.Condition{}
-	meta.SetResourceCondition(in, meta.WorkflowCondition, metav1.ConditionUnknown, meta.ProgressingReason, "workflow is reconciling...")
+	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionUnknown, meta.ProgressingReason, "workflow is reconciling...")
 	meta.SetResourceCondition(in, meta.DeployCondition, metav1.ConditionUnknown, meta.ProgressingReason, "application group is reconciling...")
 }
 
 // RollingBack sets the meta.ReadyCondition to 'True' and
 // meta.RollingBack reason and message
 func (in *ApplicationGroup) RollingBack() {
-	meta.SetResourceCondition(in, meta.WorkflowCondition, metav1.ConditionTrue, meta.FailedReason, "workflow failed because of helmreleases, rolling back...")
+	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionTrue, meta.FailedReason, "workflow failed because of helmreleases, rolling back...")
 	meta.SetResourceCondition(in, meta.DeployCondition, metav1.ConditionTrue, meta.RollingBackReason, "rolling back because of failed helm releases...")
 }
 
-// Succeeded sets the meta.WorkflowCondition to 'True', with the given
+// Succeeded sets the meta.ReadyCondition to 'True', with the given
 // meta.Succeeded reason and message
-func (in *ApplicationGroup) WorkflowSucceeded() {
-	meta.SetResourceCondition(in, meta.WorkflowCondition, metav1.ConditionTrue, meta.SucceededReason, "workflow and reconciliation succeeded")
+func (in *ApplicationGroup) ReadySucceeded() {
+	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionTrue, meta.SucceededReason, "workflow and reconciliation succeeded")
 }
 
-// Failed sets the meta.WorkflowCondition to 'True' and
+// Failed sets the meta.ReadyCondition to 'True' and
 // meta.FailedReason reason and message
-func (in *ApplicationGroup) WorkflowFailed(message string) {
-	meta.SetResourceCondition(in, meta.WorkflowCondition, metav1.ConditionTrue, meta.FailedReason, message)
+func (in *ApplicationGroup) ReadyFailed(message string) {
+	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionTrue, meta.FailedReason, message)
 }
 
 // Succeeded sets the meta.DeployCondition to 'True', with the given
@@ -213,10 +221,10 @@ func (in *ApplicationGroup) DeployFailed(message string) {
 	meta.SetResourceCondition(in, meta.DeployCondition, metav1.ConditionTrue, meta.FailedReason, message)
 }
 
-// GetWorkflowCondition gets the string condition.Reason of the
+// GetReadyCondition gets the string condition.Reason of the
 // meta.ReadyCondition type
-func (in *ApplicationGroup) GetWorkflowCondition() string {
-	condition := meta.GetResourceCondition(in, meta.WorkflowCondition)
+func (in *ApplicationGroup) GetReadyCondition() string {
+	condition := meta.GetResourceCondition(in, meta.ReadyCondition)
 	if condition == nil {
 		return meta.ProgressingReason
 	}
@@ -243,8 +251,8 @@ func (in *ApplicationGroup) GetStatusConditions() *[]metav1.Condition {
 // +kubebuilder:resource:path=applicationgroups,scope=Cluster
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Deploy",type="string",JSONPath=".status.conditions[?(@.type==\"Deploy\")].reason"
-// +kubebuilder:printcolumn:name="Workflow",type="string",JSONPath=".status.conditions[?(@.type==\"Workflow\")].reason"
-// +kubebuilder:printcolumn:name="Message",type="string",JSONPath=".status.conditions[?(@.type==\"Workflow\")].message"
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].reason"
+// +kubebuilder:printcolumn:name="Message",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].message"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 // ApplicationGroup is the Schema for the applicationgroups API
