@@ -8,7 +8,6 @@ spec:
       namespace: ambassador
       dependencies: []
       spec:
-        groupId: "bookinfo"
         chart:
           repository: "https://www.getambassador.io/helm"
           name: ambassador 
@@ -33,7 +32,6 @@ spec:
       namespace: bookinfo
       dependencies: [ambassador]
       spec:
-        groupId: "bookinfo"
         chart:
           repository: "https://nitishm.github.io/istio-bookinfo-chart"
           name: bookinfo 
