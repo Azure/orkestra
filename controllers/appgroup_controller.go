@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/Azure/Orkestra/pkg"
-	"github.com/Azure/Orkestra/pkg/api"
 	"github.com/Azure/Orkestra/pkg/registry"
 	"github.com/Azure/Orkestra/pkg/workflow"
 	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
@@ -162,49 +161,40 @@ func (r *ApplicationGroupReconciler) Reconcile(req ctrl.Request) (ctrl.Result, e
 		return r.handleResponseAndEvent(ctx, logr, appGroup, requeue, err)
 	}
 
-	// handle first time install and subsequent updates
-	checksums, err := api.Checksum(&appGroup)
-	if err != nil {
-		// determine if the spec has changed
-		if errors.Is(err, api.ErrChecksumAppGroupSpecMismatch) {
-			if appGroup.Status.Checksums != nil {
-				// flag this as requiring workflow updates for the reconciler
-				appGroup.Status.Update = true
-			}
-			requeue, err = r.reconcile(ctx, logr, r.WorkflowNS, &appGroup)
-			if err != nil {
-				logr.Error(err, "failed to reconcile ApplicationGroup instance")
-				return r.handleResponseAndEvent(ctx, logr, appGroup, requeue, err)
-			}
-
-			appGroup.Status.Checksums = checksums
-
-			switch appGroup.Status.Phase {
-			case orkestrav1alpha1.Init, orkestrav1alpha1.Running:
-				logr.V(1).Info("workflow in init/running state. requeue and reconcile after a short period")
-				requeue = true
-				err = nil
-			case orkestrav1alpha1.Succeeded:
-				logr.V(1).Info("workflow ran to completion and succeeded")
-				requeue = false
-				err = nil
-			case orkestrav1alpha1.Error:
-				requeue = false
-				err = fmt.Errorf("workflow in failure/error condition")
-				logr.Error(err, "workflow in failure/error condition")
-			default:
-				requeue = false
-				err = nil
-			}
-
+	// Create/Update scenario
+	// Compares the current generation to the generation that was last
+	// seen and updated by the reconciler
+	if appGroup.Generation != appGroup.Status.ObservedGeneration {
+		if appGroup.Status.ObservedGeneration != 0 {
+			appGroup.Status.Update = true
+		}
+		requeue, err = r.reconcile(ctx, logr, r.WorkflowNS, &appGroup)
+		if err != nil {
+			logr.Error(err, "failed to reconcile ApplicationGroup instance")
 			return r.handleResponseAndEvent(ctx, logr, appGroup, requeue, err)
 		}
 
-		logr.Error(err, "failed to calculate checksum annotations for application group specs")
+		appGroup.Status.ObservedGeneration = appGroup.Generation
+		switch appGroup.Status.Phase {
+		case orkestrav1alpha1.Init, orkestrav1alpha1.Running:
+			logr.V(1).Info("workflow in init/running state. requeue and reconcile after a short period")
+			requeue = true
+			err = nil
+		case orkestrav1alpha1.Succeeded:
+			logr.V(1).Info("workflow ran to completion and succeeded")
+			requeue = false
+			err = nil
+		case orkestrav1alpha1.Error:
+			requeue = false
+			err = fmt.Errorf("workflow in failure/error condition")
+			logr.Error(err, "workflow in failure/error condition")
+		default:
+			requeue = false
+			err = nil
+		}
+
 		return r.handleResponseAndEvent(ctx, logr, appGroup, requeue, err)
 	}
-
-	appGroup.Status.Checksums = checksums
 
 	// Calculate the cumulative status of the generated Workflow
 	// and the generated HelmRelease objects

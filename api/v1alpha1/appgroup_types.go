@@ -145,17 +145,26 @@ const (
 
 // ApplicationGroupStatus defines the observed state of ApplicationGroup
 type ApplicationGroupStatus struct {
-	// Checksums for each application are calculated from the application spec
-	// The status/metadata information is ignored
-	Checksums map[string]string `json:"checksums,omitempty"`
 	// Applications status
+	// +optional
 	Applications []ApplicationStatus `json:"status,omitempty"`
+
 	// Phase is the reconciliation phase
+	// +optional
 	Phase ReconciliationPhase `json:"phase,omitempty"`
+
 	// Update is an internal flag used to trigger a workflow update
+	// +optional
 	Update bool `json:"update,omitempty"`
+
 	// Error string from errors during reconciliation
+	// +optional
 	Error string `json:"error,omitempty"`
+
+	// ObservedGeneration captures the last generation
+	// that was captured and completed by the reconciler
+	// +optional
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 // +kubebuilder:object:root=true
