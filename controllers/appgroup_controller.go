@@ -30,8 +30,6 @@ import (
 const (
 	appgroupNameKey                   = "appgroup"
 	finalizer                         = "application-group-finalizer"
-	requeueAfter                      = 5 * time.Second
-	requeueAfterLong                  = requeueAfter * 6
 	lastSuccessfulApplicationGroupKey = "orkestra/last-successful-applicationgroup"
 )
 
@@ -342,14 +340,10 @@ func (r *ApplicationGroupReconciler) handleResponseAndEvent(ctx context.Context,
 	}
 
 	if requeue {
-		interval := requeueAfter
-		if grp.Status.Phase != orkestrav1alpha1.Running {
-			interval = requeueAfterLong
-		}
-		return reconcile.Result{Requeue: true, RequeueAfter: interval}, err
+		return reconcile.Result{RequeueAfter: getInterval(&grp)}, err
 	}
 
-	return reconcile.Result{Requeue: requeue}, err
+	return reconcile.Result{}, err
 }
 
 func initApplications(appGroup *orkestrav1alpha1.ApplicationGroup) {
@@ -407,7 +401,7 @@ func (r *ApplicationGroupReconciler) handleRemediation(ctx context.Context, logr
 		g.Status.Phase = orkestrav1alpha1.Rollback
 		_ = r.Status().Update(ctx, &g)
 
-		return reconcile.Result{Requeue: true, RequeueAfter: requeueAfter}, nil
+		return reconcile.Result{RequeueAfter: getInterval(&g)}, nil
 	}
 	// Reverse and cleanup the workflow and associated helmreleases
 	_ = r.cleanupWorkflow(ctx, logr, g)
@@ -491,4 +485,11 @@ func (r *ApplicationGroupReconciler) cleanupWorkflow(ctx context.Context, logr l
 		}
 	}
 	return nil
+}
+
+func getInterval(appGroup *orkestrav1alpha1.ApplicationGroup) time.Duration {
+	if appGroup.Spec.Interval != nil {
+		return appGroup.Spec.Interval.Duration
+	}
+	return time.Duration(30 * time.Second)
 }

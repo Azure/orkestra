@@ -97,6 +97,11 @@ type ChartStatus struct {
 type ApplicationGroupSpec struct {
 	// Applications that make up the application group
 	Applications []Application `json:"applications,omitempty"`
+
+	// Interval specifies the between reconciliations of the ApplicationGroup
+	// Defaults to 5s
+	// +optional
+	Interval *metav1.Duration `json:"interval,omitempty"`
 }
 
 // Application spec and dependency on other applications
