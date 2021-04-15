@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"context"
-	"errors"
 	"os"
 	"strings"
 
@@ -12,7 +11,6 @@ import (
 	orkestrav1alpha1 "github.com/Azure/Orkestra/api/v1alpha1"
 	"github.com/Azure/Orkestra/pkg"
 	"github.com/Azure/Orkestra/pkg/registry"
-	"github.com/Azure/Orkestra/pkg/workflow"
 	"github.com/go-logr/logr"
 	"github.com/jinzhu/copier"
 	"helm.sh/helm/v3/pkg/chart"
@@ -247,10 +245,6 @@ func (r *ApplicationGroupReconciler) generateWorkflow(ctx context.Context, logr 
 
 	err = r.Engine.Submit(ctx, logr, g)
 	if err != nil {
-		if errors.Is(err, workflow.ErrNamespaceTerminating) {
-			logr.V(1).Info("namespace is in terminating state")
-			return true, err
-		}
 		logr.Error(err, "engine failed to submit workflow")
 		return false, err
 	}

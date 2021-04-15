@@ -2,7 +2,6 @@ package workflow
 
 import (
 	"context"
-	kerrors "errors"
 	"fmt"
 	"os"
 
@@ -34,8 +33,7 @@ const (
 )
 
 var (
-	ErrNamespaceTerminating       = kerrors.New("namespace is in terminating phase")
-	timeout                 int64 = 3600
+	timeout int64 = 3600
 )
 
 type argo struct {
@@ -140,10 +138,6 @@ func (a *argo) Submit(ctx context.Context, l logr.Logger, g *v1alpha1.Applicatio
 					return fmt.Errorf("failed to CREATE namespace %s object : %w", ns.Name, err)
 				}
 			}
-		}
-
-		if ns.Status.Phase == corev1.NamespaceTerminating {
-			return ErrNamespaceTerminating
 		}
 	}
 

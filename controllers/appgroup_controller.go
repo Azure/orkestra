@@ -310,9 +310,8 @@ func (r *ApplicationGroupReconciler) handleResponseAndEvent(ctx context.Context,
 		grp.DeploySucceeded()
 	}
 
-	err = r.Status().Patch(ctx, &grp, patch)
-
-	if err == nil && grp.GetReadyCondition() == meta.SucceededReason {
+	err2 := r.Status().Patch(ctx, &grp, patch)
+	if err2 == nil && grp.GetReadyCondition() == meta.SucceededReason {
 		// Annotate the resource with the last successful ApplicationGroup spec
 		b, _ := json.Marshal(&grp)
 		grp.SetAnnotations(map[string]string{lastSuccessfulApplicationGroupKey: string(b)})
