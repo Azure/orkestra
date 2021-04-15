@@ -5,10 +5,8 @@ metadata:
 spec:
   applications:
     - name: ambassador
-      namespace: ambassador
       dependencies: []
       spec:
-        groupId: "bookinfo"
         chart:
           repository: "https://www.getambassador.io/helm"
           name: ambassador 
@@ -30,10 +28,8 @@ spec:
             service:
               type: ClusterIP
     - name: bookinfo 
-      namespace: bookinfo
       dependencies: [ambassador]
       spec:
-        groupId: "bookinfo"
         chart:
           repository: "https://nitishm.github.io/istio-bookinfo-chart"
           name: bookinfo 
