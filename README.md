@@ -25,7 +25,8 @@ For getting started you will need,
 - A Kubernetes cluster
 - `kubectl` - Kubernetes client
 - `helm` - Helm client
-- `kubebuilder` - Kubebuilder and controller-runtime binaries. (run `make setup-kubebuilder`)
+- `kubebuilder` - https://book.kubebuilder.io/quick-start.html#installation
+- `controller-gen` - GO111MODULE=on go get -v -u sigs.k8s.io/controller-tools/cmd/controller-gen@v0.5.0 (this should be run from outside the Orkestra repo to be installed to your $GOBIN)
 - (_optional_) `argo` - Argo workflow client (follow the instructions to install the binary at https://github.com/argoproj/argo/releases)
 
 Install the `ApplicationGroup` and custom resource definitions (CRDs) 
