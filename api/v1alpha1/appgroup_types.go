@@ -184,7 +184,6 @@ type ApplicationGroupStatus struct {
 // metav1.Condition of type meta.ReadyCondition with status 'Unknown' and
 // meta.StartingReason reason and message.
 func (in *ApplicationGroup) Progressing() {
-	in.Status.ObservedGeneration = in.Generation
 	in.Status.Conditions = []metav1.Condition{}
 	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionUnknown, meta.ProgressingReason, "workflow is reconciling...")
 	meta.SetResourceCondition(in, meta.DeployCondition, metav1.ConditionUnknown, meta.ProgressingReason, "application group is reconciling...")

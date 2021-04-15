@@ -99,7 +99,7 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
-	patch := client.MergeFrom(&appGroup)
+	patch := client.MergeFrom(appGroup.DeepCopy())
 
 	// Check if this is an update event to the ApplicationGroup
 	// in which case unmarshal the last successful spec into a
@@ -147,8 +147,10 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// Add finalizer if it doesnt already exist
 	if appGroup.Finalizers == nil {
 		appGroup.Finalizers = []string{finalizer}
-		_ = r.Patch(ctx, &appGroup, patch)
-		return ctrl.Result{Requeue: true}, nil
+		err = r.Patch(ctx, &appGroup, patch)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	// If the (needs) Rollback phase is present in the reconciled version,
@@ -210,7 +212,7 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			err = nil
 		}
 
-		if err != nil {
+		if err == nil {
 			// Only update the observed generation when the reconciliation succeeds
 			// This only updates on changes to spec
 			appGroup.Status.ObservedGeneration = appGroup.Generation
