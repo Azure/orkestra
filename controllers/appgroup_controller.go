@@ -183,13 +183,12 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		// Change the app group spec into a progressing state
 		appGroup.Progressing()
 		_ = r.Status().Update(ctx, &appGroup)
+
 		requeue, err = r.reconcile(ctx, logr, r.WorkflowNS, &appGroup)
 		if err != nil {
 			logr.Error(err, "failed to reconcile ApplicationGroup instance")
 			return r.handleResponseAndEvent(ctx, logr, appGroup, requeue, err)
 		}
-
-		appGroup.Status.ObservedGeneration = appGroup.Generation
 
 		switch appGroup.GetReadyCondition() {
 		case meta.ProgressingReason:
@@ -296,6 +295,8 @@ func (r *ApplicationGroupReconciler) handleResponseAndEvent(ctx context.Context,
 		errStr = err.Error()
 		grp.ReadyFailed(errStr)
 	} else {
+		// Only update the observed generation when the reconciliation succeeds
+		grp.Status.ObservedGeneration = grp.Generation
 		grp.DeploySucceeded()
 	}
 
