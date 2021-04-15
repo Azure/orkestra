@@ -176,13 +176,13 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// Compares the current generation to the generation that was last
 	// seen and updated by the reconciler
 	if appGroup.Generation != appGroup.Status.ObservedGeneration {
-		// Change the app group spec into a progressing state
-		appGroup.Progressing()
-		_ = r.Status().Update(ctx, &appGroup)
-
+		// Update scenario if observed generation isn't past the initial 0 generation
 		if appGroup.Status.ObservedGeneration != 0 {
 			appGroup.Status.Update = true
 		}
+		// Change the app group spec into a progressing state
+		appGroup.Progressing()
+		_ = r.Status().Update(ctx, &appGroup)
 		requeue, err = r.reconcile(ctx, logr, r.WorkflowNS, &appGroup)
 		if err != nil {
 			logr.Error(err, "failed to reconcile ApplicationGroup instance")
