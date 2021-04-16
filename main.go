@@ -54,7 +54,7 @@ func main() {
 	var cleanupDownloadedCharts bool
 	var debugLevel int
 
-	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
+	flag.StringVar(&metricsAddr, "metrics-addr", ":8081", "The address the metric endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
@@ -72,7 +72,7 @@ func main() {
 		ctrl.SetLogger(zap.New(zap.UseDevMode(false)))
 	}
 
-	ctrl.Log.Logger.V(debugLevel)
+	ctrl.Log.V(debugLevel)
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:             scheme,
@@ -96,7 +96,7 @@ func main() {
 	}
 
 	rc, err := registry.NewClient(
-		ctrl.Log.Logger,
+		ctrl.Log,
 		registry.TargetDir(tempChartStoreTargetDir),
 	)
 	if err != nil {

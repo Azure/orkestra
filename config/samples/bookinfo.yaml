@@ -7,10 +7,10 @@ spec:
     - name: ambassador
       dependencies: []
       spec:
-        namespace: orkestra
-        repo: 
-          url: https://www.getambassador.io/helm 
-          name: datawire
+        chart:
+          repository: "https://www.getambassador.io/helm"
+          name: ambassador 
+          version: 6.6.0
           # Authorization Object Reference (Kind: Secret)
           # this secret holds all auth information and credentials
           # to register a protected/private helm registry
@@ -20,25 +20,20 @@ spec:
           # authRef: 
           #   name: <secret-name>
           #   namespace: <secret-namespace>
-        groupID: "bookinfo"
-        subcharts: []
-        chart:
-          repository: "https://www.getambassador.io"
-          name: ambassador 
-          version: 6.6.0
-        overlays:
-          service:
-            type: ClusterIP
-        forceUpgrade: true
-        targetNamespace: ambassador 
+        release:
+          forceUpgrade: true
+          wait: true
+          targetNamespace: ambassador 
+          values:
+            service:
+              type: ClusterIP
     - name: bookinfo 
       dependencies: [ambassador]
       spec:
-        namespace: orkestra 
-        repo:
-          url: https://nitishm.github.io/istio-bookinfo-chart
+        chart:
+          repository: "https://nitishm.github.io/istio-bookinfo-chart"
           name: bookinfo 
-        groupID: "bookinfo"
+          version: v1
         subcharts:
         - name: productpage
           dependencies: [reviews]
@@ -48,18 +43,16 @@ spec:
           dependencies: []
         - name: details
           dependencies: []
-        chart:
-          repository: "https://nitishm.github.io/istio-bookinfo-chart"
-          name: bookinfo 
-          version: v1
-        overlays:
-          productpage:
-            replicaCount: 1
-          details:
-            replicaCount: 1
-          reviews:
-            replicaCount: 1
-          ratings:
-            replicaCount: 1
-        forceUpgrade: true
-        targetNamespace: bookinfo
+        release:
+          forceUpgrade: true
+          wait: true
+          targetNamespace: bookinfo 
+          values:
+            productpage:
+              replicaCount: 1
+            details:
+              replicaCount: 1
+            reviews:
+              replicaCount: 1
+            ratings:
+              replicaCount: 1

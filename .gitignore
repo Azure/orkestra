@@ -68,6 +68,7 @@ bootstrap.yaml
 
 # Development tools
 tilt_modules
+.stignore
 
 # binary manager
 manager
