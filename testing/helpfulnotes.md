@@ -31,3 +31,10 @@ brig project create
 
 Enter Y when asked for advanced options, this will allow you to set allow mount hosts to true.
 
+
+## Known Issues
+
+There is a docker related bug tracked here: [issue 5593](https://github.com/docker/for-win/issues/5593), which causes there to be time drift when using Docker for Windows. This prevents debian images from properly installing packages since the system clock is wrong. 
+
+Quick fix: Restart computer or restart docker
+

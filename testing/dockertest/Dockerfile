@@ -24,11 +24,6 @@ RUN apt-get update && \
     curl -L https://go.kubebuilder.io/dl/2.3.1/${os}/${arch} | tar -xz -C /tmp/ && \
     sudo mv /tmp/kubebuilder_2.3.1_${os}_${arch} /usr/local/kubebuilder && \
     export PATH=$PATH:/usr/local/kubebuilder/bin && \
-    git clone https://github.com/Azure/Orkestra && \
-    cd Orkestra && \
+    git clone https://github.com/Azure/orkestra && \
+    cd orkestra && \
     make setup-kubebuilder
-    # kubectl cluster-info
-    # kubectl apply -k ./config/crd && \
-    # helm install orkestra chart/orkestra/ --namespace orkestra --create-namespace && \
-    # kubectl get pods -A && \ 
-    # kubectl apply -f examples/simple/bookinfo.yaml
