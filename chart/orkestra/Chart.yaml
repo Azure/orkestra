@@ -25,8 +25,13 @@ dependencies:
   version: "0.15.3"
   repository: "https://argoproj.github.io/argo-helm"
 - name: helm-operator
+  condition: helm-operator.enabled
   version: "1.2.0"
   repository: "https://charts.fluxcd.io"
+- name: helm-controller
+  condition: helm-controller.enabled
+  version: "0.1.0"
+  repository: "https://nitishm.github.io/charts"
 
 keywords:
 - helmops
