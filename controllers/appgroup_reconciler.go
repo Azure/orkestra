@@ -164,74 +164,73 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 
 				appGroup.Status.Applications[i].Subcharts[sc.Name()] = cs
 			}
-			// }
-
-			// Unset dependencies by disabling them.
-			// Using appCh.SetDependencies() does not cut it since some charts rely on subcharts for tpl helpers
-			// provided in the charts directory.
-			// IMPORTANT: This expects charts to follow best practices to allow enabling and disabling subcharts
-			// See: https://helm.sh/docs/topics/charts/ #Chart Dependencies
-			for _, dep := range appCh.Metadata.Dependencies {
-				// Disable subchart through metadata
-				dep.Enabled = false
-				// Precautionary - overwrite values with subcharts disabled
-				appCh.Values[dep.Name] = map[string]interface{}{
-					"enabled": false,
-				}
-			}
-
-			templateHasYAML, err := templatesContainsYAML(appCh)
-			if err != nil {
-				ll.Error(err, "chart templates directory yaml check failed")
-				err = fmt.Errorf("chart templates directory yaml check failed : %w", err)
-				appGroup.Status.Applications[i].ChartStatus.Error = err.Error()
-				return err
-			}
-
-			// If the parent chart doesnt contain any templates and all subcharts (if any) have been disabled we must create a dummy yaml to circumvent https://github.com/helm/helm/issues/4670
-			if appCh.Templates == nil || len(appCh.Templates) == 0 || !templateHasYAML {
-				if appCh.Templates == nil {
-					appCh.Templates = make([]*chart.File, 0)
-				}
-				dummy := &chart.File{
-					Name: dummyConfigmapYAMLName,
-					Data: []byte(dummyConfigmapYAMLSpec),
-				}
-				appCh.Templates = append(appCh.Templates, dummy)
-			}
-
-			if err := appCh.Validate(); err != nil {
-				ll.Error(err, "failed to validate application chart for staging registry")
-				err = fmt.Errorf("failed to validate application chart for staging registry : %w", err)
-				appGroup.Status.Applications[i].ChartStatus.Error = err.Error()
-				return err
-			}
-
-			_, err = registry.SaveChartPackage(appCh, stagingDir)
-			if err != nil {
-				ll.Error(err, "failed to save modified app chart to filesystem")
-				err = fmt.Errorf("failed to save modified app chart to filesystem : %w", err)
-				appGroup.Status.Applications[i].ChartStatus.Error = err.Error()
-				return err
-			}
-
-			// Replace existing chart with modified chart
-			path := stagingDir + "/" + application.Spec.Chart.Name + "-" + appCh.Metadata.Version + ".tgz"
-			err = r.RegistryClient.PushChart(ll, stagingRepoName, path, appCh)
-			defer func() {
-				if r.CleanupDownloadedCharts {
-					os.Remove(path)
-				}
-			}()
-			if err != nil {
-				ll.Error(err, "failed to push modified application chart to staging registry")
-				err = fmt.Errorf("failed to push modified application chart to staging registry : %w", err)
-				appGroup.Status.Applications[i].ChartStatus.Error = err.Error()
-				return err
-			}
-
-			appGroup.Status.Applications[i].ChartStatus.Staged = true
 		}
+
+		// Unset dependencies by disabling them.
+		// Using appCh.SetDependencies() does not cut it since some charts rely on subcharts for tpl helpers
+		// provided in the charts directory.
+		// IMPORTANT: This expects charts to follow best practices to allow enabling and disabling subcharts
+		// See: https://helm.sh/docs/topics/charts/ #Chart Dependencies
+		for _, dep := range appCh.Metadata.Dependencies {
+			// Disable subchart through metadata
+			dep.Enabled = false
+			// Precautionary - overwrite values with subcharts disabled
+			appCh.Values[dep.Name] = map[string]interface{}{
+				"enabled": false,
+			}
+		}
+
+		templateHasYAML, err := templatesContainsYAML(appCh)
+		if err != nil {
+			ll.Error(err, "chart templates directory yaml check failed")
+			err = fmt.Errorf("chart templates directory yaml check failed : %w", err)
+			appGroup.Status.Applications[i].ChartStatus.Error = err.Error()
+			return err
+		}
+
+		// If the parent chart doesnt contain any templates and all subcharts (if any) have been disabled we must create a dummy yaml to circumvent https://github.com/helm/helm/issues/4670
+		if appCh.Templates == nil || len(appCh.Templates) == 0 || !templateHasYAML {
+			if appCh.Templates == nil {
+				appCh.Templates = make([]*chart.File, 0)
+			}
+			dummy := &chart.File{
+				Name: dummyConfigmapYAMLName,
+				Data: []byte(dummyConfigmapYAMLSpec),
+			}
+			appCh.Templates = append(appCh.Templates, dummy)
+		}
+
+		if err := appCh.Validate(); err != nil {
+			ll.Error(err, "failed to validate application chart for staging registry")
+			err = fmt.Errorf("failed to validate application chart for staging registry : %w", err)
+			appGroup.Status.Applications[i].ChartStatus.Error = err.Error()
+			return err
+		}
+
+		_, err = registry.SaveChartPackage(appCh, stagingDir)
+		if err != nil {
+			ll.Error(err, "failed to save modified app chart to filesystem")
+			err = fmt.Errorf("failed to save modified app chart to filesystem : %w", err)
+			appGroup.Status.Applications[i].ChartStatus.Error = err.Error()
+			return err
+		}
+
+		// Replace existing chart with modified chart
+		path := stagingDir + "/" + application.Spec.Chart.Name + "-" + appCh.Metadata.Version + ".tgz"
+		err = r.RegistryClient.PushChart(ll, r.StagingRepoName, path, appCh)
+		defer func() {
+			if r.CleanupDownloadedCharts {
+				os.Remove(path)
+			}
+		}()
+		if err != nil {
+			ll.Error(err, "failed to push modified application chart to staging registry")
+			err = fmt.Errorf("failed to push modified application chart to staging registry : %w", err)
+			appGroup.Status.Applications[i].ChartStatus.Error = err.Error()
+			return err
+		}
+
+		appGroup.Status.Applications[i].ChartStatus.Staged = true
 	}
 	return nil
 }
