@@ -3,6 +3,7 @@ kind: ApplicationGroup
 metadata:
   name: bookinfo 
 spec:
+  interval: 1m
   applications:
     - name: ambassador
       dependencies: []

@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/Azure/Orkestra/pkg"
 	"github.com/Azure/Orkestra/pkg/meta"
@@ -136,7 +135,7 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			return r.handleResponseAndEvent(ctx, logr, appGroup, patch, requeue, nil)
 		}
 		// Do nothing
-		return ctrl.Result{Requeue: false}, nil
+		return ctrl.Result{}, nil
 	}
 
 	// Initialize all the application specs and status fields embedded in the application group
@@ -330,13 +329,12 @@ func (r *ApplicationGroupReconciler) handleResponseAndEvent(ctx context.Context,
 	}
 
 	if requeue {
-		// interval := requeueAfter
-		// if grp.GetReadyCondition() != meta.ProgressingReason {
-		// 	interval = requeueAfterLong
-		// }
-		return reconcile.Result{RequeueAfter: getInterval(&grp)}, err
+		if grp.GetReadyCondition() != meta.ProgressingReason {
+			return reconcile.Result{RequeueAfter: orkestrav1alpha1.GetInterval(&grp, false)}, err
+		}
+		return reconcile.Result{RequeueAfter: orkestrav1alpha1.GetInterval(&grp, true)}, err
 	}
-	return reconcile.Result{Requeue: requeue}, nil
+	return reconcile.Result{}, nil
 }
 
 func initApplications(appGroup *orkestrav1alpha1.ApplicationGroup) {
@@ -378,13 +376,13 @@ func (r *ApplicationGroupReconciler) handleRemediation(ctx context.Context, logr
 					err = r.List(ctx, &helmReleases, listOption)
 					if err != nil {
 						logr.Error(err, "failed to find generated HelmRelease instances")
-						return reconcile.Result{Requeue: false}, nil
+						return reconcile.Result{}, nil
 					}
 
 					err = r.rollbackFailedHelmReleases(ctx, helmReleases.Items)
 					if err != nil {
 						logr.Error(err, "failed to rollback failed HelmRelease instances")
-						return reconcile.Result{Requeue: false}, nil
+						return reconcile.Result{}, nil
 					}
 				}
 			}
@@ -394,7 +392,7 @@ func (r *ApplicationGroupReconciler) handleRemediation(ctx context.Context, logr
 		// using the last successful spec
 		g.RollingBack()
 		_ = r.Status().Patch(ctx, &g, patch)
-		return reconcile.Result{RequeueAfter: getInterval(&g)}, nil
+		return reconcile.Result{RequeueAfter: orkestrav1alpha1.GetInterval(&g, false)}, nil
 	}
 	// Reverse and cleanup the workflow and associated helmreleases
 	g.RollingBack()
@@ -557,11 +555,4 @@ func (r *ApplicationGroupReconciler) cleanupWorkflow(ctx context.Context, logr l
 		}
 	}
 	return nil
-}
-
-func getInterval(appGroup *orkestrav1alpha1.ApplicationGroup) time.Duration {
-	if appGroup.Spec.Interval != nil {
-		return appGroup.Spec.Interval.Duration
-	}
-	return time.Duration(30 * time.Second)
 }

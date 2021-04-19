@@ -4,11 +4,30 @@
 package v1alpha1
 
 import (
+	"time"
+
 	"github.com/Azure/Orkestra/pkg/meta"
 	helmopv1 "github.com/fluxcd/helm-operator/pkg/apis/helm.fluxcd.io/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+const (
+	DefaultShortRequeue = 5 * time.Second
+	DefaultLongRequeue  = 30 * time.Second
+)
+
+// GetInterval returns the interval if specified in the application group
+// Otherwise, it returns the default requeue time for the appGroup
+func GetInterval(appGroup *ApplicationGroup, short bool) time.Duration {
+	if appGroup.Spec.Interval != nil {
+		return appGroup.Spec.Interval.Duration
+	}
+	if short {
+		return DefaultShortRequeue
+	}
+	return DefaultLongRequeue
+}
 
 // ApplicationSpec defines the desired state of Application
 type ApplicationSpec struct {
@@ -111,7 +130,7 @@ type ApplicationGroupSpec struct {
 	Applications []Application `json:"applications,omitempty"`
 
 	// Interval specifies the between reconciliations of the ApplicationGroup
-	// Defaults to 5s
+	// Defaults to 5s for short requeue and 30s for long requeue
 	// +optional
 	Interval *metav1.Duration `json:"interval,omitempty"`
 }
