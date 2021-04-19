@@ -13,8 +13,8 @@ import (
 )
 
 const (
-	DefaultShortRequeue = 5 * time.Second
-	DefaultLongRequeue  = 30 * time.Second
+	DefaultProgressingRequeue = 5 * time.Second
+	DefaultSucceededRequeue   = 5 * time.Minute
 )
 
 // GetInterval returns the interval if specified in the application group
@@ -23,10 +23,7 @@ func GetInterval(appGroup *ApplicationGroup, short bool) time.Duration {
 	if appGroup.Spec.Interval != nil {
 		return appGroup.Spec.Interval.Duration
 	}
-	if short {
-		return DefaultShortRequeue
-	}
-	return DefaultLongRequeue
+	return DefaultSucceededRequeue
 }
 
 // ApplicationSpec defines the desired state of Application

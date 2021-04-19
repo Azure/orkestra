@@ -198,7 +198,7 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			err = nil
 		case meta.SucceededReason:
 			logr.V(1).Info("workflow ran to completion and succeeded")
-			requeue = false
+			requeue = true
 			err = nil
 		case meta.FailedReason:
 			requeue = false
@@ -275,7 +275,7 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		err = nil
 	case meta.SucceededReason:
 		logr.V(1).Info("workflow ran to completion and succeeded")
-		requeue = false
+		requeue = true
 		err = nil
 	case meta.FailedReason:
 		requeue = false
@@ -330,7 +330,7 @@ func (r *ApplicationGroupReconciler) handleResponseAndEvent(ctx context.Context,
 
 	if requeue {
 		if grp.GetReadyCondition() != meta.ProgressingReason {
-			return reconcile.Result{RequeueAfter: orkestrav1alpha1.GetInterval(&grp, false)}, err
+			return reconcile.Result{RequeueAfter: orkestrav1alpha1.DefaultProgressingRequeue}, err
 		}
 		return reconcile.Result{RequeueAfter: orkestrav1alpha1.GetInterval(&grp, true)}, err
 	}
@@ -392,7 +392,7 @@ func (r *ApplicationGroupReconciler) handleRemediation(ctx context.Context, logr
 		// using the last successful spec
 		g.RollingBack()
 		_ = r.Status().Patch(ctx, &g, patch)
-		return reconcile.Result{RequeueAfter: orkestrav1alpha1.GetInterval(&g, false)}, nil
+		return reconcile.Result{RequeueAfter: orkestrav1alpha1.DefaultProgressingRequeue}, nil
 	}
 	// Reverse and cleanup the workflow and associated helmreleases
 	g.RollingBack()
