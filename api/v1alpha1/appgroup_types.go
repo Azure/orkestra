@@ -4,6 +4,7 @@
 package v1alpha1
 
 import (
+	"github.com/Azure/Orkestra/pkg/meta"
 	helmopv1 "github.com/fluxcd/helm-operator/pkg/apis/helm.fluxcd.io/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -83,14 +84,25 @@ type ChartRef struct {
 // ChartStatus shows the current status of the Application Reconciliation process
 type ChartStatus struct {
 	// Phase reflects the current state of the HelmRelease
+	// +optional
 	Phase helmopv1.HelmReleasePhase `json:"phase,omitempty"`
+
 	// Error string from the error during reconciliation (if any)
+	// +optional
 	Error string `json:"error,omitempty"`
+
 	// Version of the chart/subchart
+	// +optional
 	Version string `json:"version,omitempty"`
+
 	// Staged if true denotes that the chart/subchart has been pushed to the
 	// staging helm repo
+	// +optional
 	Staged bool `json:"staged,omitempty"`
+
+	// +optional
+	// Conditions holds the conditions for the ChartStatus
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // ApplicationGroupSpec defines the desired state of ApplicationGroup
@@ -130,10 +142,15 @@ type DAG struct {
 // ApplicationStatus shows the current status of the application helm release
 type ApplicationStatus struct {
 	// Name of the application
+	// +optional
 	Name string `json:"name"`
+
 	// ChartStatus for the application helm chart
+	// +optional
 	ChartStatus `json:",inline"`
+
 	// Subcharts contains the subchart chart status
+	// +optional
 	Subcharts map[string]ChartStatus `json:"subcharts,omitempty"`
 }
 
@@ -156,27 +173,92 @@ type ApplicationGroupStatus struct {
 
 	// Phase is the reconciliation phase
 	// +optional
-	Phase ReconciliationPhase `json:"phase,omitempty"`
-
-	// Update is an internal flag used to trigger a workflow update
-	// +optional
 	Update bool `json:"update,omitempty"`
-
-	// Error string from errors during reconciliation
-	// +optional
-	Error string `json:"error,omitempty"`
 
 	// ObservedGeneration captures the last generation
 	// that was captured and completed by the reconciler
 	// +optional
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+
+	// Conditions holds the conditions of the ApplicationGroup
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
+}
+
+// Progressing resets the conditions of the ApplicationGroup to
+// metav1.Condition of type meta.ReadyCondition with status 'Unknown' and
+// meta.StartingReason reason and message.
+func (in *ApplicationGroup) Progressing() {
+	in.Status.Conditions = []metav1.Condition{}
+	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionUnknown, meta.ProgressingReason, "workflow is reconciling...")
+	meta.SetResourceCondition(in, meta.DeployCondition, metav1.ConditionUnknown, meta.ProgressingReason, "application group is reconciling...")
+}
+
+// RollingBack sets the meta.ReadyCondition to 'True' and
+// meta.RollingBack reason and message
+func (in *ApplicationGroup) RollingBack() {
+	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionTrue, meta.FailedReason, "workflow failed because of helmreleases, rolling back...")
+	meta.SetResourceCondition(in, meta.DeployCondition, metav1.ConditionTrue, meta.RollingBackReason, "rolling back because of failed helm releases...")
+}
+
+// Succeeded sets the meta.ReadyCondition to 'True', with the given
+// meta.Succeeded reason and message
+func (in *ApplicationGroup) ReadySucceeded() {
+	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionTrue, meta.SucceededReason, "workflow and reconciliation succeeded")
+}
+
+// Failed sets the meta.ReadyCondition to 'True' and
+// meta.FailedReason reason and message
+func (in *ApplicationGroup) ReadyFailed(message string) {
+	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionTrue, meta.FailedReason, message)
+}
+
+// Succeeded sets the meta.DeployCondition to 'True', with the given
+// meta.Succeeded reason and message
+func (in *ApplicationGroup) DeploySucceeded() {
+	meta.SetResourceCondition(in, meta.DeployCondition, metav1.ConditionTrue, meta.SucceededReason, "application group reconciliation succeeded")
+}
+
+// Failed sets the meta.DeployCondition to 'True' and
+// meta.FailedReason reason and message
+func (in *ApplicationGroup) DeployFailed(message string) {
+	meta.SetResourceCondition(in, meta.DeployCondition, metav1.ConditionTrue, meta.FailedReason, message)
+}
+
+// GetReadyCondition gets the string condition.Reason of the
+// meta.ReadyCondition type
+func (in *ApplicationGroup) GetReadyCondition() string {
+	condition := meta.GetResourceCondition(in, meta.ReadyCondition)
+	if condition == nil {
+		return meta.ProgressingReason
+	}
+	return condition.Reason
+}
+
+// GetDeployCondition gets the string condition.Reason of the
+// meta.ReadyCondition type
+func (in *ApplicationGroup) GetDeployCondition() string {
+	condition := meta.GetResourceCondition(in, meta.DeployCondition)
+	if condition == nil {
+		return meta.ProgressingReason
+	}
+	return condition.Reason
+}
+
+// GetStatusConditions gets the status conditions from the
+// ApplicationGroup status
+func (in *ApplicationGroup) GetStatusConditions() *[]metav1.Condition {
+	return &in.Status.Conditions
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:path=applicationgroups,scope=Cluster
 // +kubebuilder:subresource:status
-// +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=`.status.phase`
-// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=`.metadata.creationTimestamp`
+// +kubebuilder:printcolumn:name="Deploy",type="string",JSONPath=".status.conditions[?(@.type==\"Deploy\")].reason"
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].reason"
+// +kubebuilder:printcolumn:name="Message",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].message"
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+
 // ApplicationGroup is the Schema for the applicationgroups API
 type ApplicationGroup struct {
 	metav1.TypeMeta   `json:",inline"`

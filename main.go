@@ -72,7 +72,7 @@ func main() {
 		ctrl.SetLogger(zap.New(zap.UseDevMode(false)))
 	}
 
-	ctrl.Log.Logger.V(debugLevel)
+	ctrl.Log.V(debugLevel)
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:             scheme,
@@ -96,7 +96,7 @@ func main() {
 	}
 
 	rc, err := registry.NewClient(
-		ctrl.Log.Logger,
+		ctrl.Log,
 		registry.TargetDir(tempChartStoreTargetDir),
 	)
 	if err != nil {
