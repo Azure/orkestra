@@ -2,7 +2,6 @@ package workflow
 
 import (
 	"context"
-	kerrors "errors"
 	"fmt"
 	"os"
 
@@ -34,8 +33,7 @@ const (
 )
 
 var (
-	ErrNamespaceTerminating       = kerrors.New("namespace is in terminating phase")
-	timeout                 int64 = 3600
+	timeout int64 = 3600
 )
 
 type argo struct {
@@ -74,7 +72,7 @@ func (a *argo) initWorkflowObject() {
 	a.wf.Spec.Templates = make([]v1alpha12.Template, 0)
 }
 
-func (a *argo) Generate(ctx context.Context, l logr.Logger, ns string, g *v1alpha1.ApplicationGroup) error {
+func (a *argo) Generate(ctx context.Context, l logr.Logger, g *v1alpha1.ApplicationGroup) error {
 	if g == nil {
 		l.Error(nil, "ApplicationGroup object cannot be nil")
 		return fmt.Errorf("applicationGroup object cannot be nil")
@@ -84,7 +82,7 @@ func (a *argo) Generate(ctx context.Context, l logr.Logger, ns string, g *v1alph
 
 	// Set name and namespace based on the input application group
 	a.wf.Name = g.Name
-	a.wf.Namespace = ns
+	a.wf.Namespace = workflowNamespace()
 
 	err := a.generateWorkflow(ctx, g)
 	if err != nil {
@@ -140,10 +138,6 @@ func (a *argo) Submit(ctx context.Context, l logr.Logger, g *v1alpha1.Applicatio
 					return fmt.Errorf("failed to CREATE namespace %s object : %w", ns.Name, err)
 				}
 			}
-		}
-
-		if ns.Status.Phase == corev1.NamespaceTerminating {
-			return ErrNamespaceTerminating
 		}
 	}
 
@@ -482,7 +476,7 @@ func (a *argo) updateWorkflowTemplates(tpls ...v1alpha12.Template) {
 func defaultExecutor() v1alpha12.Template {
 	return v1alpha12.Template{
 		Name:               helmReleaseExecutor,
-		ServiceAccountName: defaultNamespace(),
+		ServiceAccountName: workflowServiceAccountName(),
 		Inputs: v1alpha12.Inputs{
 			Parameters: []v1alpha12.Parameter{
 				{
@@ -491,7 +485,7 @@ func defaultExecutor() v1alpha12.Template {
 			},
 		},
 		Executor: &v1alpha12.ExecutorConfig{
-			ServiceAccountName: defaultNamespace(),
+			ServiceAccountName: workflowServiceAccountName(),
 		},
 		Outputs: v1alpha12.Outputs{},
 		Resource: &v1alpha12.ResourceTemplate{
@@ -568,13 +562,6 @@ func subchartValues(sc string, av helmopv1.HelmValues) helmopv1.HelmValues {
 	return v
 }
 
-func defaultNamespace() string {
-	if ns, ok := os.LookupEnv("WORKFLOW_NAMESPACE"); ok {
-		return ns
-	}
-	return "orkestra"
-}
-
 func convertSliceToDNS1123(in []string) []string {
 	out := []string{}
 	for _, s := range in {
@@ -589,4 +576,18 @@ func boolToBoolPtr(in bool) *bool {
 
 func strToStrPtr(in string) *string {
 	return &in
+}
+
+func workflowNamespace() string {
+	if ns, ok := os.LookupEnv("WORKFLOW_NAMESPACE"); ok {
+		return ns
+	}
+	return "orkestra"
+}
+
+func workflowServiceAccountName() string {
+	if sa, ok := os.LookupEnv("WORKFLOW_SERVICEACCOUNT_NAME"); ok {
+		return sa
+	}
+	return "orkestra"
 }

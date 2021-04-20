@@ -33,7 +33,7 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args: 
           - --staging-repo-url
-          - http://orkestra-chartmuseum.orkestra:8080 
+          - http://{{ .Release.Name }}-chartmuseum.{{ .Release.Namespace }}:8080
           - --config
           - /etc/controller/config.yaml
           - --chart-store-path
@@ -47,8 +47,8 @@ spec:
           - --debug={{ .Values.debug.level }}
           env:
           - name: WORKFLOW_NAMESPACE 
-            value: orkestra
-          - name: SERVICE_ACCOUNT_NAME 
+            value: {{ .Release.Namespace }} 
+          - name: WORKFLOW_SERVICEACCOUNT_NAME 
             value: {{ include "orkestra.serviceAccountName" . }} 
           resources:
             {{- toYaml .Values.resources | nindent 12 }}

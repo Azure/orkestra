@@ -1,4 +1,4 @@
-namespace: &namespace orkestra
+# namespace: &namespace orkestra
 serviceAccount: &serviceAccount orkestra
 
 replicaCount: 1
@@ -65,6 +65,7 @@ chartmuseum:
       DISABLE_API: false 
 
 helm-operator:
+  enabled: true
   rbac:
     create: false 
     pspEnabled: false 
@@ -83,7 +84,7 @@ argo:
     serviceAccount: *serviceAccount
 
   workflow:
-    namespace: *namespace
+    # namespace: *namespace
     serviceAccount:
       name: *serviceAccount
     rbac:
@@ -92,8 +93,8 @@ argo:
   controller:
     # serviceAccount: *serviceAccount
     name: workflow-controller
-    workflowNamespaces:
-      - *namespace
+    # workflowNamespaces:
+      # - *namespace
     containerRuntimeExecutor: k8sapi # Most Secure - https://argoproj.github.io/argo-workflows/workflow-executors/#kubernetes-api-k8sapi
 
   server:
@@ -101,3 +102,13 @@ argo:
     name: argo-server
     serviceAccount: *serviceAccount
     createServiceAccount: false
+
+helm-controller:
+  enabled: false
+  serviceAccount:
+    create: false
+    name: *serviceAccount 
+  source-controller:
+    serviceAccount:
+      create: false
+      name: *serviceAccount
