@@ -53,9 +53,6 @@ type ApplicationGroupReconciler struct {
 	// RegistryClient interacts with the helm registries to pull and push charts
 	RegistryClient *registry.Client
 
-	// WorkflowNS is the namespace to which (generated) Argo Workflow object is deployed
-	WorkflowNS string
-
 	// StagingRepoName is the nickname for the repository used for staging artifacts before being deployed using the HelmRelease object
 	StagingRepoName string
 
@@ -188,7 +185,7 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		appGroup.Progressing()
 		_ = r.Status().Patch(ctx, &appGroup, patch)
 
-		requeue, err = r.reconcile(ctx, logr, r.WorkflowNS, &appGroup)
+		requeue, err = r.reconcile(ctx, logr, &appGroup)
 		if err != nil {
 			logr.Error(err, "failed to reconcile ApplicationGroup instance")
 			return r.handleResponseAndEvent(ctx, logr, appGroup, patch, requeue, err)
