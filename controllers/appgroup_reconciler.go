@@ -33,7 +33,7 @@ data:
 	dummyConfigmapYAMLName = "templates/dummy-configmap.yaml"
 )
 
-func (r *ApplicationGroupReconciler) reconcile(ctx context.Context, l logr.Logger, ns string, appGroup *orkestrav1alpha1.ApplicationGroup) (bool, error) {
+func (r *ApplicationGroupReconciler) reconcile(ctx context.Context, l logr.Logger, appGroup *orkestrav1alpha1.ApplicationGroup) (bool, error) {
 	l = l.WithValues(appgroupNameKey, appGroup.Name)
 	l.V(3).Info("Reconciling ApplicationGroup object")
 
@@ -49,13 +49,9 @@ func (r *ApplicationGroupReconciler) reconcile(ctx context.Context, l logr.Logge
 		err = fmt.Errorf("failed to reconcile the applications : %w", err)
 		return false, err
 	}
-	// if target workflow namespace is unset, then set it to the default namespace explicitly
-	if ns == "" {
-		ns = defaultNamespace()
-	}
 
 	// Generate the Workflow object to submit to Argo
-	return r.generateWorkflow(ctx, l, ns, appGroup)
+	return r.generateWorkflow(ctx, l, appGroup)
 }
 
 func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGroup *v1alpha1.ApplicationGroup) error {
@@ -235,8 +231,8 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 	return nil
 }
 
-func (r *ApplicationGroupReconciler) generateWorkflow(ctx context.Context, logr logr.Logger, ns string, g *orkestrav1alpha1.ApplicationGroup) (requeue bool, err error) {
-	err = r.Engine.Generate(ctx, logr, ns, g)
+func (r *ApplicationGroupReconciler) generateWorkflow(ctx context.Context, logr logr.Logger, g *orkestrav1alpha1.ApplicationGroup) (requeue bool, err error) {
+	err = r.Engine.Generate(ctx, logr, g)
 	if err != nil {
 		logr.Error(err, "engine failed to generate workflow")
 		return false, fmt.Errorf("failed to generate workflow : %w", err)
@@ -248,13 +244,6 @@ func (r *ApplicationGroupReconciler) generateWorkflow(ctx context.Context, logr 
 		return false, err
 	}
 	return true, nil
-}
-
-func defaultNamespace() string {
-	if ns, ok := os.LookupEnv("WORKFLOW_NAMESPACE"); ok {
-		return ns
-	}
-	return "orkestra"
 }
 
 func templatesContainsYAML(ch *chart.Chart) (bool, error) {

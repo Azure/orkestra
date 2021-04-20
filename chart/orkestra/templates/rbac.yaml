@@ -2,6 +2,7 @@ kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name:  {{ include "orkestra.serviceAccountName" . }}
+  namespace: {{ .Release.Namespace }} 
 rules:
   - apiGroups:
       - '*'
@@ -22,8 +23,8 @@ metadata:
   namespace: {{ .Release.Namespace }} 
 subjects:
 - kind: ServiceAccount 
-  namespace: orkestra
   name: {{ include "orkestra.serviceAccountName" . }} 
+  namespace: {{ .Release.Namespace }} 
 roleRef:
   kind: ClusterRole 
   name: {{ include "orkestra.serviceAccountName" . }} 

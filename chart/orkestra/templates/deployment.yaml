@@ -47,8 +47,8 @@ spec:
           - --debug={{ .Values.debug.level }}
           env:
           - name: WORKFLOW_NAMESPACE 
-            value: orkestra
-          - name: SERVICE_ACCOUNT_NAME 
+            value: {{ .Release.Namespace }} 
+          - name: WORKFLOW_SERVICEACCOUNT_NAME 
             value: {{ include "orkestra.serviceAccountName" . }} 
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
