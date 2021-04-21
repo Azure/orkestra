@@ -37,7 +37,7 @@ spec:
           - --config
           - /etc/controller/config.yaml
           - --chart-store-path
-          - /etc/orkestra/charts/pull
+          - {{ .Values.chartStorePath }} 
           {{- if .Values.remediation.disabled }}
           - --disable-remediation
           {{- end }}
