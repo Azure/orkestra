@@ -19,7 +19,7 @@ const (
 
 // GetInterval returns the interval if specified in the application group
 // Otherwise, it returns the default requeue time for the appGroup
-func GetInterval(appGroup *ApplicationGroup, short bool) time.Duration {
+func GetInterval(appGroup *ApplicationGroup) time.Duration {
 	if appGroup.Spec.Interval != nil {
 		return appGroup.Spec.Interval.Duration
 	}
