@@ -153,23 +153,34 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// If the (needs) Rollback phase is present in the reconciled version,
 	// we must rollback the application group to the last successful spec.
 	// This should only happen on updates and not during installs.
-	if appGroup.GetDeployCondition() == meta.RollingBackReason && r.lastSuccessfulApplicationGroup != nil {
-		logr.Info("Rolling back to last successful application group spec")
-		appGroup.Spec = r.lastSuccessfulApplicationGroup.DeepCopy().Spec
-		err = r.Patch(ctx, &appGroup, patch)
-		if err != nil {
-			appGroup.DeployFailed(err.Error())
-			logr.Error(err, "failed to update ApplicationGroup instance while rolling back")
+	if appGroup.GetDeployCondition() == meta.RollingBackReason {
+		if r.lastSuccessfulApplicationGroup != nil {
+			logr.Info("Rolling back to last successful application group spec")
+			appGroup.Spec = r.lastSuccessfulApplicationGroup.DeepCopy().Spec
+			err = r.Patch(ctx, &appGroup, patch)
+			if err != nil {
+				appGroup.DeployFailed(err.Error())
+				logr.Error(err, "failed to update ApplicationGroup instance while rolling back")
+				return r.handleResponseAndEvent(ctx, logr, appGroup, patch, requeue, err)
+			}
+
+			// If we are able to update to the previous spec
+			// Change the app group spec into a progressing state
+			appGroup.Progressing()
+			_ = r.Status().Patch(ctx, &appGroup, patch)
+
+			requeue = true
+			err = nil
 			return r.handleResponseAndEvent(ctx, logr, appGroup, patch, requeue, err)
 		}
 
-		// If we are able to update to the previous spec
-		// Change the app group spec into a progressing state
-		appGroup.Progressing()
+		requeue = false
+		err := errors.New("failed to rollback ApplicationGroup instance due to missing last successful applicationgroup annotation")
+
+		appGroup.DeployFailed(err.Error())
 		_ = r.Status().Patch(ctx, &appGroup, patch)
 
-		requeue = true
-		err = nil
+		logr.Error(err, "")
 		return r.handleResponseAndEvent(ctx, logr, appGroup, patch, requeue, err)
 	}
 
