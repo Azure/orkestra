@@ -16,7 +16,7 @@ func TargetDir(d string) Option {
 	// check if target dir exists.
 	// if doesnt exist create one.
 	if _, err := os.Stat(d); os.IsNotExist(err) {
-		os.Mkdir(d, os.ModeDir)
+		_ = os.Mkdir(d, os.ModeDir)
 	}
 
 	return func(c *Client) {
