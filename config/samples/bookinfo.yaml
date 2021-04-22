@@ -3,6 +3,7 @@ kind: ApplicationGroup
 metadata:
   name: bookinfo 
 spec:
+  interval: 1m
   applications:
     - name: ambassador
       dependencies: []
@@ -31,7 +32,7 @@ spec:
       dependencies: [ambassador]
       spec:
         chart:
-          repository: "https://nitishm.github.io/istio-bookinfo-chart"
+          repository: "https://nitishm.github.io/charts"
           name: bookinfo 
           version: v1
         subcharts:
