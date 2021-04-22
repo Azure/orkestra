@@ -34,7 +34,7 @@ events.on("exec", (brigadeEvent, project) => {
     "kubectl apply -k ./config/crd",
     "helm install --wait orkestra chart/orkestra/ --namespace orkestra --create-namespace",
     "kubectl apply -f examples/simple/bookinfo.yaml",
-    "kubectl get pods -A",
+    // "argo wait bookinfo -n orkestra"
   ]
 
   test.run()
