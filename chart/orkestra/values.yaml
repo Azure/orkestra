@@ -3,6 +3,8 @@ serviceAccount: &serviceAccount orkestra
 
 replicaCount: 1
 
+chartStorePath: "/etc/orkestra/charts/pull"
+
 image:
   repository: azureorkestra/orkestra
   pullPolicy: Always 
