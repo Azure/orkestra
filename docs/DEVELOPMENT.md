@@ -47,6 +47,9 @@ make manifests
 /usr/local/bin/controller-gen "crd:trivialVersions=true" rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 ```
 
+```terminal
+cp config/crd/bases/orkestra.azure.microsoft.com_applicationgroups.yaml chart/orkestra/crds/orkestra.azure.microsoft.com_applicationgroups.yaml
+
 ### Manually
 
 1. Build a docker image and push to your own personal docker registry (careful not to override the latest tag)
@@ -59,7 +62,7 @@ docker push <your-registry>/orkestra:<your-tag>
 2. Update the orkestra deployment with your registry/image:tag
 
 ```terminal
-helm upgrade orkestra chart/orkestra -n orkestra --create-namespace --set image.repository=<your-registry> --set image.tag=<your-tag>
+helm upgrade orkestra chart/orkestra -n orkestra --create-namespace --set image.repository=<your-registry> --set image.tag=<your-tag> [--disable-remediation]
 ```
 
 ### Using Tilt
@@ -83,8 +86,8 @@ v0.19.0, built 2021-03-19
 
 Install the ["Bridge to Kubernetes"](https://marketplace.visualstudio.com/items?itemName=mindaro.mindaro) and the official ["Kubernetes"](https://marketplace.visualstudio.com/items?itemName=ms-kubernetes-tools.vscode-kubernetes-tools) extensions from the VSCode Marketplace
 
-- Deploy the orkestra controller using the deployment methods shown above - Manually or by using `Tilt`
+Deploy the orkestra controller using the deployment methods shown above - **Manually** or  using **`Tilt`**
 
-Once the orkestra helm release has been successfully deployed you can start debugging using the following steps
+Once the orkestra helm release has been successfully deployed you can start debugging by following the step-by-step tutorial below -
 
 ![Bridge to Kubernetes tutorial GIF](./assets/bridge-to-kubernetes-tutorial.gif)
