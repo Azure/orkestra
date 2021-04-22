@@ -331,12 +331,12 @@ func (r *ApplicationGroupReconciler) handleResponseAndEvent(ctx context.Context,
 	if requeue {
 		if grp.GetReadyCondition() != meta.ProgressingReason {
 			logr.WithValues("requeueTime", orkestrav1alpha1.DefaultProgressingRequeue.String())
-			logr.V(1).Info("workflow is still progressing")
-			return reconcile.Result{RequeueAfter: orkestrav1alpha1.DefaultProgressingRequeue}, err
+			logr.V(1).Info("workflow has succeeded")
+			return reconcile.Result{RequeueAfter: orkestrav1alpha1.GetInterval(&grp)}, err
 		}
 		logr.WithValues("requeueTime", orkestrav1alpha1.GetInterval(&grp).String())
-		logr.V(1).Info("workflow has succeeded")
-		return reconcile.Result{RequeueAfter: orkestrav1alpha1.GetInterval(&grp)}, err
+		logr.V(1).Info("workflow is still progressing")
+		return reconcile.Result{RequeueAfter: orkestrav1alpha1.DefaultProgressingRequeue}, err
 	}
 	return reconcile.Result{}, nil
 }
