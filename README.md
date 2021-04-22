@@ -146,7 +146,7 @@ Try out the [examples](./examples)
 
 ## Development
 
-[docs](./docs/DEVELOPMENT.md)
+Follow the development [docs](./docs/DEVELOPMENT.md)
 
 ## Contributing
 
