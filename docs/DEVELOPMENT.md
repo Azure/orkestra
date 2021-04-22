@@ -52,14 +52,14 @@ cp config/crd/bases/orkestra.azure.microsoft.com_applicationgroups.yaml chart/or
 
 ### Manually
 
-1. Build a docker image and push to your own personal docker registry (careful not to override the latest tag)
+- Build a docker image and push to your own personal docker registry (careful not to override the latest tag)
 
 ```terminal
 docker build . -t <your-registry>/orkestra:<your-tag>
 docker push <your-registry>/orkestra:<your-tag>
 ```
 
-2. Update the orkestra deployment with your registry/image:tag
+- Update the orkestra deployment with your registry/image:tag
 
 ```terminal
 helm upgrade orkestra chart/orkestra -n orkestra --create-namespace --set image.repository=<your-registry> --set image.tag=<your-tag> [--disable-remediation]
@@ -80,14 +80,39 @@ v0.19.0, built 2021-03-19
 (ctrl-c) to exit
 ```
 
-## Debugging in VSCode
+#### Tiltfile
 
-### "Bridge to Kubernetes" extension
+Use the provided [`Tiltfile`](../Tiltfile) to start developing
 
-Install the ["Bridge to Kubernetes"](https://marketplace.visualstudio.com/items?itemName=mindaro.mindaro) and the official ["Kubernetes"](https://marketplace.visualstudio.com/items?itemName=ms-kubernetes-tools.vscode-kubernetes-tools) extensions from the VSCode Marketplace
+## Debugging using [Visual Studio Code](https://code.visualstudio.com/) and [delve](https://github.com/go-delve/delve)
+
+### "Bridge to Kubernetes"
+
+Install the ["Bridge to Kubernetes"](https://marketplace.visualstudio.com/items?itemName=mindaro.mindaro) and the official ["Kubernetes"](https://marketplace.visualstudio.com/items?itemName=ms-kubernetes-tools.vscode-kubernetes-tools) extensions from VSCode Marketplace
 
 Deploy the orkestra controller using the deployment methods shown above - **Manually** or  using **`Tilt`**
 
 Once the orkestra helm release has been successfully deployed you can start debugging by following the step-by-step tutorial below -
 
 ![Bridge to Kubernetes tutorial GIF](./assets/bridge-to-kubernetes-tutorial.gif)
+
+### Okteto "Remote - Kubernetes"
+
+#### Required extensions
+
+- ["Remote - SSH"](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-ssh)
+- ["Remote - Kubernetes"](https://marketplace.visualstudio.com/items?itemName=okteto.remote-kubernetes)
+
+#### Installing Okteto binary
+
+Install okteto using `[CMD + Shift + p]`  > __"Okteto: Install"__
+
+#### Configuration
+
+A default [`okteto.yml`](../okteto.yml) has been provided with this repository.
+
+[*optional*] Configure okteto (do this if you wish to use your own okteto.yml) using `[CMD + Shift + p]` > __"Okteto: Create Manifest"__
+
+#### Start debugging
+
+Start the okteto debugger using `[CMD + Shift + p]` > __"Okteto: Up"__
