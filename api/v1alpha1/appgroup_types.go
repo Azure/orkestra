@@ -4,9 +4,11 @@
 package v1alpha1
 
 import (
+	"encoding/json"
+
 	"github.com/Azure/Orkestra/pkg/meta"
-	helmopv1 "github.com/fluxcd/helm-operator/pkg/apis/helm.fluxcd.io/v1"
 	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -26,54 +28,79 @@ type ApplicationSpec struct {
 }
 
 type Release struct {
-	// HelmVersion is the version of Helm to target. If not supplied,
-	// the lowest _enabled Helm version_ will be targeted.
-	// +kubebuilder:validation:Enum=v2;v3
-	// +kubebuilder:default:=v3
-	// +optional
-	HelmVersion string `json:"helmVersion"`
-
-	// Force will mark this Helm release to `--force` upgrades. This
-	// forces the resource updates through delete/recreate if needed.
-	// +optional
-	ForceUpgrade bool `json:"forceUpgrade,omitempty"`
-
-	// Wait will mark this Helm release to wait until all Pods,
-	// PVCs, Services, and minimum number of Pods of a Deployment,
-	// StatefulSet, or ReplicaSet are in a ready state before marking
-	// the release as successful.
-	// +optional
-	Wait *bool `json:"wait,omitempty"`
-
-	// TargetNamespace overrides the targeted namespace for the Helm
-	// release. The default namespace equals to the namespace of the
-	// HelmRelease resource.
+	// Interval at which to reconcile the Helm release.
 	// +required
+	Interval metav1.Duration `json:"interval,omitempty"`
+
+	// TargetNamespace to target when performing operations for the HelmRelease.
+	// Defaults to the namespace of the HelmRelease.
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:Optional
+	// +optional
 	TargetNamespace string `json:"targetNamespace,omitempty"`
 
-	// Timeout is the time to wait for any individual Kubernetes
-	// operation (like Jobs for hooks) during installation and
-	// upgrade operations.
+	// Timeout is the time to wait for any individual Kubernetes operation (like Jobs
+	// for hooks) during the performance of a Helm action. Defaults to '5m0s'.
 	// +optional
-	Timeout *int64 `json:"timeout,omitempty"`
+	Timeout *metav1.Duration `json:"timeout,omitempty"`
 
 	// Values holds the values for this Helm release.
 	// +optional
-	// +kubebuilder:pruning:PreserveUnknownFields
-	// +kubebuilder:validation:XPreserveUnknownFields
-	Values helmopv1.HelmValues `json:"values,omitempty"`
+	Values *apiextensionsv1.JSON `json:"values,omitempty"`
+
+	// Install holds the configuration for Helm install actions for this HelmRelease.
+	// +optional
+	Install *ReleaseInstallSpec `json:"install,omitempty"`
+
+	// Upgrade holds the configuration for Helm upgrade actions for this HelmRelease.
+	// +optional
+	Upgrade *ReleaseUpgradeSpec `json:"upgrade,omitempty"`
+
+	// Rollback holds the configuration for Helm rollback actions for this HelmRelease.
+	// +optional
+	Rollback *ReleaseRollbackSpec `json:"rollback,omitempty"`
+}
+
+type ReleaseInstallSpec struct {
+	// DisableWait disables the waiting for resources to be ready after a Helm
+	// install has been performed.
+	// +optional
+	DisableWait bool `json:"disableWait,omitempty"`
+}
+
+type ReleaseUpgradeSpec struct {
+	// DisableWait disables the waiting for resources to be ready after a Helm
+	// upgrade has been performed.
+	// +optional
+	DisableWait bool `json:"disableWait,omitempty"`
+
+	// Force forces resource updates through a replacement strategy.
+	// +optional
+	Force bool `json:"force,omitempty"`
+}
+
+type ReleaseRollbackSpec struct {
+	// DisableWait disables the waiting for resources to be ready after a Helm
+	// rollback has been performed.
+	// +optional
+	DisableWait bool `json:"disableWait,omitempty"`
 }
 
 type ChartRef struct {
-	// GitChartSource references the chart repository if the
-	// the helm chart is stored in a git repo
-	// +optional
-	helmopv1.GitChartSource `json:",inline"`
+	// The Helm repository URL, a valid URL contains at least a protocol and host.
+	// +required
+	Url string `json:"url,omitempty"`
 
-	// RepoChartSource references the chart repository of
-	// a normal helm chart repo
+	// The name or path the Helm chart is available at in the SourceRef.
+	// +required
+	Name string `json:"name,omitempty"`
+
+	// Version semver expression, ignored for charts from v1beta1.GitRepository and
+	// v1beta1.Bucket sources. Defaults to latest when omitted.
+	// +kubebuilder:default:=*
 	// +optional
-	helmopv1.RepoChartSource `json:",inline"`
+	Version string `json:"version,omitempty"`
 
 	// AuthSecretRef is a reference to the auth secret
 	// to access a private helm repository
@@ -83,10 +110,6 @@ type ChartRef struct {
 
 // ChartStatus shows the current status of the Application Reconciliation process
 type ChartStatus struct {
-	// Phase reflects the current state of the HelmRelease
-	// +optional
-	Phase helmopv1.HelmReleasePhase `json:"phase,omitempty"`
-
 	// Error string from the error during reconciliation (if any)
 	// +optional
 	Error string `json:"error,omitempty"`
@@ -180,6 +203,36 @@ type ApplicationGroupStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
+// GetValues unmarshals the raw values to a map[string]interface{} and returns
+// the result.
+func (in *Application) GetValues() map[string]interface{} {
+	var values map[string]interface{}
+	if in.Spec.Release.Values != nil {
+		_ = json.Unmarshal(in.Spec.Release.Values.Raw, &values)
+	}
+	return values
+}
+
+func GetJSON(values map[string]interface{}) (*apiextensionsv1.JSON, error) {
+	bytes, err := json.Marshal(values)
+	if err != nil {
+		return nil, err
+	}
+	return &apiextensionsv1.JSON{
+		Raw: bytes,
+	}, nil
+}
+
+// SetValues marshals the raw values into the JSON values
+func (in *Application) SetValues(values map[string]interface{}) error {
+	bytes, err := json.Marshal(values)
+	if err != nil {
+		return err
+	}
+	in.Spec.Release.Values.Raw = bytes
+	return nil
+}
+
 // Progressing resets the conditions of the ApplicationGroup to
 // metav1.Condition of type meta.ReadyCondition with status 'Unknown' and
 // meta.StartingReason reason and message.
@@ -244,6 +297,12 @@ func (in *ApplicationGroup) GetDeployCondition() string {
 // ApplicationGroup status
 func (in *ApplicationGroup) GetStatusConditions() *[]metav1.Condition {
 	return &in.Status.Conditions
+}
+
+// GetStatusConditions gets the status conditions from the
+// ChartStatus status
+func (in *ChartStatus) GetStatusConditions() *[]metav1.Condition {
+	return &in.Conditions
 }
 
 // +kubebuilder:object:root=true

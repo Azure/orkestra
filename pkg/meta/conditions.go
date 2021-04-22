@@ -27,6 +27,10 @@ const (
 	// DeployCondition is the name of the Deploy condition
 	// This captures the state of receiving and reacting to the spec by the reconciler
 	DeployCondition string = "Deploy"
+
+	// ReleasedCondition represents the status of the last release attempt
+	// (install/upgrade/test) against the latest desired state.
+	ReleasedCondition string = "Released"
 )
 
 const (

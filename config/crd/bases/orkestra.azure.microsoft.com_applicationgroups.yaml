@@ -35,14 +35,10 @@ spec:
         description: ApplicationGroup is the Schema for the applicationgroups API
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
@@ -66,34 +62,19 @@ spec:
                       description: Namespace of the application
                       type: string
                     spec:
-                      description: Spec contains the application spec including the
-                        chart info and overlay values
+                      description: Spec contains the application spec including the chart info and overlay values
                       properties:
                         chart:
                           description: Chart holds the values needed to pull the chart
                           properties:
                             authSecretRef:
-                              description: AuthSecretRef is a reference to the auth
-                                secret to access a private helm repository
+                              description: AuthSecretRef is a reference to the auth secret to access a private helm repository
                               properties:
                                 apiVersion:
                                   description: API version of the referent.
                                   type: string
                                 fieldPath:
-                                  description: 'If referring to a piece of an object
-                                    instead of an entire object, this string should
-                                    contain a valid JSON/Go field access statement,
-                                    such as desiredState.manifest.containers[2]. For
-                                    example, if the object reference is to a container
-                                    within a pod, this would take on a value like:
-                                    "spec.containers{name}" (where "name" refers to
-                                    the name of the container that triggered the event)
-                                    or if no container name is specified "spec.containers[2]"
-                                    (container with index 2 in this pod). This syntax
-                                    is chosen only to have some well-defined way of
-                                    referencing a part of an object. TODO: this design
-                                    is not final and this field is subject to change
-                                    in the future.'
+                                  description: 'If referring to a piece of an object instead of an entire object, this string should contain a valid JSON/Go field access statement, such as desiredState.manifest.containers[2]. For example, if the object reference is to a container within a pod, this would take on a value like: "spec.containers{name}" (where "name" refers to the name of the container that triggered the event) or if no container name is specified "spec.containers[2]" (container with index 2 in this pod). This syntax is chosen only to have some well-defined way of referencing a part of an object. TODO: this design is not final and this field is subject to change in the future.'
                                   type: string
                                 kind:
                                   description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
@@ -102,124 +83,75 @@ spec:
                                   description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
                                   type: string
                                 namespace:
-                                  description: 'Namespace of the referent. More info:
-                                    https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                                  description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
                                   type: string
                                 resourceVersion:
-                                  description: 'Specific resourceVersion to which
-                                    this reference is made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
+                                  description: 'Specific resourceVersion to which this reference is made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
                                   type: string
                                 uid:
                                   description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
                                   type: string
                               type: object
-                            chartPullSecret:
-                              description: ChartPullSecret holds the reference to
-                                the authentication secret for accessing the Helm repository
-                                using HTTPS basic auth. NOT IMPLEMENTED!
-                              properties:
-                                name:
-                                  type: string
-                              required:
-                              - name
-                              type: object
-                            git:
-                              description: Git URL is the URL of the Git repository,
-                                e.g. `git@github.com:org/repo`, `http://github.com/org/repo`,
-                                or `ssh://git@example.com:2222/org/repo.git`.
-                              type: string
                             name:
-                              description: Name is the name of the Helm chart _without_
-                                an alias, e.g. redis (for `helm upgrade [flags] stable/redis`).
+                              description: The name or path the Helm chart is available at in the SourceRef.
                               type: string
-                            path:
-                              description: Path is the path to the chart relative
-                                to the repository root.
+                            url:
+                              description: The Helm repository URL, a valid URL contains at least a protocol and host.
                               type: string
-                            ref:
-                              description: Ref is the Git branch (or other reference)
-                                to use. Defaults to 'master', or the configured default
-                                Git ref.
-                              type: string
-                            repository:
-                              description: RepoURL is the URL of the Helm repository,
-                                e.g. `https://kubernetes-charts.storage.googleapis.com`
-                                or `https://charts.example.com`.
-                              type: string
-                            secretRef:
-                              description: SecretRef holds the authentication secret
-                                for accessing the Git repository (over HTTPS). The
-                                credentials will be added to an HTTPS GitURL before
-                                the mirror is started.
-                              properties:
-                                name:
-                                  type: string
-                                namespace:
-                                  type: string
-                              required:
-                              - name
-                              type: object
-                            skipDepUpdate:
-                              description: SkipDepUpdate will tell the operator to
-                                skip running 'helm dep update' before installing or
-                                upgrading the chart, the chart dependencies _must_
-                                be present for this to succeed.
-                              type: boolean
                             version:
-                              description: Version is the targeted Helm chart version,
-                                e.g. 7.0.1.
+                              default: '*'
+                              description: Version semver expression, ignored for charts from v1beta1.GitRepository and v1beta1.Bucket sources. Defaults to latest when omitted.
                               type: string
                           type: object
                         release:
-                          description: Release holds the values to apply to the helm
-                            release
+                          description: Release holds the values to apply to the helm release
                           properties:
-                            forceUpgrade:
-                              description: Force will mark this Helm release to `--force`
-                                upgrades. This forces the resource updates through
-                                delete/recreate if needed.
-                              type: boolean
-                            helmVersion:
-                              default: v3
-                              description: HelmVersion is the version of Helm to target.
-                                If not supplied, the lowest _enabled Helm version_
-                                will be targeted.
-                              enum:
-                              - v2
-                              - v3
+                            install:
+                              description: Install holds the configuration for Helm install actions for this HelmRelease.
+                              properties:
+                                disableWait:
+                                  description: DisableWait disables the waiting for resources to be ready after a Helm install has been performed.
+                                  type: boolean
+                              type: object
+                            interval:
+                              description: Interval at which to reconcile the Helm release.
                               type: string
+                            rollback:
+                              description: Rollback holds the configuration for Helm rollback actions for this HelmRelease.
+                              properties:
+                                disableWait:
+                                  description: DisableWait disables the waiting for resources to be ready after a Helm rollback has been performed.
+                                  type: boolean
+                              type: object
                             targetNamespace:
-                              description: TargetNamespace overrides the targeted
-                                namespace for the Helm release. The default namespace
-                                equals to the namespace of the HelmRelease resource.
+                              description: TargetNamespace to target when performing operations for the HelmRelease. Defaults to the namespace of the HelmRelease.
+                              maxLength: 63
+                              minLength: 1
                               type: string
                             timeout:
-                              description: Timeout is the time to wait for any individual
-                                Kubernetes operation (like Jobs for hooks) during
-                                installation and upgrade operations.
-                              format: int64
-                              type: integer
+                              description: Timeout is the time to wait for any individual Kubernetes operation (like Jobs for hooks) during the performance of a Helm action. Defaults to '5m0s'.
+                              type: string
+                            upgrade:
+                              description: Upgrade holds the configuration for Helm upgrade actions for this HelmRelease.
+                              properties:
+                                disableWait:
+                                  description: DisableWait disables the waiting for resources to be ready after a Helm upgrade has been performed.
+                                  type: boolean
+                                force:
+                                  description: Force forces resource updates through a replacement strategy.
+                                  type: boolean
+                              type: object
                             values:
                               description: Values holds the values for this Helm release.
-                              type: object
                               x-kubernetes-preserve-unknown-fields: true
-                            wait:
-                              description: Wait will mark this Helm release to wait
-                                until all Pods, PVCs, Services, and minimum number
-                                of Pods of a Deployment, StatefulSet, or ReplicaSet
-                                are in a ready state before marking the release as
-                                successful.
-                              type: boolean
                           type: object
                         subcharts:
-                          description: Subcharts provides the dependency order among
-                            the subcharts of the application
+                          description: Subcharts provides the dependency order among the subcharts of the application
                           items:
                             description: DAG contains the dependency information
                             properties:
                               dependencies:
-                                description: Dependencies on other applications by
-                                  name
+                                description: Dependencies on other applications by name
                                 items:
                                   type: string
                                 type: array
@@ -244,45 +176,23 @@ spec:
               conditions:
                 description: Conditions holds the conditions of the ApplicationGroup
                 items:
-                  description: "Condition contains details for one aspect of the current
-                    state of this API Resource. --- This struct is intended for direct
-                    use as an array at the field path .status.conditions.  For example,
-                    type FooStatus struct{     // Represents the observations of a
-                    foo's current state.     // Known .status.conditions.type are:
-                    \"Available\", \"Progressing\", and \"Degraded\"     // +patchMergeKey=type
-                    \    // +patchStrategy=merge     // +listType=map     // +listMapKey=type
-                    \    Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`
-                    \n     // other fields }"
+                  description: "Condition contains details for one aspect of the current state of this API Resource. --- This struct is intended for direct use as an array at the field path .status.conditions.  For example, type FooStatus struct{     // Represents the observations of a foo's current state.     // Known .status.conditions.type are: \"Available\", \"Progressing\", and \"Degraded\"     // +patchMergeKey=type     // +patchStrategy=merge     // +listType=map     // +listMapKey=type     Conditions []metav1.Condition `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"` \n     // other fields }"
                   properties:
                     lastTransitionTime:
-                      description: lastTransitionTime is the last time the condition
-                        transitioned from one status to another. This should be when
-                        the underlying condition changed.  If that is not known, then
-                        using the time when the API field changed is acceptable.
+                      description: lastTransitionTime is the last time the condition transitioned from one status to another. This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
                       format: date-time
                       type: string
                     message:
-                      description: message is a human readable message indicating
-                        details about the transition. This may be an empty string.
+                      description: message is a human readable message indicating details about the transition. This may be an empty string.
                       maxLength: 32768
                       type: string
                     observedGeneration:
-                      description: observedGeneration represents the .metadata.generation
-                        that the condition was set based upon. For instance, if .metadata.generation
-                        is currently 12, but the .status.conditions[x].observedGeneration
-                        is 9, the condition is out of date with respect to the current
-                        state of the instance.
+                      description: observedGeneration represents the .metadata.generation that the condition was set based upon. For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date with respect to the current state of the instance.
                       format: int64
                       minimum: 0
                       type: integer
                     reason:
-                      description: reason contains a programmatic identifier indicating
-                        the reason for the condition's last transition. Producers
-                        of specific condition types may define expected values and
-                        meanings for this field, and whether the values are considered
-                        a guaranteed API. The value should be a CamelCase string.
-                        This field may not be empty.
+                      description: reason contains a programmatic identifier indicating the reason for the condition's last transition. Producers of specific condition types may define expected values and meanings for this field, and whether the values are considered a guaranteed API. The value should be a CamelCase string. This field may not be empty.
                       maxLength: 1024
                       minLength: 1
                       pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
@@ -295,11 +205,7 @@ spec:
                       - Unknown
                       type: string
                     type:
-                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
-                        --- Many .condition.type values are consistent across resources
-                        like Available, but because arbitrary conditions can be useful
-                        (see .node.status.conditions), the ability to deconflict is
-                        important. The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase. --- Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be useful (see .node.status.conditions), the ability to deconflict is important. The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
                       maxLength: 316
                       pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                       type: string
@@ -312,79 +218,47 @@ spec:
                   type: object
                 type: array
               observedGeneration:
-                description: ObservedGeneration captures the last generation that
-                  was captured and completed by the reconciler
+                description: ObservedGeneration captures the last generation that was captured and completed by the reconciler
                 format: int64
                 type: integer
               status:
                 description: Applications status
                 items:
-                  description: ApplicationStatus shows the current status of the application
-                    helm release
+                  description: ApplicationStatus shows the current status of the application helm release
                   properties:
                     conditions:
                       description: Conditions holds the conditions for the ChartStatus
                       items:
-                        description: "Condition contains details for one aspect of
-                          the current state of this API Resource. --- This struct
-                          is intended for direct use as an array at the field path
-                          .status.conditions.  For example, type FooStatus struct{
-                          \    // Represents the observations of a foo's current state.
-                          \    // Known .status.conditions.type are: \"Available\",
-                          \"Progressing\", and \"Degraded\"     // +patchMergeKey=type
-                          \    // +patchStrategy=merge     // +listType=map     //
-                          +listMapKey=type     Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                          patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`
-                          \n     // other fields }"
+                        description: "Condition contains details for one aspect of the current state of this API Resource. --- This struct is intended for direct use as an array at the field path .status.conditions.  For example, type FooStatus struct{     // Represents the observations of a foo's current state.     // Known .status.conditions.type are: \"Available\", \"Progressing\", and \"Degraded\"     // +patchMergeKey=type     // +patchStrategy=merge     // +listType=map     // +listMapKey=type     Conditions []metav1.Condition `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"` \n     // other fields }"
                         properties:
                           lastTransitionTime:
-                            description: lastTransitionTime is the last time the condition
-                              transitioned from one status to another. This should
-                              be when the underlying condition changed.  If that is
-                              not known, then using the time when the API field changed
-                              is acceptable.
+                            description: lastTransitionTime is the last time the condition transitioned from one status to another. This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
                             format: date-time
                             type: string
                           message:
-                            description: message is a human readable message indicating
-                              details about the transition. This may be an empty string.
+                            description: message is a human readable message indicating details about the transition. This may be an empty string.
                             maxLength: 32768
                             type: string
                           observedGeneration:
-                            description: observedGeneration represents the .metadata.generation
-                              that the condition was set based upon. For instance,
-                              if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration
-                              is 9, the condition is out of date with respect to the
-                              current state of the instance.
+                            description: observedGeneration represents the .metadata.generation that the condition was set based upon. For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date with respect to the current state of the instance.
                             format: int64
                             minimum: 0
                             type: integer
                           reason:
-                            description: reason contains a programmatic identifier
-                              indicating the reason for the condition's last transition.
-                              Producers of specific condition types may define expected
-                              values and meanings for this field, and whether the
-                              values are considered a guaranteed API. The value should
-                              be a CamelCase string. This field may not be empty.
+                            description: reason contains a programmatic identifier indicating the reason for the condition's last transition. Producers of specific condition types may define expected values and meanings for this field, and whether the values are considered a guaranteed API. The value should be a CamelCase string. This field may not be empty.
                             maxLength: 1024
                             minLength: 1
                             pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
                             type: string
                           status:
-                            description: status of the condition, one of True, False,
-                              Unknown.
+                            description: status of the condition, one of True, False, Unknown.
                             enum:
                             - "True"
                             - "False"
                             - Unknown
                             type: string
                           type:
-                            description: type of condition in CamelCase or in foo.example.com/CamelCase.
-                              --- Many .condition.type values are consistent across
-                              resources like Available, but because arbitrary conditions
-                              can be useful (see .node.status.conditions), the ability
-                              to deconflict is important. The regex it matches is
-                              (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                            description: type of condition in CamelCase or in foo.example.com/CamelCase. --- Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be useful (see .node.status.conditions), the ability to deconflict is important. The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
                             maxLength: 316
                             pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                             type: string
@@ -397,107 +271,51 @@ spec:
                         type: object
                       type: array
                     error:
-                      description: Error string from the error during reconciliation
-                        (if any)
+                      description: Error string from the error during reconciliation (if any)
                       type: string
                     name:
                       description: Name of the application
                       type: string
-                    phase:
-                      description: Phase reflects the current state of the HelmRelease
-                      enum:
-                      - ChartFetched
-                      - ChartFetchFailed
-                      - Installing
-                      - Upgrading
-                      - Deployed
-                      - DeployFailed
-                      - Testing
-                      - TestFailed
-                      - Tested
-                      - Succeeded
-                      - Failed
-                      - RollingBack
-                      - RolledBack
-                      - RollbackFailed
-                      type: string
                     staged:
-                      description: Staged if true denotes that the chart/subchart
-                        has been pushed to the staging helm repo
+                      description: Staged if true denotes that the chart/subchart has been pushed to the staging helm repo
                       type: boolean
                     subcharts:
                       additionalProperties:
-                        description: ChartStatus shows the current status of the Application
-                          Reconciliation process
+                        description: ChartStatus shows the current status of the Application Reconciliation process
                         properties:
                           conditions:
                             description: Conditions holds the conditions for the ChartStatus
                             items:
-                              description: "Condition contains details for one aspect
-                                of the current state of this API Resource. --- This
-                                struct is intended for direct use as an array at the
-                                field path .status.conditions.  For example, type
-                                FooStatus struct{     // Represents the observations
-                                of a foo's current state.     // Known .status.conditions.type
-                                are: \"Available\", \"Progressing\", and \"Degraded\"
-                                \    // +patchMergeKey=type     // +patchStrategy=merge
-                                \    // +listType=map     // +listMapKey=type     Conditions
-                                []metav1.Condition `json:\"conditions,omitempty\"
-                                patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`
-                                \n     // other fields }"
+                              description: "Condition contains details for one aspect of the current state of this API Resource. --- This struct is intended for direct use as an array at the field path .status.conditions.  For example, type FooStatus struct{     // Represents the observations of a foo's current state.     // Known .status.conditions.type are: \"Available\", \"Progressing\", and \"Degraded\"     // +patchMergeKey=type     // +patchStrategy=merge     // +listType=map     // +listMapKey=type     Conditions []metav1.Condition `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"` \n     // other fields }"
                               properties:
                                 lastTransitionTime:
-                                  description: lastTransitionTime is the last time
-                                    the condition transitioned from one status to
-                                    another. This should be when the underlying condition
-                                    changed.  If that is not known, then using the
-                                    time when the API field changed is acceptable.
+                                  description: lastTransitionTime is the last time the condition transitioned from one status to another. This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
                                   format: date-time
                                   type: string
                                 message:
-                                  description: message is a human readable message
-                                    indicating details about the transition. This
-                                    may be an empty string.
+                                  description: message is a human readable message indicating details about the transition. This may be an empty string.
                                   maxLength: 32768
                                   type: string
                                 observedGeneration:
-                                  description: observedGeneration represents the .metadata.generation
-                                    that the condition was set based upon. For instance,
-                                    if .metadata.generation is currently 12, but the
-                                    .status.conditions[x].observedGeneration is 9,
-                                    the condition is out of date with respect to the
-                                    current state of the instance.
+                                  description: observedGeneration represents the .metadata.generation that the condition was set based upon. For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date with respect to the current state of the instance.
                                   format: int64
                                   minimum: 0
                                   type: integer
                                 reason:
-                                  description: reason contains a programmatic identifier
-                                    indicating the reason for the condition's last
-                                    transition. Producers of specific condition types
-                                    may define expected values and meanings for this
-                                    field, and whether the values are considered a
-                                    guaranteed API. The value should be a CamelCase
-                                    string. This field may not be empty.
+                                  description: reason contains a programmatic identifier indicating the reason for the condition's last transition. Producers of specific condition types may define expected values and meanings for this field, and whether the values are considered a guaranteed API. The value should be a CamelCase string. This field may not be empty.
                                   maxLength: 1024
                                   minLength: 1
                                   pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
                                   type: string
                                 status:
-                                  description: status of the condition, one of True,
-                                    False, Unknown.
+                                  description: status of the condition, one of True, False, Unknown.
                                   enum:
                                   - "True"
                                   - "False"
                                   - Unknown
                                   type: string
                                 type:
-                                  description: type of condition in CamelCase or in
-                                    foo.example.com/CamelCase. --- Many .condition.type
-                                    values are consistent across resources like Available,
-                                    but because arbitrary conditions can be useful
-                                    (see .node.status.conditions), the ability to
-                                    deconflict is important. The regex it matches
-                                    is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                                  description: type of condition in CamelCase or in foo.example.com/CamelCase. --- Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be useful (see .node.status.conditions), the ability to deconflict is important. The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
                                   maxLength: 316
                                   pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                                   type: string
@@ -510,30 +328,10 @@ spec:
                               type: object
                             type: array
                           error:
-                            description: Error string from the error during reconciliation
-                              (if any)
-                            type: string
-                          phase:
-                            description: Phase reflects the current state of the HelmRelease
-                            enum:
-                            - ChartFetched
-                            - ChartFetchFailed
-                            - Installing
-                            - Upgrading
-                            - Deployed
-                            - DeployFailed
-                            - Testing
-                            - TestFailed
-                            - Tested
-                            - Succeeded
-                            - Failed
-                            - RollingBack
-                            - RolledBack
-                            - RollbackFailed
+                            description: Error string from the error during reconciliation (if any)
                             type: string
                           staged:
-                            description: Staged if true denotes that the chart/subchart
-                              has been pushed to the staging helm repo
+                            description: Staged if true denotes that the chart/subchart has been pushed to the staging helm repo
                             type: boolean
                           version:
                             description: Version of the chart/subchart

@@ -15,6 +15,7 @@ import (
 	"github.com/Azure/Orkestra/pkg/registry"
 	"github.com/Azure/Orkestra/pkg/workflow"
 	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
+	fluxhelm "github.com/fluxcd/helm-controller/api/v2beta1"
 	helmopv1 "github.com/fluxcd/helm-operator/pkg/apis/helm.fluxcd.io/v1"
 	"github.com/go-logr/logr"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -155,6 +156,9 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// This should only happen on updates and not during installs.
 	if appGroup.GetDeployCondition() == meta.RollingBackReason {
 		logr.Info("Rolling back to last successful application group spec")
+		if r.lastSuccessfulApplicationGroup == nil {
+			return ctrl.Result{}, err
+		}
 		appGroup.Spec = r.lastSuccessfulApplicationGroup.DeepCopy().Spec
 		err = r.Patch(ctx, &appGroup, patch)
 		if err != nil {
@@ -367,8 +371,9 @@ func (r *ApplicationGroupReconciler) handleRemediation(ctx context.Context, logr
 			// Example: chart=kafka-dev,heritage=orkestra,owner=dev, where chart=<top-level-chart>
 			logr.Info("Remediating the applicationgroup with helmrelease failure status")
 			for _, app := range g.Status.Applications {
-				switch app.ChartStatus.Phase {
-				case helmopv1.HelmReleasePhaseFailed, helmopv1.HelmReleasePhaseDeployFailed, helmopv1.HelmReleasePhaseChartFetchFailed, helmopv1.HelmReleasePhaseTestFailed, helmopv1.HelmReleasePhaseRollbackFailed:
+				switch meta.GetResourceCondition(&app.ChartStatus, meta.ReleasedCondition).Reason {
+				case fluxhelm.InstallFailedReason, fluxhelm.UpgradeFailedReason, fluxhelm.UninstallFailedReason,
+					fluxhelm.ArtifactFailedReason, fluxhelm.InitFailedReason, fluxhelm.GetLastReleaseFailedReason:
 					listOption := client.MatchingLabels{
 						workflow.OwnershipLabel: g.Name,
 						workflow.HeritageLabel:  workflow.Project,
@@ -472,7 +477,6 @@ func getAppStatus(
 	var v []orkestrav1alpha1.ApplicationStatus
 	for _, app := range appGroup.Status.Applications {
 		app.ChartStatus.Conditions = chartConditionMap[app.Name]
-		app.ChartStatus.Phase = helmReleaseStatusMap[app.Name]
 		for subchartName, subchartStatus := range app.Subcharts {
 			subchartStatus.Conditions = subChartConditionMap[app.Name][subchartName]
 			app.Subcharts[subchartName] = subchartStatus

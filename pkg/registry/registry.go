@@ -192,11 +192,7 @@ func (c *Client) RegistryConfig(name string) (*Config, error) {
 	return v, nil
 }
 
-func chartURL(repo, repoPath, chart, version string) string {
-	if repoPath != "" {
-		chart = strings.Trim(repoPath, "/") + "/" + chart
-	}
-
+func chartURL(repo, chart, version string) string {
 	s := fmt.Sprintf("%s/%s-%s.tgz",
 		strings.Trim(repo, "/"),
 		strings.Trim(chart, "/"),
@@ -217,7 +213,7 @@ func SaveChartPackage(ch *chart.Chart, dir string) (string, error) {
 func GetHelmRepoConfig(app *orkestrav1alpha1.Application, c client.Client) (*Config, error) {
 	cfg := &Config{
 		Name: app.Name,
-		URL:  app.Spec.Chart.RepoURL,
+		URL:  app.Spec.Chart.Url,
 	}
 
 	if app.Spec.Chart.AuthSecretRef != nil {

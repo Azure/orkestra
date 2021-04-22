@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	helmopv1 "github.com/fluxcd/helm-operator/pkg/apis/helm.fluxcd.io/v1"
 	"github.com/google/go-cmp/cmp"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
 func helmValues(v string) map[string]interface{} {
@@ -20,65 +20,67 @@ func helmValues(v string) map[string]interface{} {
 func Test_subchartValues(t *testing.T) {
 	type args struct {
 		sc string
-		av helmopv1.HelmValues
+		av apiextensionsv1.JSON
 	}
 	tests := []struct {
 		name string
 		args args
-		want helmopv1.HelmValues
+		want apiextensionsv1.JSON
 	}{
 		{
 			name: "withGlobalSuchart",
 			args: args{
 				sc: "subchart",
-				av: helmopv1.HelmValues{
-					Data: helmValues(`{"global": {"keyG": "valueG"},"subchart": {"keySC": "valueSC"}}`),
+				av: apiextensionsv1.JSON{
+					Raw: []byte(`{"global": {"keyG": "valueG"},"subchart": {"keySC": "valueSC"}}`),
 				},
 			},
-			want: helmopv1.HelmValues{
-				Data: helmValues(`{"global": {"keyG": "valueG"},"keySC": "valueSC"}`),
+			want: apiextensionsv1.JSON{
+				Raw: []byte(`{"global": {"keyG": "valueG"},"keySC": "valueSC"}`),
 			},
 		},
 		{
 			name: "withOnlyGlobal",
 			args: args{
 				sc: "subchart",
-				av: helmopv1.HelmValues{
-					Data: helmValues(`{"global": {"keyG": "valueG"}}`),
+				av: apiextensionsv1.JSON{
+					Raw: []byte(`{"global": {"keyG": "valueG"}}`),
 				},
 			},
-			want: helmopv1.HelmValues{
-				Data: helmValues(`{"global": {"keyG": "valueG"}}`),
+			want: apiextensionsv1.JSON{
+				Raw: []byte(`{"global": {"keyG": "valueG"}}`),
 			},
 		},
 		{
 			name: "withOnlySubchart",
 			args: args{
 				sc: "subchart",
-				av: helmopv1.HelmValues{
-					Data: helmValues(`{"subchart": {"keySC": "valueSC"}}`),
+				av: apiextensionsv1.JSON{
+					Raw: []byte(`{"subchart": {"keySC": "valueSC"}}`),
 				},
 			},
-			want: helmopv1.HelmValues{
-				Data: helmValues(`{"keySC": "valueSC"}`),
+			want: apiextensionsv1.JSON{
+				Raw: []byte(`{"keySC": "valueSC"}`),
 			},
 		},
 		{
 			name: "withNone",
 			args: args{
 				sc: "subchart",
-				av: helmopv1.HelmValues{
-					Data: make(map[string]interface{}),
+				av: apiextensionsv1.JSON{
+					Raw: []byte(""),
 				},
 			},
-			want: helmopv1.HelmValues{
-				Data: make(map[string]interface{}),
+			want: apiextensionsv1.JSON{
+				Raw: []byte(""),
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := subchartValues(tt.args.sc, tt.args.av); !cmp.Equal(got, tt.want) {
+			values := make(map[string]interface{})
+			json.Unmarshal(tt.args.av.Raw, &values)
+			if got, _ := subchartValues(tt.args.sc, values); !cmp.Equal(got, tt.want) {
 				t.Errorf("subchartValues() = %v", cmp.Diff(got, tt.want))
 			}
 		})

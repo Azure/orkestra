@@ -5,18 +5,19 @@ go 1.15
 require (
 	github.com/argoproj/argo v2.5.2+incompatible
 	github.com/chartmuseum/helm-push v0.9.0
+	github.com/fluxcd/helm-controller/api v0.9.0
 	github.com/fluxcd/helm-operator v1.2.0
 	github.com/go-logr/logr v0.3.0
 	github.com/gofrs/flock v0.8.0
 	github.com/google/go-cmp v0.5.2
 	github.com/jinzhu/copier v0.2.8
-	github.com/mitchellh/hashstructure/v2 v2.0.1
 	go.opencensus.io v0.22.5 // indirect
 	golang.org/x/oauth2 v0.0.0-20200902213428-5d25da1a8d43 // indirect
 	google.golang.org/grpc v1.33.2 // indirect
 	gopkg.in/yaml.v2 v2.4.0
 	helm.sh/helm/v3 v3.3.4
 	k8s.io/api v0.20.2
+	k8s.io/apiextensions-apiserver v0.20.2
 	k8s.io/apimachinery v0.20.2
 	k8s.io/client-go v11.0.0+incompatible
 	sigs.k8s.io/controller-runtime v0.8.3
