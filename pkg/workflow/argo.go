@@ -33,7 +33,8 @@ const (
 )
 
 var (
-	timeout int64 = 3600
+	timeout            int64 = 3600
+	defaultParallelism int64 = 50
 )
 
 type argo struct {
@@ -70,6 +71,8 @@ func (a *argo) initWorkflowObject() {
 
 	// Initialize the Templates slice
 	a.wf.Spec.Templates = make([]v1alpha12.Template, 0)
+
+	a.wf.Spec.Parallelism = &defaultParallelism
 }
 
 func (a *argo) Generate(ctx context.Context, l logr.Logger, g *v1alpha1.ApplicationGroup) error {
@@ -225,6 +228,7 @@ func (a *argo) generateAppGroupTpls(ctx context.Context, g *v1alpha1.Application
 			// TBD (nitishm): Do we need to failfast?
 			// FailFast: true
 		},
+		Parallelism: &defaultParallelism,
 	}
 
 	adt, err := a.generateAppDAGTemplates(ctx, g, a.stagingRepoURL)
@@ -278,7 +282,8 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, g *v1alpha1.Applicat
 		if len(app.Spec.Subcharts) > 0 {
 			hasSubcharts = true
 			t := v1alpha12.Template{
-				Name: pkg.ConvertToDNS1123(app.Name),
+				Name:        pkg.ConvertToDNS1123(app.Name),
+				Parallelism: &defaultParallelism,
 			}
 
 			t.DAG = &v1alpha12.DAGTemplate{}
@@ -333,7 +338,8 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, g *v1alpha1.Applicat
 			}
 
 			tApp := v1alpha12.Template{
-				Name: pkg.ConvertToDNS1123(app.Name),
+				Name:        pkg.ConvertToDNS1123(app.Name),
+				Parallelism: &defaultParallelism,
 				DAG: &v1alpha12.DAGTemplate{
 					Tasks: []v1alpha12.DAGTask{
 						{
