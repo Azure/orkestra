@@ -2,10 +2,11 @@
 
 ## Prerequisites
 
-**Kubernetes Cluster** ([KinD](https://kind.sigs.k8s.io/)/Minikube/AKS/GKE/EKS/others) v1.18 or higher
+**Kubernetes Cluster** ([KinD](https://kind.sigs.k8s.io/)/Minikube/AKS/GKE/EKS/others) v1.20 or higher
 **kubectl** - v1.18 or higher
 **helm** - v3.5.2 or higher
 **kubebuilder** - v2.3.1 or higher (Kubebuilder and controller-runtime binaries. Install using `make setup-kubebuilder` )
+**controller-gen** - v0.5.0 or higher (Install using `make controller-gen`). This is needed to generate the ApplicationGroup CRDs. A `controller-gen`binary *> v0.5.0* will generate an incorrect CRD version
 
 ## Workspace Organization
 
@@ -47,6 +48,7 @@ make manifests
 ```
 
 ### Manually
+
 1. Build a docker image and push to your own personal docker registry (careful not to override the latest tag)
 
 ```terminal
@@ -55,12 +57,13 @@ docker push <your-registry>/orkestra:<your-tag>
 ```
 
 2. Update the orkestra deployment with your registry/image:tag
- 
+
 ```terminal
 helm upgrade orkestra chart/orkestra -n orkestra --create-namespace --set image.repository=<your-registry> --set image.tag=<your-tag>
 ```
 
 ### Using Tilt
+
 Install the `tilt` binary using instructions provided at [installation](https://docs.tilt.dev/install.html)
 
 ```terminal
@@ -73,3 +76,15 @@ v0.19.0, built 2021-03-19
 (t) to open legacy terminal mode (--legacy=true)
 (ctrl-c) to exit
 ```
+
+## Debugging in VSCode
+
+### "Bridge to Kubernetes" extension
+
+Install the ["Bridge to Kubernetes"](https://marketplace.visualstudio.com/items?itemName=mindaro.mindaro) and the official ["Kubernetes"](https://marketplace.visualstudio.com/items?itemName=ms-kubernetes-tools.vscode-kubernetes-tools) extensions from the VSCode Marketplace
+
+- Deploy the orkestra controller using the deployment methods shown above - Manually or by using `Tilt`
+
+Once the orkestra helm release has been successfully deployed you can start debugging using the following steps
+
+![Bridge to Kubernetes tutorial GIF](./assets/bridge-to-kubernetes-tutorial.gif)
