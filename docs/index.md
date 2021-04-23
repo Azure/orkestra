@@ -15,7 +15,7 @@ Take, for example, **Continuous Deployment of mission-critical applications** - 
 
 - Network Functions are applications that rely on a rich ecosystem of **infrastructure** and **PaaS** (platform-as-a-service) components to be deployed to the cluster before the applications can be successfully started. This establishes a hard dependency between the applications and the infra/paas applications. Orkestra solves the dependency problem by constructing a DAG workflow to deploy the respective `HelmRelease` objects for helm-operator.
 
-See the [design](./design/design.md) docs for details on how it works.
+See the [design](./design/index.md) docs for details on how it works.
 
 ## Getting Started
 
@@ -98,7 +98,7 @@ INFO[2021-02-03T01:02:15.852Z] Argo UI is available at http://localhost:2746
 
 ## Development
 
-Follow the development [docs](./dev/development.md)
+Follow the development [docs](./dev/index.md)
 
 ## Contributing
 

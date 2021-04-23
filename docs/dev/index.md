@@ -102,7 +102,7 @@ Start the okteto debugger using `[CMD + Shift + p]` > __"Okteto: Up"__
 ## Structure
 
 | Package | Files | Description |
-|---------|-------|-------------|
+|:---------|:-------|:-------------|
 | | **Dockerfile** | Docker manifest to build and deploy the orkestra controller docker image
 | | **main.go** | Entrypoint (`func main()`) to the controller. Bootstraps the orkestra controller manager and instantiates all supporting components needed by the reconciler.
 | | **Tiltfile** | `Tilt` is a useful utility for development, that watches files for changes and builds & pushes new docker images to a live pod as and when changes occur. See [docs](https://docs.tilt.dev/) to learn more.

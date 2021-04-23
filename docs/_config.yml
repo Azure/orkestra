@@ -4,3 +4,5 @@ color_scheme: "dark"
 search_enabled: false
 
 markdown: kramdown
+
+heading_anchors: true
