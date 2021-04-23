@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/Azure/Orkestra/api/v1alpha1"
 	"github.com/Azure/Orkestra/pkg"
@@ -33,33 +32,22 @@ const (
 	ChartLabelKey   = "chart"
 )
 
-var (
-	timeout            Timeout = "30m"
-	defaultParallelism int64   = 50
-)
-
-type Timeout string
-
-func (t Timeout) Seconds() *int64 {
-	v, _ := time.ParseDuration(string(t))
-	s := int64(v.Seconds())
-	return &s
-}
-
 type argo struct {
 	scheme *runtime.Scheme
 	cli    client.Client
 	wf     *v1alpha12.Workflow
 
 	stagingRepoURL string
+	parallelism    *int64
 }
 
 // Argo implements the Workflow interface for the Argo Workflow based DAG engine
-func Argo(scheme *runtime.Scheme, c client.Client, stagingRepoURL string) *argo { //nolint:golint
+func Argo(scheme *runtime.Scheme, c client.Client, stagingRepoURL string, workflowParallelism int64) *argo { //nolint:golint
 	return &argo{
 		scheme:         scheme,
 		cli:            c,
 		stagingRepoURL: stagingRepoURL,
+		parallelism:    &workflowParallelism,
 	}
 }
 
@@ -81,7 +69,7 @@ func (a *argo) initWorkflowObject() {
 	// Initialize the Templates slice
 	a.wf.Spec.Templates = make([]v1alpha12.Template, 0)
 
-	a.wf.Spec.Parallelism = &defaultParallelism
+	a.wf.Spec.Parallelism = a.parallelism
 }
 
 func (a *argo) Generate(ctx context.Context, l logr.Logger, g *v1alpha1.ApplicationGroup) error {
@@ -237,7 +225,7 @@ func (a *argo) generateAppGroupTpls(ctx context.Context, g *v1alpha1.Application
 			// TBD (nitishm): Do we need to failfast?
 			// FailFast: true
 		},
-		Parallelism: &defaultParallelism,
+		Parallelism: a.parallelism,
 	}
 
 	adt, err := a.generateAppDAGTemplates(ctx, g, a.stagingRepoURL)
@@ -292,7 +280,7 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, g *v1alpha1.Applicat
 			hasSubcharts = true
 			t := v1alpha12.Template{
 				Name:        pkg.ConvertToDNS1123(app.Name),
-				Parallelism: &defaultParallelism,
+				Parallelism: a.parallelism,
 			}
 
 			t.DAG = &v1alpha12.DAGTemplate{}
@@ -331,9 +319,6 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, g *v1alpha1.Applicat
 				},
 			}
 
-			hr.Spec.Wait = boolToBoolPtr(true)
-
-			hr.Spec.Timeout = timeout.Seconds()
 			hr.Spec.ReleaseName = pkg.ConvertToDNS1123(app.Name)
 
 			hr.Labels = map[string]string{
@@ -349,7 +334,7 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, g *v1alpha1.Applicat
 
 			tApp := v1alpha12.Template{
 				Name:        pkg.ConvertToDNS1123(app.Name),
-				Parallelism: &defaultParallelism,
+				Parallelism: a.parallelism,
 				DAG: &v1alpha12.DAGTemplate{
 					Tasks: []v1alpha12.DAGTask{
 						{
@@ -440,8 +425,6 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 	}
 
 	hr.Spec.ReleaseName = pkg.ConvertToDNS1123(app.Name)
-	hr.Spec.Wait = boolToBoolPtr(true)
-	hr.Spec.Timeout = timeout.Seconds()
 
 	hr.Labels = map[string]string{
 		ChartLabelKey:  app.Name,
@@ -523,7 +506,7 @@ func hrToYAML(hr helmopv1.HelmRelease) string {
 	return string(b)
 }
 
-func generateSubchartHelmRelease(a v1alpha1.Application, appName, scName, version, repo, targetNS string, isStaged bool) helmopv1.HelmRelease {
+func generateSubchartHelmRelease(app v1alpha1.Application, appName, scName, version, repo, targetNS string, isStaged bool) helmopv1.HelmRelease {
 	hr := helmopv1.HelmRelease{
 		TypeMeta: v1.TypeMeta{
 			Kind:       "HelmRelease",
@@ -534,24 +517,26 @@ func generateSubchartHelmRelease(a v1alpha1.Application, appName, scName, versio
 			Namespace: targetNS,
 		},
 		Spec: helmopv1.HelmReleaseSpec{
+			HelmVersion: helmopv1.HelmVersion(app.Spec.Release.HelmVersion),
 			ReleaseName: pkg.ConvertToDNS1123(scName),
 			ChartSource: helmopv1.ChartSource{
 				RepoChartSource: &helmopv1.RepoChartSource{},
 			},
 			TargetNamespace: targetNS,
+			Timeout:         app.Spec.Release.Timeout,
+			Wait:            app.Spec.Release.Wait,
+			ForceUpgrade:    app.Spec.Release.ForceUpgrade,
+			Values:          app.Spec.Release.Values,
 		},
 	}
 
-	hr.Spec.Wait = boolToBoolPtr(true)
-	hr.Spec.Timeout = timeout.Seconds()
-
 	// NOTE: Ownership label is added in the caller function
-	hr.Spec.ChartSource.RepoChartSource = &a.DeepCopy().Spec.Chart.RepoChartSource
+	hr.Spec.ChartSource.RepoChartSource = &app.DeepCopy().Spec.Chart.RepoChartSource
 	hr.Spec.ChartSource.RepoChartSource.Name = pkg.ConvertToDNS1123(pkg.ToInitials(appName) + "-" + scName)
 	hr.Spec.ChartSource.RepoChartSource.RepoURL = repo
 	hr.Spec.ChartSource.RepoChartSource.Version = version
 
-	hr.Spec.Values = subchartValues(scName, a.Spec.Release.Values)
+	hr.Spec.Values = subchartValues(scName, app.Spec.Release.Values)
 
 	return hr
 }
