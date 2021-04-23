@@ -1,1 +1,5 @@
-theme: just-the-docs
+baseurl: ""
+
+# theme: just-the-docs
+remote_theme: pmarsceill/just-the-docs
+logo: "assets/orkestra.jpg"

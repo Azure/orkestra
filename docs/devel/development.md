@@ -76,7 +76,7 @@ Deploy the orkestra controller using the deployment methods shown above - **Manu
 
 Once the orkestra helm release has been successfully deployed you can start debugging by following the step-by-step tutorial below -
 
-![Bridge to Kubernetes tutorial GIF](./assets/bridge-to-kubernetes-tutorial.gif)
+![Bridge to Kubernetes tutorial GIF](../assets/bridge-to-kubernetes-tutorial.gif)
 
 ### Okteto "Remote - Kubernetes"
 
@@ -122,4 +122,4 @@ Start the okteto debugger using `[CMD + Shift + p]` > __"Okteto: Up"__
 
 ## Workflow
 
-<p align="center"><img src="./assets/../../assets/reconciler-flow.png" width="750x" /></p>
+<p align="center"><img src="../assets/reconciler-flow.png" width="750x" /></p>
