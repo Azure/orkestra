@@ -27,6 +27,11 @@ events.on("exec", (brigadeEvent, project) => {
     "tar -C /usr/local -xzf go1.16.3.linux-amd64.tar.gz",
     "export PATH=$PATH:/usr/local/go/bin",
     "go version",
+    "curl -sLO https://github.com/argoproj/argo/releases/download/v3.0.2/argo-linux-amd64.gz",
+    "gunzip argo-linux-amd64.gz",
+    "chmod +x argo-linux-amd64",
+    "mv ./argo-linux-amd64 /usr/local/bin/argo",
+    "argo version",
     "git clone https://github.com/Azure/orkestra",
     "echo cloned orkestra",
     "cd orkestra",
@@ -34,7 +39,7 @@ events.on("exec", (brigadeEvent, project) => {
     "kubectl apply -k ./config/crd",
     "helm install --wait orkestra chart/orkestra/ --namespace orkestra --create-namespace",
     "kubectl apply -f examples/simple/bookinfo.yaml",
-    // "argo wait bookinfo -n orkestra"
+    "argo wait bookinfo -n orkestra"
   ]
 
   test.run()
