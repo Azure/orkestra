@@ -8,21 +8,21 @@ nav_order: 1
 [![Build Status](https://dev.azure.com/azure/Orkestra/_apis/build/status/Azure.Orkestra?branchName=main)](https://dev.azure.com/azure/Orkestra/_build/latest?definitionId=95&branchName=main)
 
 Orkestra is a cloud-native release orchestration and lifecycle management (LCM) platform for fine-grained orchestration a group of inter-dependent *"Applications"*. An *"Application"* may be defined as a [Helm](https://helm.sh/) chart or artifact, with or without [subchart](https://helm.sh/docs/helm/helm_dependency) dependencies.
-Orkestra works by generating a [DAG](https://en.wikipedia.org/wiki/Directed_acyclic_graph) workflow from the `ApplicationGroup` spec. to orchestrate the **deployment** and **upgrade** of multiple applications within a Kubernetes cluster. At a finer-grain, Orkestra can also order the deployment of subcharts within an application chart by generating an embedded DAG workflow.
+Orkestra works by generating a [DAG](https://en.wikipedia.org/wiki/Directed_acyclic_graph) workflow from the `ApplicationGroup` spec. to orchestrate the **deployment** and in-service **upgrades** of multiple applications within a Kubernetes cluster. At a finer-grain, Orkestra can also order the deployment of subcharts within an application chart by generating an embedded DAG workflow.
 
 Orkestra leverages popular and mature open-source frameworks like [Argo](https://argoproj.github.io/argo/) (Workflows), [Flux Helm Operator](https://github.com/fluxcd/helm-operator) and [Chartmuseum](https://chartmuseum.com/)
 
-## What problems does it solve?
+## Use cases
 
-Sophisticated applications require **intelligent** release orchestration and lifecycle management that is not supported by Helm.
+> *Sophisticated applications require **intelligent** release orchestration and lifecycle management that is not supported by Helm.*
 
-Take, for example, **Continuous Deployment of mission-critical applications** - *like 5G core Network Functions or NFs*
+### Reliable (continuous) "Deployment" and in-service "Upgrades" of mission-critical applications
 
-- Network Functions are applications that rely on a rich ecosystem of **infrastructure** and **PaaS** (platform-as-a-service) components to be deployed to the cluster before the applications can be successfully started. This establishes a hard dependency between the applications and the infra/paas applications. Orkestra solves the dependency problem by constructing a DAG workflow to deploy the respective `HelmRelease` objects for helm-operator.
+*5G Core* [Network Functions](https://www.sdxcentral.com/resources/glossary/network-function/) are applications that rely on a rich ecosystem of **infrastructure** and **PaaS** (platform-as-a-service) components to be deployed to the cluster before the applications can be successfully started. This establishes a hard dependency between the applications and the infra/paas applications. Orkestra solves the dependency problem by constructing a DAG workflow to deploy the respective `HelmRelease` objects for helm-operator.
 
 ## Architecture
 
-See the [design](./architecture.md) docs for details on how it works.
+To learn more about how Orkestra works see the [architecture](./architecture.md) docs
 
 ## Installation
 
@@ -40,21 +40,12 @@ Install the `ApplicationGroup` and custom resource definitions (CRDs)
 Install the orkestra controller and supporting services like, Argo Workflow, Flux Helm-operator and Chartmuseum using the provided helm chart
 
 ```shell
-> helm install orkestra chart/orkestra/  --namespace orkestra --create-namespace
-
-NAME: orkestra
-LAST DEPLOYED: Fri Apr 23 15:03:51 2021
-NAMESPACE: orkestra
-STATUS: deployed
-REVISION: 1
-TEST SUITE: None
-NOTES:
-Happy Helming with Azure/Orkestra
+helm install orkestra chart/orkestra/  --namespace orkestra --create-namespace
 ```
 
 You should see resources spin up in the _orkestra_ namespace as shown below,
 
-```shell
+```terminal
 > kubectl get all -n orkestra
 
 NAME                                               READY   STATUS      RESTARTS   AGE

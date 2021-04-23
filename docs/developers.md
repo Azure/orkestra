@@ -127,4 +127,4 @@ Start the okteto debugger using `[CMD + Shift + p]` > __"Okteto: Up"__
 
 ## Workflow
 
-<p align="center"><img src="../assets/reconciler-flow.png" width="750x" /></p>
+<p align="center"><img src="./assets/reconciler-flow.png" width="750x" /></p>
