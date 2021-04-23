@@ -68,7 +68,7 @@ chartmuseum:
 
 helm-operator:
 # Amount of workers processing releases
-  workers: 4
+  workers: 10
   enabled: true
   rbac:
     create: false 
