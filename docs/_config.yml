@@ -1,3 +1,2 @@
-baseurl: ""
-logo: "assets/orkestra.jpg"
+logo: "./assets/orkestra.jpg"
 theme: jekyll-theme-architect

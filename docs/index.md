@@ -96,7 +96,7 @@ INFO[2021-02-03T01:02:15.852Z] Argo UI is available at http://localhost:2746
 
 ## Development
 
-Follow the development [docs](./devel/development.md)
+Follow the development [docs](./dev/development.md)
 
 ## Contributing
 
