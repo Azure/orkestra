@@ -81,7 +81,7 @@ Deploy the orkestra controller using the deployment methods shown above - **Manu
 
 Once the orkestra helm release has been successfully deployed you can start debugging by following the step-by-step tutorial below -
 
-![Bridge to Kubernetes tutorial GIF](../assets/bridge-to-kubernetes-tutorial.gif)
+![Bridge to Kubernetes tutorial GIF](./assets/bridge-to-kubernetes-tutorial.gif)
 
 ### Okteto "Remote - Kubernetes"
 
