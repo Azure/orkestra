@@ -1,3 +1,8 @@
+---
+layout: default
+title: Dev 
+nav_order: 3
+---
 # Guide for contributors and developers
 
 ## Prerequisites
