@@ -93,21 +93,21 @@ function validateApplicationGroup {
         temp=$(echo "$bookInfoGroupJson" | jq --arg c "$chart" -c '.[1].spec.subcharts[] | select(.name==$c)')
         if [ "$chart" == "productpage" ]; then
             dependency=$(echo "$temp" | jq -r '.dependencies | index( "reviews" )' )
-            if [ "$dependency" == "null" ]; then
+            if [ "$dependency" == "null" ] || [ -z "$dependency" ]; then
                 outputMessage "FAIL" "productpage dependency: reviews not found"
             else
                 outputMessage "SUCCESS" "productpage dependency: reviews found"
             fi
         elif [ "$chart" == "reviews" ]; then 
             dependency=$(echo "$temp" | jq -r '.dependencies | index( "details" )' )
-            if [ "$dependency" == "null" ]; then
+            if [ "$dependency" == "null" ] || [ -z "$dependency" ]; then
                 outputMessage "FAIL" "reviews dependency: details not found"
             else
                 outputMessage "SUCCESS" "reviews dependency: details found"
             fi
 
             dependency=$(echo "$temp" | jq -r '.dependencies | index( "ratings" )' )
-            if [ "$dependency" == "null" ]; then
+            if [ "$dependency" == "null" ] || [ -z "$dependency" ]; then
                 outputMessage "FAIL" "reviews dependency: ratings not found"
             else
                 outputMessage "SUCCESS" "reviews dependency: ratings found"
@@ -124,9 +124,9 @@ function validateApplicationGroup {
 
 function runValidation {
     echo Running Validation
-    validateOrkestraDeployment
-    validateBookInfoDeployment
-    validateArgoWorkflow
+    # validateOrkestraDeployment
+    # validateBookInfoDeployment
+    # validateArgoWorkflow
     validateApplicationGroup
     summary
 }
