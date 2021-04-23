@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/Azure/Orkestra/api/v1alpha1"
 	"github.com/Azure/Orkestra/pkg"
@@ -33,9 +34,17 @@ const (
 )
 
 var (
-	timeout            int64 = 3600
-	defaultParallelism int64 = 50
+	timeout            Timeout = "30m"
+	defaultParallelism int64   = 50
 )
+
+type Timeout string
+
+func (t Timeout) Seconds() *int64 {
+	v, _ := time.ParseDuration(string(t))
+	s := int64(v.Seconds())
+	return &s
+}
 
 type argo struct {
 	scheme *runtime.Scheme
@@ -323,7 +332,8 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, g *v1alpha1.Applicat
 			}
 
 			hr.Spec.Wait = boolToBoolPtr(true)
-			hr.Spec.Timeout = &timeout
+
+			hr.Spec.Timeout = timeout.Seconds()
 			hr.Spec.ReleaseName = pkg.ConvertToDNS1123(app.Name)
 
 			hr.Labels = map[string]string{
@@ -431,7 +441,7 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 
 	hr.Spec.ReleaseName = pkg.ConvertToDNS1123(app.Name)
 	hr.Spec.Wait = boolToBoolPtr(true)
-	hr.Spec.Timeout = &timeout
+	hr.Spec.Timeout = timeout.Seconds()
 
 	hr.Labels = map[string]string{
 		ChartLabelKey:  app.Name,
@@ -533,7 +543,7 @@ func generateSubchartHelmRelease(a v1alpha1.Application, appName, scName, versio
 	}
 
 	hr.Spec.Wait = boolToBoolPtr(true)
-	hr.Spec.Timeout = &timeout
+	hr.Spec.Timeout = timeout.Seconds()
 
 	// NOTE: Ownership label is added in the caller function
 	hr.Spec.ChartSource.RepoChartSource = &a.DeepCopy().Spec.Chart.RepoChartSource
