@@ -15,6 +15,8 @@ Take, for example, **Continuous Deployment of mission-critical applications** - 
 
 - Network Functions are applications that rely on a rich ecosystem of **infrastructure** and **PaaS** (platform-as-a-service) components to be deployed to the cluster before the applications can be successfully started. This establishes a hard dependency between the applications and the infra/paas applications. Orkestra solves the dependency problem by constructing a DAG workflow to deploy the respective `HelmRelease` objects for helm-operator.
 
+See the [design](./design/design.md) docs for details on how it works.
+
 ## Getting Started
 
 For getting started you will need,
@@ -22,8 +24,8 @@ For getting started you will need,
 - A Kubernetes cluster
 - `kubectl` - Kubernetes client
 - `helm` - Helm client
-- `kubebuilder` - https://book.kubebuilder.io/quick-start.html#installation
-- `controller-gen` - `GO111MODULE=on go get -v -u sigs.k8s.io/controller-tools/cmd/controller-gen@v0.5.0` (this should be run from outside the Orkestra repo to be installed to your $GOBIN)
+- `kubebuilder` - [installation](https://book.kubebuilder.io/quick-start.html#installation)
+- `controller-gen` - `GO111MODULE=on go get -v -u sigs.k8s.io/controller-tools/cmd/controller-gen@v0.5.0` (this should be run from outside the Orkestra repo to be installed to your `$GOBIN`)
 - (_optional_) `argo` - Argo workflow client (follow the instructions to install the binary from [releases](https://github.com/argoproj/argo/releases)
 
 Install the `ApplicationGroup` and custom resource definitions (CRDs)
