@@ -124,9 +124,9 @@ function validateApplicationGroup {
 
 function runValidation {
     echo Running Validation
-    # validateOrkestraDeployment
-    # validateBookInfoDeployment
-    # validateArgoWorkflow
+    validateOrkestraDeployment
+    validateBookInfoDeployment
+    validateArgoWorkflow
     validateApplicationGroup
     summary
 }

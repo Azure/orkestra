@@ -15,6 +15,7 @@ events.on("exec", (brigadeEvent, project) => {
     "apt-get install git -y",
     "apt-get install make -y",
     "apt-get install wget -y",
+    "apt-get install jq -y",
     "curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.18.17/bin/linux/amd64/kubectl",
     "chmod +x ./kubectl",
     "sudo mv ./kubectl /usr/local/bin/kubectl",
@@ -35,11 +36,14 @@ events.on("exec", (brigadeEvent, project) => {
     "git clone https://github.com/Azure/orkestra",
     "echo cloned orkestra",
     "cd orkestra",
+    "git checkout remotes/origin/danaya/addtesting",
     "make setup-kubebuilder",
     "kubectl apply -k ./config/crd",
     "helm install --wait orkestra chart/orkestra/ --namespace orkestra --create-namespace",
     "kubectl apply -f examples/simple/bookinfo.yaml",
-    "argo wait bookinfo -n orkestra"
+    "sleep 30",
+    "argo wait bookinfo -n orkestra",
+    "make test-e2e"
   ]
 
   test.run()
