@@ -1,6 +1,6 @@
 ---
 layout: default
-title: Dev 
+title: Developers 
 nav_order: 3
 ---
 # Guide for contributors and developers

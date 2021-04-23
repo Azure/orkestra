@@ -1,6 +1,6 @@
 ---
 layout: default
-title: Intro 
+title: Home 
 nav_order: 1
 ---
 # Orkestra
@@ -10,7 +10,7 @@ nav_order: 1
 Orkestra is a cloud-native release orchestration and lifecycle management (LCM) platform for fine-grained orchestration a group of inter-dependent *"Applications"*. An *"Application"* may be defined as a [Helm](https://helm.sh/) chart or artifact, with or without [subchart](https://helm.sh/docs/helm/helm_dependency) dependencies.
 Orkestra works by generating a [DAG](https://en.wikipedia.org/wiki/Directed_acyclic_graph) workflow from the `ApplicationGroup` spec. to orchestrate the **deployment** and **upgrade** of multiple applications within a Kubernetes cluster. At a finer-grain, Orkestra can also order the deployment of subcharts within an application chart by generating an embedded DAG workflow.
 
-Orkestra leverages popular and mature open-source frameworks like [Argo](https://argoproj.github.io/argo/) (Workflows), [Flux Helm Operator](https://github.com/fluxcd/helm-operator) and [Chart-museum](https://chartmuseum.com/)
+Orkestra leverages popular and mature open-source frameworks like [Argo](https://argoproj.github.io/argo/) (Workflows), [Flux Helm Operator](https://github.com/fluxcd/helm-operator) and [Chartmuseum](https://chartmuseum.com/)
 
 ## What problems does it solve?
 
@@ -20,9 +20,11 @@ Take, for example, **Continuous Deployment of mission-critical applications** - 
 
 - Network Functions are applications that rely on a rich ecosystem of **infrastructure** and **PaaS** (platform-as-a-service) components to be deployed to the cluster before the applications can be successfully started. This establishes a hard dependency between the applications and the infra/paas applications. Orkestra solves the dependency problem by constructing a DAG workflow to deploy the respective `HelmRelease` objects for helm-operator.
 
-See the [design](./design/index.md) docs for details on how it works.
+## Architecture
 
-## Getting Started
+See the [design](./architecture.md) docs for details on how it works.
+
+## Installation
 
 For getting started you will need,
 
@@ -35,17 +37,24 @@ For getting started you will need,
 
 Install the `ApplicationGroup` and custom resource definitions (CRDs)
 
-### Using helm
-
 Install the orkestra controller and supporting services like, Argo Workflow, Flux Helm-operator and Chartmuseum using the provided helm chart
 
-```terminal
-helm install orkestra chart/orkestra/  --namespace orkestra --create-namespace
+```shell
+> helm install orkestra chart/orkestra/  --namespace orkestra --create-namespace
+
+NAME: orkestra
+LAST DEPLOYED: Fri Apr 23 15:03:51 2021
+NAMESPACE: orkestra
+STATUS: deployed
+REVISION: 1
+TEST SUITE: None
+NOTES:
+Happy Helming with Azure/Orkestra
 ```
 
 You should see resources spin up in the _orkestra_ namespace as shown below,
 
-```terminal
+```shell
 > kubectl get all -n orkestra
 
 NAME                                               READY   STATUS      RESTARTS   AGE
@@ -79,14 +88,10 @@ replicaset.apps/orkestra-workflow-controller-688bc7677   1         1         1  
 
 The following command should open a local browser to the Argo Workflow Dashboard at http://localhost:2476.
 
-```terminal
+```shell
 argo server --browser
-
-INFO[2021-02-03T01:02:15.839Z]                                               authModes="[server]" baseHRef=/ managedNamespace= namespace=orkestra secure=false
-WARN[2021-02-03T01:02:15.840Z] You are running in insecure mode. Learn how to enable transport layer security: https://argoproj.github.io/argo/tls/
-WARN[2021-02-03T01:02:15.840Z] You are running without client authentication. Learn how to enable client authentication: https://argoproj.github.io/argo/argo-server-auth-mode/
+...
 INFO[2021-02-03T01:02:15.840Z] config map                                    name=workflow-controller-configmap
-INFO[2021-02-03T01:02:15.840Z] SSO disabled
 INFO[2021-02-03T01:02:15.851Z] Starting Argo Server                          instanceID= version=v2.12.6
 INFO[2021-02-03T01:02:15.851Z] Creating event controller                     operationQueueSize=16 workerCount=4
 INFO[2021-02-03T01:02:15.852Z] Argo Server started successfully on http://localhost:2746
@@ -98,12 +103,12 @@ INFO[2021-02-03T01:02:15.852Z] Argo UI is available at http://localhost:2746
 - **Built for Kubernetes** - custom controller built using the [kubebuilder](https://github.com/kubernetes-sigs/kubebuilder) project
 - **Easy to use** - familiar declarative spec using Kubernetes [Custom Resource Definitions](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/)
 - **Dependency management** - DAG-based workflows for groups of application charts and their sub-charts using Argo Workflow
-- **Works with any Continous Deployment system** - bring your own CD to deploy Orkestra Custom Resources. Works with any Kubernetes compatible Continuous Deployment framework like [FluxCD](https://fluxcd.io/) and [ArgoCD](https://argoproj.github.io/argo-cd/).
+- **Works with any Continous Deployment system** - bring your own CD framework to deploy Orkestra Custom Resources. Works with any Kubernetes compatible Continuous Deployment framework like [FluxCD](https://fluxcd.io/) and [ArgoCD](https://argoproj.github.io/argo-cd/).
 - **Built for GitOps** - describe your desired set of applications (and dependencies) declaratively and manage them from a version-controlled git repository.
 
-## Development
+## Developers
 
-Follow the development [docs](./dev/index.md)
+Follow the development [guide](./developers.md) to get started with building and debugging Orkestra
 
 ## Contributing
 
