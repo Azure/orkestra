@@ -61,10 +61,27 @@ function validateArgoWorkflow {
         outputMessage "FAIL" "No argo workflow found for bookinfo"
     else
         argoNodes=($(curl -s --request GET --url http://localhost:2746/api/v1/workflows/orkestra/bookinfo | jq -c '.status.nodes[] | {id: .id, name: .name, displayName: .displayName, phase: .phase}'))
-        # for node in "${argoNodes[@]}"
-        # do
-        #     # echo currentNode: $node
-        # done
+
+        requiredNodes=(
+            "bookinfo" 
+            "bookinfo.bookinfo.ratings" 
+            "bookinfo.ambassador" 
+            "bookinfo.bookinfo.details"
+            "bookinfo.bookinfo.productpage"
+            "bookinfo.ambassador.ambassador"
+            "bookinfo.bookinfo.reviews"
+            "bookinfo.bookinfo.bookinfo"
+            "bookinfo.bookinfo"
+        )
+        for node in "${requiredNodes[@]}"
+        do
+            status=$(curl -s --request GET --url http://localhost:2746/api/v1/workflows/orkestra/bookinfo | jq --arg node "$node" -r '.status.nodes[] | select(.name==$node) | .phase')
+            if [ "$status" == "Succeeded" ]; then
+                outputMessage "SUCCESS" "argo node: $node has succeeded"
+            else
+                outputMessage "FAIL" "$node status: $status, Expected Succeeded"
+            fi
+        done
     fi
 }
 
