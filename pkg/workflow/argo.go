@@ -571,10 +571,6 @@ func convertSliceToDNS1123(in []string) []string {
 	return out
 }
 
-func boolToBoolPtr(in bool) *bool {
-	return &in
-}
-
 func strToStrPtr(in string) *string {
 	return &in
 }
