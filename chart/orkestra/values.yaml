@@ -67,6 +67,8 @@ chartmuseum:
       DISABLE_API: false 
 
 helm-operator:
+# Amount of workers processing releases
+  workers: 10
   enabled: true
   rbac:
     create: false 
