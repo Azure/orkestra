@@ -1,6 +1,3 @@
 baseurl: ""
-
-# theme: just-the-docs
 logo: "assets/orkestra.jpg"
-
 theme: jekyll-theme-architect

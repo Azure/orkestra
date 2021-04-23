@@ -86,19 +86,6 @@ INFO[2021-02-03T01:02:15.852Z] Argo Server started successfully on http://localh
 INFO[2021-02-03T01:02:15.852Z] Argo UI is available at http://localhost:2746
 ```
 
-## How it works
-
-To solve the complex application orchestration problem Orkestra builds a [Directed Acyclic Graph](https://en.wikipedia.org/wiki/Directed_acyclic_graph) using the application, and it's dependencies and submits it to Argo Workflow. The Workflow nodes use [`workflow-executor`](https://argoproj.github.io/argo/workflow-executors/) nodes to deploy a [`HelmRelease`](https://docs.fluxcd.io/projects/helm-operator/en/stable/references/helmrelease-custom-resource/#helm.fluxcd.io/v1.HelmReleaseSpec) object into the cluster. This `HelmRelease` object signals Flux's HelmOperator to perform a "Helm Action" on the referenced chart.
-
-<p align="center"><img src="./assets/orkestra-core.png" width="750x" /></p>
-
-1. Submit `ApplicationGroup` CRs
-2. For each application in `ApplicationGroup` download Helm chart from “primary” Helm Registry
-3. (*optional) For each dependency in the Application chart, if subcharts found in `charts/` directory, push to ”staging” Helm Registry (Chart-museum).
-4. Generate and submit Argo Workflow DAG
-5. (Executor nodes only) Submit and probe deployment state of `HelmRelease` CR (`.Status.Phase`)
-6. Fetch and deploy Helm charts referred to by each `HelmRelease` CR to the Kubernetes cluster.
-
 ## Features
 
 - **Built for Kubernetes** - custom controller built using the [kubebuilder](https://github.com/kubernetes-sigs/kubebuilder) project
@@ -107,13 +94,9 @@ To solve the complex application orchestration problem Orkestra builds a [Direct
 - **Works with any Continous Deployment system** - bring your own CD to deploy Orkestra Custom Resources. Works with any Kubernetes compatible Continuous Deployment framework like [FluxCD](https://fluxcd.io/) and [ArgoCD](https://argoproj.github.io/argo-cd/).
 - **Built for GitOps** - describe your desired set of applications (and dependencies) declaratively and manage them from a version-controlled git repository.
 
-## Examples
-
-Try out the [examples](./examples)
-
 ## Development
 
-Follow the development [docs](development.md)
+Follow the development [docs](./devel/development.md)
 
 ## Contributing
 
