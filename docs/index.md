@@ -15,17 +15,17 @@ Orkestra works by generating a [DAG](https://en.wikipedia.org/wiki/Directed_acyc
 
 Orkestra leverages popular and mature open-source frameworks like [Argo](https://argoproj.github.io/argo/) (Workflows), [Flux Helm Operator](https://github.com/fluxcd/helm-operator) and [Chartmuseum](https://chartmuseum.com/)
 
-## Use Case
+## Use Cases 💼
 
 ### Reliable (continuous) "Deployment" and in-service "Upgrades" of mission-critical applications
 
-*5G Core* [Network Functions](https://www.sdxcentral.com/resources/glossary/network-function/) are applications that rely on a rich ecosystem of **infrastructure** and **PaaS** (platform-as-a-service) components to be deployed to the cluster before the applications can be successfully started. This establishes a hard dependency between the applications and the infra/paas applications. Orkestra solves the dependency problem by constructing a DAG workflow to deploy the respective `HelmRelease` objects for helm-operator.
+📱 *5G Core* [Network Functions](https://www.sdxcentral.com/resources/glossary/network-function/) 📱 are applications that rely on a rich ecosystem of **infrastructure** and **PaaS** (platform-as-a-service) components to be deployed to the cluster before the applications can be successfully started. This establishes a hard dependency between the applications and the infra/paas applications. Orkestra solves the dependency problem by constructing a DAG workflow to deploy the respective `HelmRelease` objects for helm-operator.
 
-## Architecture
+## Architecture 🏗
 
 To learn more about how Orkestra works see the [architecture](./architecture.md) docs
 
-## Installation
+## Installation 🧰
 
 For getting started you will need,
 
@@ -90,7 +90,7 @@ INFO[2021-02-03T01:02:15.852Z] Argo Server started successfully on http://localh
 INFO[2021-02-03T01:02:15.852Z] Argo UI is available at http://localhost:2746
 ```
 
-## Features
+## Features 🌟
 
 - **Built for Kubernetes** - custom controller built using the [kubebuilder](https://github.com/kubernetes-sigs/kubebuilder) project
 - **Easy to use** - familiar declarative spec using Kubernetes [Custom Resource Definitions](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/)
@@ -98,11 +98,11 @@ INFO[2021-02-03T01:02:15.852Z] Argo UI is available at http://localhost:2746
 - **Works with any Continous Deployment system** - bring your own CD framework to deploy Orkestra Custom Resources. Works with any Kubernetes compatible Continuous Deployment framework like [FluxCD](https://fluxcd.io/) and [ArgoCD](https://argoproj.github.io/argo-cd/).
 - **Built for GitOps** - describe your desired set of applications (and dependencies) declaratively and manage them from a version-controlled git repository.
 
-## Developers
+## Developers 👩‍💻
 
 Follow the development [guide](./developers.md) to get started with building and debugging Orkestra
 
-## Contributing
+## Contributing 🎁
 
 For instructions about setting up your environment to develop and extend the operator, please see
 [contributing.md](https://github.com/Azure/Orkestra/blob/main/CONTRIBUTING.md)

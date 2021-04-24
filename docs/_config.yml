@@ -11,9 +11,11 @@ github_username: nitishm
 
 # Build settings
 remote_theme: pmarsceill/just-the-docs
-color_scheme: "dark"
+color_scheme: "light"
 plugins:
   - jekyll-feed
+
+syntax_highlighter: rouge
 
 exclude:
   - .sass-cache/
