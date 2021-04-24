@@ -7,14 +7,15 @@ nav_order: 1
 
 [![Build Status](https://dev.azure.com/azure/Orkestra/_apis/build/status/Azure.Orkestra?branchName=main)](https://dev.azure.com/azure/Orkestra/_build/latest?definitionId=95&branchName=main)
 
-Orkestra is a cloud-native release orchestration and lifecycle management (LCM) platform for fine-grained orchestration a group of inter-dependent *"Applications"*. An *"Application"* may be defined as a [Helm](https://helm.sh/) chart or artifact, with or without [subchart](https://helm.sh/docs/helm/helm_dependency) dependencies.
+Orkestra is a cloud-native release orchestration and lifecycle management (LCM) platform for fine-grained orchestration a group of inter-dependent *"Applications"* (and their inter-dependent subcharts). An *"Application"* may be defined as a [Helm](https://helm.sh/) chart or artifact, with or without [subchart](https://helm.sh/docs/helm/helm_dependency) dependencies.
+
+Sophisticated applications require **intelligent** release orchestration and lifecycle management that is not supported by Helm.
+
 Orkestra works by generating a [DAG](https://en.wikipedia.org/wiki/Directed_acyclic_graph) workflow from the `ApplicationGroup` spec. to orchestrate the **deployment** and in-service **upgrades** of multiple applications within a Kubernetes cluster. At a finer-grain, Orkestra can also order the deployment of subcharts within an application chart by generating an embedded DAG workflow.
 
 Orkestra leverages popular and mature open-source frameworks like [Argo](https://argoproj.github.io/argo/) (Workflows), [Flux Helm Operator](https://github.com/fluxcd/helm-operator) and [Chartmuseum](https://chartmuseum.com/)
 
-## Use cases
-
-> *Sophisticated applications require **intelligent** release orchestration and lifecycle management that is not supported by Helm.*
+## Use Case
 
 ### Reliable (continuous) "Deployment" and in-service "Upgrades" of mission-critical applications
 
@@ -32,7 +33,7 @@ For getting started you will need,
 - `kubectl` - Kubernetes client
 - `helm` - Helm client
 - `kubebuilder` - [installation](https://book.kubebuilder.io/quick-start.html#installation)
-- `controller-gen` - `GO111MODULE=on go get -v -u sigs.k8s.io/controller-tools/cmd/controller-gen@v0.5.0` (this should be run from outside the Orkestra repo to be installed to your `$GOBIN`)
+- `controller-gen` - `GO111MODULE=on go get -v -u sigs.k8s.io/controller-tools/cmd/controller-gen@v0.5.0` (this should be run from outside the Orkestra (go module) repo for it to be installed to your `$GOBIN`)
 - (_optional_) `argo` - Argo workflow client (follow the instructions to install the binary from [releases](https://github.com/argoproj/argo/releases)
 
 Install the `ApplicationGroup` and custom resource definitions (CRDs)
@@ -45,7 +46,7 @@ helm install orkestra chart/orkestra/  --namespace orkestra --create-namespace
 
 You should see resources spin up in the _orkestra_ namespace as shown below,
 
-```terminal
+```shell
 > kubectl get all -n orkestra
 
 NAME                                               READY   STATUS      RESTARTS   AGE
