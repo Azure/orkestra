@@ -14,7 +14,6 @@ limitations under the License.
 package meta
 
 import (
-	helmopv1 "github.com/fluxcd/helm-operator/pkg/apis/helm.fluxcd.io/v1"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -74,18 +73,4 @@ func SetResourceCondition(obj ObjectWithStatusConditions, condition string, stat
 func GetResourceCondition(obj ObjectWithStatusConditions, condition string) *metav1.Condition {
 	conditions := obj.GetStatusConditions()
 	return apimeta.FindStatusCondition(*conditions, condition)
-}
-
-func ToStatusConditions(conditions []helmopv1.HelmReleaseCondition) []metav1.Condition {
-	var newConditions []metav1.Condition
-	for _, condition := range conditions {
-		newCondition := metav1.Condition{}
-		newCondition.LastTransitionTime = *condition.LastTransitionTime
-		newCondition.Status = metav1.ConditionStatus(condition.Status)
-		newCondition.Message = condition.Message
-		newCondition.Reason = condition.Reason
-		newCondition.Type = string(condition.Type)
-		newConditions = append(newConditions, newCondition)
-	}
-	return newConditions
 }

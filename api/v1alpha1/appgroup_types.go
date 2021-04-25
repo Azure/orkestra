@@ -29,7 +29,8 @@ type ApplicationSpec struct {
 
 type Release struct {
 	// Interval at which to reconcile the Helm release.
-	// +required
+	// +kubebuilder:default:="5m"
+	// +optional
 	Interval metav1.Duration `json:"interval,omitempty"`
 
 	// TargetNamespace to target when performing operations for the HelmRelease.
@@ -90,11 +91,11 @@ type ReleaseRollbackSpec struct {
 type ChartRef struct {
 	// The Helm repository URL, a valid URL contains at least a protocol and host.
 	// +required
-	Url string `json:"url,omitempty"`
+	Url string `json:"url"`
 
 	// The name or path the Helm chart is available at in the SourceRef.
 	// +required
-	Name string `json:"name,omitempty"`
+	Name string `json:"name"`
 
 	// Version semver expression, ignored for charts from v1beta1.GitRepository and
 	// v1beta1.Bucket sources. Defaults to latest when omitted.
@@ -146,11 +147,7 @@ type Application struct {
 type DAG struct {
 	// Name of the application
 	// +required
-	Name string `json:"name,omitempty"`
-
-	// Namespace of the application
-	// +required
-	Namespace string `json:"namespace,omitempty"`
+	Name string `json:"name"`
 
 	// Dependencies on other applications by name
 	// +optional

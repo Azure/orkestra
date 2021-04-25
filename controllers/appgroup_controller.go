@@ -19,6 +19,7 @@ import (
 	helmopv1 "github.com/fluxcd/helm-operator/pkg/apis/helm.fluxcd.io/v1"
 	"github.com/go-logr/logr"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
@@ -257,15 +258,15 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		appGroup.ReadySucceeded()
 	}
 
-	helmReleaseStatusMap, chartConditionMap, subChartConditionMap, err := r.marshallChartStatus(ctx, appGroup)
+	chartConditionMap, subChartConditionMap, err := r.marshallChartStatus(ctx, appGroup)
 	if err != nil {
 		return r.handleResponseAndEvent(ctx, logr, appGroup, patch, false, err)
 	}
 
-	appGroup.Status.Applications = getAppStatus(&appGroup, helmReleaseStatusMap, chartConditionMap, subChartConditionMap)
+	appGroup.Status.Applications = getAppStatus(&appGroup, chartConditionMap, subChartConditionMap)
 
 	// This is the cumulative status from the workflow phase and the helmrelease object statuses
-	err = allHelmReleaseStatus(appGroup, helmReleaseStatusMap)
+	err = allHelmReleaseStatus(appGroup, chartConditionMap)
 	if err != nil {
 		// Any error arising from the workflow or the helmreleases should be marked as a NodeError
 		logr.Error(err, "")
@@ -414,7 +415,6 @@ func (r *ApplicationGroupReconciler) handleRemediation(ctx context.Context, logr
 // their status to the appropriate maps corresponding to their chart of subchart.
 // These statuses are used to update the application status above
 func (r *ApplicationGroupReconciler) marshallChartStatus(ctx context.Context, appGroup orkestrav1alpha1.ApplicationGroup) (
-	helmReleaseStatusMap map[string]helmopv1.HelmReleasePhase,
 	chartConditionMap map[string][]metav1.Condition,
 	subChartConditionMap map[string]map[string][]metav1.Condition,
 	err error) {
@@ -424,18 +424,17 @@ func (r *ApplicationGroupReconciler) marshallChartStatus(ctx context.Context, ap
 	}
 
 	// Init the mappings
-	helmReleaseStatusMap = make(map[string]helmopv1.HelmReleasePhase)
 	chartConditionMap = make(map[string][]metav1.Condition)
 	subChartConditionMap = make(map[string]map[string][]metav1.Condition)
 
 	// XXX (nitishm) Not sure why this happens ???
 	// Lookup all associated HelmReleases for status as well since the Workflow will not always reflect the status of the HelmRelease
 	// Lookup Workflow by ownership and heritage labels
-	helmReleases := helmopv1.HelmReleaseList{}
+	helmReleases := fluxhelm.HelmReleaseList{}
 	err = r.List(ctx, &helmReleases, listOption)
 	if err != nil {
 		r.Log.Error(err, "failed to find generated HelmRelease instance")
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	for _, hr := range helmReleases.Items {
@@ -448,29 +447,20 @@ func (r *ApplicationGroupReconciler) marshallChartStatus(ctx context.Context, ap
 		// Add the associated conditions for that helm chart to the helm chart condition
 		// If the helm chart is a subchart, then add that to the subchart condition
 		if parent == hr.Name {
-			chartConditionMap[parent] = append(chartConditionMap[parent], meta.ToStatusConditions(hr.Status.Conditions)...)
+			chartConditionMap[parent] = append(chartConditionMap[parent], hr.Status.Conditions...)
 		} else {
 			if _, ok := subChartConditionMap[parent]; !ok {
 				subChartConditionMap[parent] = make(map[string][]metav1.Condition)
 			}
-			subChartConditionMap[parent][hr.Spec.ReleaseName] = append(subChartConditionMap[parent][hr.Spec.ReleaseName], meta.ToStatusConditions(hr.Status.Conditions)...)
+			subChartConditionMap[parent][hr.Spec.ReleaseName] = append(subChartConditionMap[parent][hr.Spec.ReleaseName], hr.Status.Conditions...)
 		}
 
-		// XXX (nitishm) Needs more thought and testing
-		if _, ok := helmReleaseStatusMap[parent]; ok {
-			if hr.Status.Phase != helmopv1.HelmReleasePhaseSucceeded {
-				helmReleaseStatusMap[parent] = hr.Status.Phase
-			}
-		} else {
-			helmReleaseStatusMap[parent] = hr.Status.Phase
-		}
 	}
-	return helmReleaseStatusMap, chartConditionMap, subChartConditionMap, nil
+	return chartConditionMap, subChartConditionMap, nil
 }
 
 func getAppStatus(
 	appGroup *orkestrav1alpha1.ApplicationGroup,
-	helmReleaseStatusMap map[string]helmopv1.HelmReleasePhase,
 	chartConditionMap map[string][]metav1.Condition,
 	subChartConditionMap map[string]map[string][]metav1.Condition) []orkestrav1alpha1.ApplicationStatus {
 	// Update each application status using the HelmRelease status
@@ -486,10 +476,12 @@ func getAppStatus(
 	return v
 }
 
-func allHelmReleaseStatus(appGroup orkestrav1alpha1.ApplicationGroup, apps map[string]helmopv1.HelmReleasePhase) error {
-	for _, v := range apps {
-		switch v {
-		case helmopv1.HelmReleasePhaseFailed, helmopv1.HelmReleasePhaseDeployFailed, helmopv1.HelmReleasePhaseChartFetchFailed, helmopv1.HelmReleasePhaseTestFailed, helmopv1.HelmReleasePhaseRollbackFailed:
+func allHelmReleaseStatus(appGroup orkestrav1alpha1.ApplicationGroup, appConditions map[string][]metav1.Condition) error {
+	for _, conditions := range appConditions {
+		condition := apimeta.FindStatusCondition(conditions, meta.ReadyCondition)
+		switch condition.Reason {
+		case fluxhelm.InstallFailedReason, fluxhelm.UpgradeFailedReason, fluxhelm.UninstallFailedReason,
+			fluxhelm.ArtifactFailedReason, fluxhelm.InitFailedReason, fluxhelm.GetLastReleaseFailedReason:
 			return ErrHelmReleaseInFailureStatus
 		}
 	}
