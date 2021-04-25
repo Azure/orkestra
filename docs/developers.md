@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Developers 
-nav_order: 3
+nav_order: 5
 ---
 # Guide for contributors and developers
 
@@ -17,20 +17,20 @@ nav_order: 3
 
 ## Build & Run
 
-> Run the following `make` targets everytime the types are changed (`api/xxx_types.go`)
+🚧 🚨 Run the following `make` targets everytime the types are changed (`api/xxx_types.go`)
 
 ```shell
-make generate
+$ make generate
 /usr/local/bin/controller-gen object:headerFile="hack/boilerplate.go.txt" paths="./..."
 ```
 
 ```shell
-make manifests
+$ make manifests
 /usr/local/bin/controller-gen "crd:trivialVersions=true" rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 ```
 
 ```shell
-cp config/crd/bases/orkestra.azure.microsoft.com_applicationgroups.yaml chart/orkestra/crds/orkestra.azure.microsoft.com_applicationgroups.yaml
+$ cp config/crd/bases/orkestra.azure.microsoft.com_applicationgroups.yaml chart/orkestra/crds/orkestra.azure.microsoft.com_applicationgroups.yaml
 ```
 
 ### Manually
@@ -38,15 +38,19 @@ cp config/crd/bases/orkestra.azure.microsoft.com_applicationgroups.yaml chart/or
 - Build the docker image and push it to (your own) docker registry
 
 ```shell
-docker build . -t <your-registry>/orkestra:<your-tag>
-docker push <your-registry>/orkestra:<your-tag>
+$ docker build . -t <your-registry>/orkestra:<your-tag>
+$ docker push <your-registry>/orkestra:<your-tag>
 ```
 
 - Update the orkestra deployment with your own `registry/image:tag`
 
 ```shell
-helm upgrade orkestra chart/orkestra -n orkestra --create-namespace --set image.repository=<your-registry> --set image.tag=<your-tag> [--disable-remediation]
-> helm upgrade orkestra chart/orkestra -n orkestra --create-namespace --set image.repository=<azureorkestra/orkestra> --set image.tag=my-tag [--disable-remediation]
+$ helm upgrade orkestra chart/orkestra -n orkestra --create-namespace --set image.repository=<your-registry> --set image.tag=<your-tag> [--disable-remediation]
+```
+
+*Example*
+```shell
+$ helm upgrade orkestra chart/orkestra -n orkestra --create-namespace --set image.repository=<azureorkestra/orkestra> --set image.tag=my-tag [--disable-remediation]
 ```
 
 ### Using Tilt
@@ -54,7 +58,7 @@ helm upgrade orkestra chart/orkestra -n orkestra --create-namespace --set image.
 Install `tilt` using the official [installation](https://docs.tilt.dev/install.html) instructions
 
 ```shell
-tilt up
+$ tilt up
 Tilt started on http://localhost:10350/
 v0.19.0, built 2021-03-19
 
@@ -92,7 +96,7 @@ Once the orkestra helm release has been successfully deployed you can start debu
 
 #### Installing Okteto binary
 
-Install okteto using `[CMD + Shift + p]`  > __"Okteto: Install"__
+Install [okteto](https://okteto.com/) using `[CMD + Shift + p]` (`[Ctrl + Shift + p]` on Windows)  > __"Okteto: Install"__
 
 #### Configuration
 
@@ -106,9 +110,9 @@ Start the okteto debugger using `[CMD + Shift + p]` > __"Okteto: Up"__
 
 ## Structure
 
-| Package | Files | Description | Requires `make generate` & `make manifests` |
+| Package | Files | Description | 🚧 Requires `make generate` & `make manifests` |
 |:---------|:-------|:-------------|:----|
-| **/** | **Dockerfile** | Docker manifest to build and deploy the orkestra controller docker image | No |
+| **./** | **Dockerfile** | Docker manifest to build and deploy the orkestra controller docker image | No |
 | | **main.go** | Entrypoint (`func main()`) to the controller. Bootstraps the orkestra controller manager and instantiates all supporting components needed by the reconciler. | No |
 | | **Tiltfile** | `Tilt` is a useful utility for development, that watches files for changes and builds & pushes new docker images to a live pod as and when changes occur. See [docs](https://docs.tilt.dev/) to learn more. | No |
 | | **azure-pipelines.yml** | CI workflow manifest for Azure Pipelines | No |
@@ -118,11 +122,11 @@ Start the okteto debugger using `[CMD + Shift + p]` > __"Okteto: Up"__
 | **controllers/** | **appgroup_controller.go** | Core controller logic for the `Reconcile()` function. See flow diagram below. | No |
 | | **appgroup_reconciler.go** | Logic to reconcile the state of the Application group object, by generating new workflows to get to the desired state. | No |
 | | **suite_test.go** | Bootstrap function to run integration tests for the controller using Ginkgo's Behavior Driven Test framework. | No |
-| **pkg/** | **checksum.go** | `ApplicationGroup` spec checksum utilities | No |
-| | **helm.go** | Wrappers for Helm Actions using the official helmv2 package. | No |
+| **pkg/** | **helm.go** | Wrappers for Helm Actions using the official helmv2 package. | No |
 | | **helpers.go** | Miscellaneous utility functions | No |
 | | **registry/** | Helm Registry functions using the office helmv2 package and chartmuseum for pull and push functionality, respectively | No |
 | | **workflow/** | DAG workflow generation and submission interface, implemented using Argo Workflows | No |
+| | **meta/** | `ApplicationGroup` transition states | No |
 
 ## Workflow
 

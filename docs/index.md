@@ -19,7 +19,7 @@ Orkestra leverages popular and mature open-source frameworks like [Argo](https:/
 
 ### Reliable (continuous) "Deployment" and in-service "Upgrades" of mission-critical applications
 
-📱 *5G Core* [Network Functions](https://www.sdxcentral.com/resources/glossary/network-function/) 📱 are applications that rely on a rich ecosystem of **infrastructure** and **PaaS** (platform-as-a-service) components to be deployed to the cluster before the applications can be successfully started. This establishes a hard dependency between the applications and the infra/paas applications. Orkestra solves the dependency problem by constructing a DAG workflow to deploy the respective `HelmRelease` objects for helm-operator.
+📱 *5G Core* [Network Functions](https://www.sdxcentral.com/resources/glossary/network-function/) (NFs)📱 are 5G applications that rely on a rich ecosystem of **infrastructure** and **PaaS** (platform-as-a-service) components to be up and ready before the Network Functions can be successfully started. This establishes a hard dependency between the NFs and the infra/paas applications. Orkestra solves the dependency problem by honoring these dependencies by using a DAG workflow to deploy the infra/paas components prior to starting the NF application. This also allows for the independent lifecycle management of the infra/paas components and groups of NFs.
 
 ## Architecture 🏗
 
@@ -78,7 +78,7 @@ replicaset.apps/orkestra-workflow-controller-688bc7677   1         1         1  
 
 **(_optional_) Argo Workflow Dashboard**
 
-The following command should open a local browser to the Argo Workflow Dashboard at http://localhost:2476.
+Start the Argo Workflow Dashboard at http://localhost:2476.
 
 ```shell
 argo server --browser
@@ -92,9 +92,11 @@ INFO[2021-02-03T01:02:15.852Z] Argo UI is available at http://localhost:2746
 
 ## Features 🌟
 
-- **Built for Kubernetes** - custom controller built using the [kubebuilder](https://github.com/kubernetes-sigs/kubebuilder) project
-- **Easy to use** - familiar declarative spec using Kubernetes [Custom Resource Definitions](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/)
 - **Dependency management** - DAG-based workflows for groups of application charts and their sub-charts using Argo Workflow
+- **Fail fast during in-service upgrades** - limits the blast radius for failures during in-service upgrade of critical components.
+- **Failure Remediation** - rollback to last successful spec on encountering failures during in-service upgrades.
+- **Built for Kubernetes** - custom controller built using  [kubebuilder](https://github.com/kubernetes-sigs/kubebuilder)
+- **Easy to use** - familiar declarative spec using Kubernetes [Custom Resource Definitions](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/)
 - **Works with any Continous Deployment system** - bring your own CD framework to deploy Orkestra Custom Resources. Works with any Kubernetes compatible Continuous Deployment framework like [FluxCD](https://fluxcd.io/) and [ArgoCD](https://argoproj.github.io/argo-cd/).
 - **Built for GitOps** - describe your desired set of applications (and dependencies) declaratively and manage them from a version-controlled git repository.
 
