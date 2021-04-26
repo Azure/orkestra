@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"os"
 
@@ -355,7 +356,7 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, g *v1alpha1.Applicat
 								Parameters: []v1alpha12.Parameter{
 									{
 										Name:  helmReleaseArg,
-										Value: strToStrPtr(hrToYAML(hr)),
+										Value: strToStrPtr(base64.StdEncoding.EncodeToString([]byte(hrToYAML(hr)))),
 									},
 								},
 							},
@@ -404,7 +405,7 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 				Parameters: []v1alpha12.Parameter{
 					{
 						Name:  helmReleaseArg,
-						Value: strToStrPtr(hrToYAML(*hr)),
+						Value: strToStrPtr(base64.StdEncoding.EncodeToString([]byte(hrToYAML(*hr)))),
 					},
 				},
 			},
@@ -486,7 +487,7 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 			Parameters: []v1alpha12.Parameter{
 				{
 					Name:  helmReleaseArg,
-					Value: strToStrPtr(hrToYAML(hr)),
+					Value: strToStrPtr(base64.StdEncoding.EncodeToString([]byte(hrToYAML(hr)))),
 				},
 			},
 		},
@@ -497,7 +498,6 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 			return out
 		}(),
 	}
-
 	tasks = append(tasks, task)
 
 	return tasks, nil
@@ -522,12 +522,10 @@ func defaultExecutor() v1alpha12.Template {
 			ServiceAccountName: workflowServiceAccountName(),
 		},
 		Outputs: v1alpha12.Outputs{},
-		Resource: &v1alpha12.ResourceTemplate{
-			// SetOwnerReference: true,
-			Action:           "apply",
-			Manifest:         "{{inputs.parameters.helmrelease}}",
-			SuccessCondition: "status.phase == Succeeded",
-			FailureCondition: "status.phase == Failed",
+		Container: &corev1.Container{
+			Name:  "test",
+			Image: "jonathaninnis/test:latest",
+			Args:  []string{"--spec", "{{inputs.parameters.helmrelease}}"},
 		},
 	}
 }

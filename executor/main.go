@@ -37,7 +37,7 @@ func main() {
 
 	decodedSpec, err := base64.StdEncoding.DecodeString(spec)
 	if err != nil {
-		fmt.Println("Failed to decode the string as a base64 string")
+		fmt.Printf("Failed to decode the string as a base64 string; got the string %v", spec)
 		os.Exit(1)
 	}
 
@@ -73,7 +73,6 @@ func main() {
 			Kind:  "HelmRelease",
 		},
 	}
-	fmt.Println(identifiers)
 
 	// We give the poller a minute before we time it out
 	if err := PollStatus(ctx, clientSet, config, time.Minute, identifiers); err != nil {
@@ -105,9 +104,6 @@ func PollStatus(ctx context.Context, clientSet client.Client, config *rest.Confi
 	return nil
 }
 
-// desiredStatusNotifierFunc returns an Observer function for the
-// ResourceStatusCollector that will cancel the context (using the cancelFunc)
-// when all resources have reached the desired status.
 func desiredStatusNotifierFunc(cancelFunc context.CancelFunc) collector.ObserverFunc {
 	return func(rsc *collector.ResourceStatusCollector, _ event.Event) {
 		var rss []*event.ResourceStatus

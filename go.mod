@@ -8,18 +8,21 @@ require (
 	github.com/fluxcd/helm-controller/api v0.9.0
 	github.com/fluxcd/helm-operator v1.2.0
 	github.com/go-logr/logr v0.3.0
+	github.com/go-openapi/spec v0.19.5 // indirect
 	github.com/gofrs/flock v0.8.0
 	github.com/google/go-cmp v0.5.2
-	github.com/jinzhu/copier v0.2.8
-	go.opencensus.io v0.22.5 // indirect
+	github.com/jinzhu/copier v0.3.0
+	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
+	github.com/onsi/ginkgo v1.14.2 // indirect
 	golang.org/x/oauth2 v0.0.0-20200902213428-5d25da1a8d43 // indirect
-	google.golang.org/grpc v1.33.2 // indirect
+	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f // indirect
 	gopkg.in/yaml.v2 v2.4.0
 	helm.sh/helm/v3 v3.3.4
-	k8s.io/api v0.20.2
+	k8s.io/api v0.20.4
 	k8s.io/apiextensions-apiserver v0.20.2
-	k8s.io/apimachinery v0.20.2
+	k8s.io/apimachinery v0.20.4
 	k8s.io/client-go v11.0.0+incompatible
+	k8s.io/kubectl v0.20.4 // indirect
 	sigs.k8s.io/controller-runtime v0.8.3
 	sigs.k8s.io/yaml v1.2.0
 )
