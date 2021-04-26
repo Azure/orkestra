@@ -3,10 +3,12 @@ serviceAccount: &serviceAccount orkestra
 
 replicaCount: 1
 
+chartStorePath: "/etc/orkestra/charts/pull"
+
 image:
   repository: azureorkestra/orkestra
   pullPolicy: Always 
-  tag: "v0.4.0"
+  tag: "latest"
 
 imagePullSecrets: []
 nameOverride: ""
@@ -65,6 +67,8 @@ chartmuseum:
       DISABLE_API: false 
 
 helm-operator:
+# Amount of workers processing releases
+  workers: 10
   enabled: true
   rbac:
     create: false 

@@ -1,0 +1,42 @@
+title: Azure Orkestra 
+email: nitishm@microsoft.com
+# logo: "./assets/orkestra.jpg"
+
+description: >- # this means to ignore newlines until "baseurl:"
+  Orkestra is a cloud-native release orchestration and lifecycle management (LCM) platform for fine-grained orchestration a group of inter-dependent “Applications”. An “Application” may be defined as a Helm chart or artifact, with or without subchart dependencies. Orkestra works by generating a DAG workflow from the ApplicationGroup spec. to orchestrate the deployment and upgrade of multiple applications within a Kubernetes cluster. At a finer-grain, Orkestra can also order the deployment of subcharts within an application chart by generating an embedded DAG workflow.
+baseurl: "/" # the subpath of your site, e.g. /blog
+url: "https://azure.github.io" # the base hostname & protocol for your site, e.g. http://example.com
+twitter_username: nitishmalhotra9 
+github_username: nitishm 
+
+# Build settings
+remote_theme: pmarsceill/just-the-docs
+color_scheme: "light"
+plugins:
+  - jekyll-feed
+
+syntax_highlighter: rouge
+
+exclude:
+  - .sass-cache/
+  - .jekyll-cache/
+  - gemfiles/
+  - Gemfile
+  - Gemfile.lock
+  - node_modules/
+  - vendor/bundle/
+  - vendor/cache/
+  - vendor/gems/
+  - vendor/ruby/
+
+# Footer last edited timestamp
+last_edit_timestamp: true # show or hide edit time - page must have `last_modified_date` defined in the frontmatter
+last_edit_time_format: "%b %e %Y at %I:%M %p" # uses ruby's time format: https://ruby-doc.org/stdlib-2.7.0/libdoc/time/rdoc/Time.html
+
+# Footer "Edit this page on GitHub" link text
+gh_edit_link: true # show or hide edit this page link
+gh_edit_link_text: "Edit this page on GitHub."
+gh_edit_repository: "https://github.com/Azure/orkestra" # the github URL for your repo
+gh_edit_branch: "main" # the branch that your docs is served from
+gh_edit_source: docs # the source that your files originate from
+gh_edit_view_mode: "tree" # "tree" or "edit" if you want the user to jump into the editor immediately
