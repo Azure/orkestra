@@ -25,5 +25,5 @@ func ProbeHandler(chartmuseumAddress, endpoint string) (*Probe, error) {
 }
 
 func (p *Probe) Start(port string) {
-	go http.ListenAndServe(net.JoinHostPort("0.0.0.0", port), p.health)
+	go http.ListenAndServe(net.JoinHostPort("0.0.0.0", port), p.health) //nolint:errcheck
 }
