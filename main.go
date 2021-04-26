@@ -7,6 +7,7 @@ import (
 	"flag"
 	"os"
 
+	"github.com/Azure/Orkestra/pkg"
 	"github.com/Azure/Orkestra/pkg/registry"
 	"github.com/Azure/Orkestra/pkg/workflow"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -132,6 +133,14 @@ func main() {
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
+
+	probe, err := pkg.ProbeHandler(stagingRepoURL, "health")
+	if err != nil {
+		setupLog.Error(err, "unable to start readiness/liveness probes", "controller", "ApplicationGroup")
+		os.Exit(1)
+	}
+
+	probe.Start("8086")
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
