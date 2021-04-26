@@ -1,3 +1,8 @@
+---
+layout: default
+title: Home 
+nav_order: 1
+---
 # Orkestra
 
 [![Build Status](https://dev.azure.com/azure/Orkestra/_apis/build/status/Azure.Orkestra?branchName=main)](https://dev.azure.com/azure/Orkestra/_build/latest?definitionId=95&branchName=main)
@@ -18,7 +23,7 @@ Orkestra leverages popular and mature open-source frameworks like [Argo](https:/
 
 ## Architecture 🏗
 
-To learn more about how Orkestra works see the [architecture](./docs/architecture.md) docs
+To learn more about how Orkestra works see the [architecture](./architecture.md) docs
 
 ## Installation 🧰
 
@@ -97,7 +102,7 @@ INFO[2021-02-03T01:02:15.852Z] Argo UI is available at http://localhost:2746
 
 ## Developers 👩‍💻
 
-Follow the development [guide](./docs/developers.md) to get started with building and debugging Orkestra
+Follow the development [guide](./developers.md) to get started with building and debugging Orkestra
 
 ## Contributing 🎁
 
