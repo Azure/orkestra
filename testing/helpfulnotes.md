@@ -1,25 +1,23 @@
-# Getting Started
+# Testing Environment Setup
 
-## Prerequisites
-* Argo Workflow
-* Brigade
-* brig
-* kubectl
+## Getting Started
 
-In my testing I have found Brigade works best with Kind. Before you begin make sure docker and kind are running. 
+### Prerequisites
+* `Argo` - Argo workflow client (Follow the instructions to install the binary from [releases](https://github.com/argoproj/argo/releases))
+* `Brigade` - [brigade install guide](https://docs.brigade.sh/intro/install/)
+* `brig` - [brig guide](https://docs.brigade.sh/topics/brig/)
+* `kubectl` - [kubectl install guide](https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/)
+* A Kubernetes Cluster
 
-You will need to apply the binding.yml file to give the bridge-worker pods the ability to use kubectl commands. The Dockerfile will be the image the brigade job is run on. For now the brigade.js does the setup and grabs all the dependencies.
+When testing I used a KIND cluster but Brigade should work for minikube as well. Brigade docs have a section about Minikube and AKS, [found here](https://docs.brigade.sh/intro/install/#notes-for-minikube). 
 
-You must install Brigade onto your cluster. [Brigade Install Guide](https://docs.brigade.sh/intro/install/)
-For this guide we are using the Brig CLI tool so please download that as well. 
+Before you begin make sure docker and your cluster are running. 
+
+The Dockerfile will be the image the brigade job is run on, at the moment this Docker image is not used but should be uploaded to DockerHub so our brigade.js can download it as an image. For now the brigade.js does the setup and grabs all the dependencies. After installing Brigade, you should now see the following brigade pods running
 
 ```
+helm install brigade-server brigade/brigade
 kubectl get pods -A
-```
-
-You should now see the following brigade pods running
-
-```
 NAMESPACE            NAME                                             READY   STATUS      RESTARTS   AGE
 default              brigade-server-brigade-api-7656489497-xczb7      1/1     Running     0          3m23s
 default              brigade-server-brigade-ctrl-9d678c8bc-4h6nf      1/1     Running     0          3m23s
@@ -27,7 +25,7 @@ default              brigade-server-brigade-vacuum-1619128800-q24dh   0/1     Co
 default              brigade-server-kashti-6ff4d6c99c-2dg87           1/1     Running     0          3m23s
 ```
 
-Using brig we will create a sample project.
+Using brig we will create a sample project. For our testing we just use all the defaults. The brigade.js path for us would be `testing/brigade.js`.
 
 ```
 brig project create
@@ -50,13 +48,15 @@ brig project list
 NAME            ID                                                              REPO
 mysampleproject brigade-a50ed8c1dbd7fa803b75f009f893b56bfd12347cadb1e404c12  github.com/brigadecore/empty-testbed
 ```
+
 To give our brigade jobs the ability to access our kubectl commands we have to apply the binding.yml file onto our cluster. This file gives the brigade jobs permissions for various kubectl commands.
 
 ```
+cd testing
 kubectl apply -f binding.yml
 ```
 
-We also want to run the argo server so we can view the workflow.
+We also want to run the argo server so we can view the workflow, and so our validation tests can check if the workflow pods were deployed successfully. 
 
 ```
 argo server
@@ -67,13 +67,40 @@ Now we can run our brigade.js file on our cluster to verify orkestra is working.
 ```
 cd testing
 brig run -f brigade.js mysampleproject
+Event created. Waiting for worker pod named "brigade-worker-01f47mb971tp4f3k6erx8fxhrr".
+Build: 01f47mb971tp4f3k6erx8fxhrr, Worker: brigade-worker-01f47mb971tp4f3k6erx8fxhrr
+prestart: no dependencies file found
+[brigade] brigade-worker version: 1.2.1
+[brigade:k8s] Creating PVC named brigade-worker-01f47mb971tp4f3k6erx8fxhrr
+Running on exec
+[brigade:k8s] Creating secret test-runner-01f47mb971tp4f3k6erx8fxhrr
+[brigade:k8s] Creating pod test-runner-01f47mb971tp4f3k6erx8fxhrr
+[brigade:k8s] Timeout set at 1500000 milliseconds
+[brigade:k8s] Pod not yet scheduled
+[brigade:k8s] default/test-runner-01f47mb971tp4f3k6erx8fxhrr phase Pending
+[brigade:k8s] default/test-runner-01f47mb971tp4f3k6erx8fxhrr phase Running
+done
+[brigade:k8s] default/test-runner-01f47mb971tp4f3k6erx8fxhrr phase Running
 ```
 
-To check logs of your Jobs use,
+Upon completion of the test runner we should see,
+```
+[brigade:k8s] default/test-runner-01f47mb971tp4f3k6erx8fxhrr phase Running
+done
+[brigade:k8s] default/test-runner-01f47mb971tp4f3k6erx8fxhrr phase Succeeded
+done
+[brigade:app] after: default event handler fired
+[brigade:app] beforeExit(2): destroying storage
+[brigade:k8s] Destroying PVC named brigade-worker-01f47mb971tp4f3k6erx8fxhrr
+```
+
+To check the logs of the test runner and validations,
 
 ```
 brig build logs --last --jobs
 ```
+
+Any errors will be output to a default log file, `log.txt` in the testing folder.
 
 If you need to install the brigadecore-utils at runtime add the --config flag to brig run with the brigade.json file
 
