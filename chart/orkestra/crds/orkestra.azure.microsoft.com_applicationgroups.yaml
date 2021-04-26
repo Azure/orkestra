@@ -58,9 +58,6 @@ spec:
                     name:
                       description: Name of the application
                       type: string
-                    namespace:
-                      description: Namespace of the application
-                      type: string
                     spec:
                       description: Spec contains the application spec including the chart info and overlay values
                       properties:
@@ -102,6 +99,9 @@ spec:
                               default: '*'
                               description: Version semver expression, ignored for charts from v1beta1.GitRepository and v1beta1.Bucket sources. Defaults to latest when omitted.
                               type: string
+                          required:
+                          - name
+                          - url
                           type: object
                         release:
                           description: Release holds the values to apply to the helm release
@@ -114,6 +114,7 @@ spec:
                                   type: boolean
                               type: object
                             interval:
+                              default: 5m
                               description: Interval at which to reconcile the Helm release.
                               type: string
                             rollback:
@@ -158,15 +159,16 @@ spec:
                               name:
                                 description: Name of the application
                                 type: string
-                              namespace:
-                                description: Namespace of the application
-                                type: string
+                            required:
+                            - name
                             type: object
                           type: array
                       required:
                       - chart
                       - release
                       type: object
+                  required:
+                  - name
                   type: object
                 type: array
             type: object

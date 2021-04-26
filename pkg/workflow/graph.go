@@ -2,16 +2,17 @@ package workflow
 
 import (
 	"bytes"
+	"encoding/base64"
 	"fmt"
 
 	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
-	helmopv1 "github.com/fluxcd/helm-operator/pkg/apis/helm.fluxcd.io/v1"
+	fluxhelm "github.com/fluxcd/helm-controller/api/v2beta1"
 	k8Yaml "k8s.io/apimachinery/pkg/util/yaml"
 )
 
 type Graph struct {
 	nodes    map[string]v1alpha12.NodeStatus
-	releases map[int][]helmopv1.HelmRelease
+	releases map[int][]fluxhelm.HelmRelease
 	maxLevel int
 }
 
@@ -27,7 +28,7 @@ func Build(entry string, nodes map[string]v1alpha12.NodeStatus) (*Graph, error) 
 
 	g := &Graph{
 		nodes:    nodes,
-		releases: make(map[int][]helmopv1.HelmRelease),
+		releases: make(map[int][]fluxhelm.HelmRelease),
 	}
 
 	e, ok := nodes[entry]
@@ -76,14 +77,18 @@ func (g *Graph) bft(node v1alpha12.NodeStatus) error {
 			continue
 		}
 		hrStr := v.Status.Inputs.Parameters[0].Value
-		hr := helmopv1.HelmRelease{}
-		dec := k8Yaml.NewYAMLOrJSONDecoder(bytes.NewReader([]byte(*hrStr)), 1000)
+		hrBytes, err := base64.StdEncoding.DecodeString(*hrStr)
+		if err != nil {
+			return err
+		}
+		hr := fluxhelm.HelmRelease{}
+		dec := k8Yaml.NewYAMLOrJSONDecoder(bytes.NewReader(hrBytes), 1000)
 		if err := dec.Decode(&hr); err != nil {
 			return err
 		}
 
 		if _, ok := g.releases[v.Level]; !ok {
-			g.releases[v.Level] = make([]helmopv1.HelmRelease, 0)
+			g.releases[v.Level] = make([]fluxhelm.HelmRelease, 0)
 		}
 		g.releases[v.Level] = append(g.releases[v.Level], hr)
 	}
@@ -92,8 +97,8 @@ func (g *Graph) bft(node v1alpha12.NodeStatus) error {
 	return nil
 }
 
-func (g *Graph) Reverse() [][]helmopv1.HelmRelease {
-	reverseSlice := make([][]helmopv1.HelmRelease, 0)
+func (g *Graph) Reverse() [][]fluxhelm.HelmRelease {
+	reverseSlice := make([][]fluxhelm.HelmRelease, 0)
 	for i := g.maxLevel; i >= 0; i-- {
 		if _, ok := g.releases[i]; ok {
 			reverseSlice = append(reverseSlice, g.releases[i])

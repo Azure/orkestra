@@ -523,8 +523,8 @@ func defaultExecutor() v1alpha12.Template {
 		},
 		Outputs: v1alpha12.Outputs{},
 		Container: &corev1.Container{
-			Name:  "test",
-			Image: "jonathaninnis/test:latest",
+			Name:  "executor",
+			Image: "azureorkestra/executor:v0.1.0",
 			Args:  []string{"--spec", "{{inputs.parameters.helmrelease}}"},
 		},
 	}

@@ -16,7 +16,6 @@ import (
 	"github.com/Azure/Orkestra/pkg/workflow"
 	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
 	fluxhelm "github.com/fluxcd/helm-controller/api/v2beta1"
-	helmopv1 "github.com/fluxcd/helm-operator/pkg/apis/helm.fluxcd.io/v1"
 	"github.com/go-logr/logr"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
@@ -380,7 +379,7 @@ func (r *ApplicationGroupReconciler) handleRemediation(ctx context.Context, logr
 						workflow.HeritageLabel:  workflow.Project,
 						workflow.ChartLabelKey:  app.Name,
 					}
-					helmReleases := helmopv1.HelmReleaseList{}
+					helmReleases := fluxhelm.HelmReleaseList{}
 					err = r.List(ctx, &helmReleases, listOption)
 					if err != nil {
 						logr.Error(err, "failed to find generated HelmRelease instances")
@@ -492,7 +491,7 @@ func allHelmReleaseStatus(appGroup orkestrav1alpha1.ApplicationGroup, appConditi
 	return nil
 }
 
-func (r *ApplicationGroupReconciler) rollbackFailedHelmReleases(ctx context.Context, hrs []helmopv1.HelmRelease) error {
+func (r *ApplicationGroupReconciler) rollbackFailedHelmReleases(ctx context.Context, hrs []fluxhelm.HelmRelease) error {
 	for _, hr := range hrs {
 		err := pkg.HelmRollback(hr.Spec.ReleaseName, hr.Spec.TargetNamespace)
 		if err != nil {

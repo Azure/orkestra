@@ -60,6 +60,7 @@ func main() {
 		fmt.Printf("Failed to create the clientset with the given config with %v", err)
 		os.Exit(1)
 	}
+
 	if err := clientSet.Create(ctx, hr); err != nil {
 		fmt.Printf("Failed to create the helmrelease with %v", err)
 		os.Exit(1)
@@ -75,7 +76,7 @@ func main() {
 	}
 
 	// We give the poller a minute before we time it out
-	if err := PollStatus(ctx, clientSet, config, time.Minute, identifiers); err != nil {
+	if err := PollStatus(ctx, clientSet, config, time.Minute*2, identifiers); err != nil {
 		fmt.Printf("%v", err)
 		os.Exit(1)
 	}

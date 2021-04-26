@@ -8,7 +8,7 @@ spec:
       dependencies: []
       spec:
         chart:
-          repository: "https://www.getambassador.io/helm"
+          url: "https://www.getambassador.io/helm"
           name: ambassador 
           version: 6.6.0
           # Authorization Object Reference (Kind: Secret)
@@ -21,8 +21,8 @@ spec:
           #   name: <secret-name>
           #   namespace: <secret-namespace>
         release:
-          forceUpgrade: true
-          wait: true
+          upgrade:
+            force: true
           targetNamespace: ambassador 
           values:
             service:
@@ -31,7 +31,7 @@ spec:
       dependencies: [ambassador]
       spec:
         chart:
-          repository: "https://nitishm.github.io/charts"
+          url: "https://nitishm.github.io/istio-bookinfo-chart"
           name: bookinfo 
           version: v1
         subcharts:
@@ -44,8 +44,8 @@ spec:
         - name: details
           dependencies: []
         release:
-          forceUpgrade: true
-          wait: true
+          upgrade:
+            force: true
           targetNamespace: bookinfo 
           values:
             productpage:
