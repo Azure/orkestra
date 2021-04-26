@@ -9,6 +9,7 @@ require (
 	github.com/go-logr/logr v0.3.0
 	github.com/gofrs/flock v0.8.0
 	github.com/google/go-cmp v0.5.2
+	github.com/heptiolabs/healthcheck v0.0.0-20180807145615-6ff867650f40 // indirect
 	github.com/jinzhu/copier v0.2.8
 	github.com/mitchellh/hashstructure/v2 v2.0.1
 	go.opencensus.io v0.22.5 // indirect
