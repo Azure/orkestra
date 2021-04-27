@@ -1,56 +1,78 @@
 #!/bin/bash
 ORKESTRA_RESOURCE_COUNT=5
+LOG_FILE="OrkestraValidation.log"
+OUTPUT_TO_LOG=0
 g_successCount=0
 g_failureCount=0
 
+while getopts "f" flag; do
+    case "${flag}" in
+        f)  OUTPUT_TO_LOG=1;;
+    esac
+done
+
 function outputMessage {
-    if [ "$1" == "SUCCESS" ]; then
-        echo SUCCESS: $2 
-        ((g_successCount++))
+    if [ "$OUTPUT_TO_LOG" -eq 1 ]; then
+        echo $1 &>> $LOG_FILE
     else
-        echo FAIL: $2
+        echo $1
+    fi
+}
+
+function testSuiteMessage {
+    if [ "$1" == "TEST_PASS" ]; then
+        outputMessage "SUCCESS: $2" 
+        ((g_successCount++))
+    elif [ "$1" == "TEST_FAIL" ]; then
+        outputMessage "FAIL: $2" 
         ((g_failureCount++))
+    elif [ "$1" == "LOG" ]; then
+        outputMessage "LOG: $2"
     fi
 }
 
 function summary {
-    echo Success Cases: $g_successCount
-    echo Failure Cases: $g_failureCount
+    outputMessage "Success Cases: $g_successCount"
+    outputMessage "Failure Cases: $g_failureCount"
+}
+
+function resetLogFile {
+    > $LOG_FILE
 }
 
 function validateOrkestraDeployment {
-    resources=$(kubectl get pods --namespace orkestra 2>> log.txt| grep -i -c running)
+    resources=$(kubectl get pods --namespace orkestra &>> $LOG_FILE | grep -i -c running)
     if [ $resources -ne $ORKESTRA_RESOURCE_COUNT ]; then
-        outputMessage "FAIL" "No running orkestra resources. Currently $resources running resources. Expected $ORKESTRA_RESOURCE_COUNT"
+        testSuiteMessage "TEST_FAIL" "No running orkestra resources. Currently $resources running resources. Expected $ORKESTRA_RESOURCE_COUNT"
     else
-        outputMessage "SUCCESS" "orkestra resources are running"
+        testSuiteMessage "TEST_PASS" "orkestra resources are running"
     fi
 
-    orkestraStatus=$(helm status orkestra -n orkestra 2>> log.txt | grep -c deployed)
+    orkestraStatus=$(helm status orkestra -n orkestra &>> $LOG_FILE | grep -c deployed)
     if [ $orkestraStatus -eq 1 ]; then
-        outputMessage "SUCCESS" "orkestra deployed successfully"
+        testSuiteMessage "TEST_PASS" "orkestra deployed successfully"
     else
-        outputMessage "FAIL" "orkestra not deployed"
+        testSuiteMessage "TEST_FAIL" "orkestra not deployed"
     fi
 }
 
 function validateBookInfoDeployment {
-    ambassadorStatus=$(helm status ambassador -n ambassador 2>> log.txt | grep -c deployed)
+    ambassadorStatus=$(helm status ambassador -n ambassador &>> $LOG_FILE | grep -c deployed)
     if [ $ambassadorStatus -eq 1 ]; then
-        outputMessage "SUCCESS" "ambassador deployed successfully"
+        testSuiteMessage "TEST_PASS" "ambassador deployed successfully"
     else
-        outputMessage "FAIL" "ambassador not deployed"
+        testSuiteMessage "TEST_FAIL" "ambassador not deployed"
     fi
 
     bookinfoReleaseNames=("details" "productpage" "ratings" "reviews" "bookinfo")
 
     for var in "${bookinfoReleaseNames[@]}"
     do  
-        deployedStatus=$(helm status $var -n bookinfo 2>> log.txt | grep -c deployed)
+        deployedStatus=$(helm status $var -n bookinfo &>> $LOG_FILE | grep -c deployed)
         if [ $deployedStatus -eq 1 ]; then
-            outputMessage "SUCCESS" "$var deployed successfully"
+            testSuiteMessage "TEST_PASS" "$var deployed successfully"
         else
-            outputMessage "FAIL" "$var not deployed"
+            testSuiteMessage "TEST_FAIL" "$var not deployed"
         fi
     done
 }
@@ -58,7 +80,7 @@ function validateBookInfoDeployment {
 function validateArgoWorkflow {
     bookinfoStatus=$(curl -s --request GET --url http://localhost:2746/api/v1/workflows/orkestra/bookinfo | grep -c "not found")
     if [ "$bookinfoStatus" -eq 1 ]; then
-        outputMessage "FAIL" "No argo workflow found for bookinfo"
+        testSuiteMessage "TEST_FAIL" "No argo workflow found for bookinfo"
     else
         argoNodes=($(curl -s --request GET --url http://localhost:2746/api/v1/workflows/orkestra/bookinfo | jq -c '.status.nodes[] | {id: .id, name: .name, displayName: .displayName, phase: .phase}'))
 
@@ -73,34 +95,34 @@ function validateArgoWorkflow {
             "bookinfo.bookinfo.bookinfo"
             "bookinfo.bookinfo"
         )
+
         for node in "${requiredNodes[@]}"
         do
             status=$(curl -s --request GET --url http://localhost:2746/api/v1/workflows/orkestra/bookinfo | jq --arg node "$node" -r '.status.nodes[] | select(.name==$node) | .phase')
             if [ "$status" == "Succeeded" ]; then
-                outputMessage "SUCCESS" "argo node: $node has succeeded"
+                testSuiteMessage "TEST_PASS" "argo node: $node has succeeded"
             else
-                outputMessage "FAIL" "$node status: $status, Expected Succeeded"
+                testSuiteMessage "TEST_FAIL" "$node status: $status, Expected Succeeded"
             fi
         done
     fi
 }
 
 function validateApplicationGroup {
-    echo "Validating bookinfo applicationgroup"
     bookInfoGroupJson=$(kubectl get applicationgroup bookinfo -o json | jq '.spec.applications')
     
     temp=$(echo "$bookInfoGroupJson" | jq -r '.[0].name')
     if [ "$temp" == "ambassador" ]; then
-        outputMessage "SUCCESS" "ambassador application found"
+        testSuiteMessage "TEST_PASS" "ambassador application found"
     else
-        outputMessage "FAIL" "expected ambassador got $temp"
+        testSuiteMessage "TEST_FAIL" "expected ambassador got $temp"
     fi
 
     temp=$(echo "$bookInfoGroupJson" | jq -r '.[1].name')
     if [ "$temp" == "bookinfo" ]; then
-        outputMessage "SUCCESS" "bookinfo application found"
+        testSuiteMessage "TEST_PASS" "bookinfo application found"
     else
-        outputMessage "FAIL" "expected bookinfo got $temp"
+        testSuiteMessage "TEST_FAIL" "expected bookinfo got $temp"
     fi
 
     subcharts=("details" "productpage" "ratings" "reviews")
@@ -111,41 +133,45 @@ function validateApplicationGroup {
         if [ "$chart" == "productpage" ]; then
             dependency=$(echo "$temp" | jq -r '.dependencies | index( "reviews" )' )
             if [ "$dependency" == "null" ] || [ -z "$dependency" ]; then
-                outputMessage "FAIL" "productpage dependency: reviews not found"
+                testSuiteMessage "TEST_FAIL" "productpage dependency: reviews not found"
             else
-                outputMessage "SUCCESS" "productpage dependency: reviews found"
+                testSuiteMessage "TEST_PASS" "productpage dependency: reviews found"
             fi
         elif [ "$chart" == "reviews" ]; then 
             dependency=$(echo "$temp" | jq -r '.dependencies | index( "details" )' )
             if [ "$dependency" == "null" ] || [ -z "$dependency" ]; then
-                outputMessage "FAIL" "reviews dependency: details not found"
+                testSuiteMessage "TEST_FAIL" "reviews dependency: details not found"
             else
-                outputMessage "SUCCESS" "reviews dependency: details found"
+                testSuiteMessage "TEST_PASS" "reviews dependency: details found"
             fi
 
             dependency=$(echo "$temp" | jq -r '.dependencies | index( "ratings" )' )
             if [ "$dependency" == "null" ] || [ -z "$dependency" ]; then
-                outputMessage "FAIL" "reviews dependency: ratings not found"
+                testSuiteMessage "TEST_FAIL" "reviews dependency: ratings not found"
             else
-                outputMessage "SUCCESS" "reviews dependency: ratings found"
+                testSuiteMessage "TEST_PASS" "reviews dependency: ratings found"
             fi
         fi
         
         if [ -z $temp ]; then
-            outputMessage "FAIL" "Did not find $chart in subcharts"
+            testSuiteMessage "TEST_FAIL" "Did not find $chart in subcharts"
         else
-            outputMessage "SUCCESS" "$chart in subcharts"
+            testSuiteMessage "TEST_PASS" "$chart in subcharts"
         fi
     done
 }
 
 function runValidation {
+    if [ "$OUTPUT_TO_LOG" -eq 1 ]; then
+        resetLogFile
+    fi
     echo Running Validation
     validateOrkestraDeployment
     validateBookInfoDeployment
     validateArgoWorkflow
     validateApplicationGroup
     summary
+    echo DONE
 }
 
 runValidation
