@@ -2,6 +2,8 @@
 
 [![Build Status](https://dev.azure.com/azure/Orkestra/_apis/build/status/Azure.Orkestra?branchName=main)](https://dev.azure.com/azure/Orkestra/_build/latest?definitionId=95&branchName=main)
 
+<p align="center"><img src="./assets/orkestra-core.png" width="750x" /></p>
+
 Orkestra is a cloud-native release orchestration and lifecycle management (LCM) platform for fine-grained orchestration a group of inter-dependent *"Applications"* (and their inter-dependent subcharts). An *"Application"* may be defined as a [Helm](https://helm.sh/) chart or artifact, with or without [subchart](https://helm.sh/docs/helm/helm_dependency) dependencies.
 
 Sophisticated applications require **intelligent** release orchestration and lifecycle management that is not supported by Helm.
