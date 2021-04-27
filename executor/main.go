@@ -9,6 +9,8 @@ import (
 	"time"
 
 	fluxhelm "github.com/fluxcd/helm-controller/api/v2beta1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -60,6 +62,14 @@ func main() {
 		fmt.Printf("Failed to create the clientset with the given config with %v", err)
 		os.Exit(1)
 	}
+
+	ns := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: hr.Namespace,
+		},
+	}
+	// Best try at creating the namespace
+	clientSet.Create(ctx, ns)
 
 	if err := clientSet.Create(ctx, hr); err != nil {
 		fmt.Printf("Failed to create the helmrelease with %v", err)

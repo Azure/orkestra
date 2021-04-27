@@ -151,6 +151,7 @@ spec:
                           items:
                             description: DAG contains the dependency information
                             properties:
+                              dependencies:
                                 description: Dependencies on other applications by name
                                 items:
                                   type: string
@@ -168,6 +169,14 @@ spec:
                       type: object
                   required:
                   - name
+                  type: object
+                type: array
+              interval:
+                description: Interval specifies the between reconciliations of the ApplicationGroup Defaults to 5s for short requeue and 30s for long requeue
+                type: string
+            type: object
+          status:
+            description: ApplicationGroupStatus defines the observed state of ApplicationGroup
             properties:
               conditions:
                 description: Conditions holds the conditions of the ApplicationGroup

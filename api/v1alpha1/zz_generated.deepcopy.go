@@ -102,7 +102,7 @@ func (in *ApplicationGroupSpec) DeepCopyInto(out *ApplicationGroupSpec) {
 	}
 	if in.Interval != nil {
 		in, out := &in.Interval, &out.Interval
-		*out = new(metav1.Duration)
+		*out = new(v1.Duration)
 		**out = **in
 	}
 }
