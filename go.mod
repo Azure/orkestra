@@ -14,6 +14,10 @@ require (
 	github.com/kr/text v0.2.0 // indirect
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
 	github.com/onsi/ginkgo v1.14.2 // indirect
+	github.com/heptiolabs/healthcheck v0.0.0-20180807145615-6ff867650f40 // indirect
+	github.com/jinzhu/copier v0.2.8
+	github.com/mitchellh/hashstructure/v2 v2.0.1
+	go.opencensus.io v0.22.5 // indirect
 	golang.org/x/oauth2 v0.0.0-20200902213428-5d25da1a8d43 // indirect
 	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f // indirect
 	gopkg.in/yaml.v2 v2.4.0

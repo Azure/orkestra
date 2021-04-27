@@ -7,6 +7,7 @@ import (
 	"flag"
 	"os"
 
+	"github.com/Azure/Orkestra/pkg"
 	"github.com/Azure/Orkestra/pkg/registry"
 	"github.com/Azure/Orkestra/pkg/workflow"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -52,6 +53,7 @@ func main() {
 	var tempChartStoreTargetDir string
 	var disableRemediation bool
 	var cleanupDownloadedCharts bool
+	var workflowParallelism int64
 	var debugLevel int
 
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8081", "The address the metric endpoint binds to.")
@@ -63,6 +65,7 @@ func main() {
 	flag.StringVar(&tempChartStoreTargetDir, "chart-store-path", "", "The temporary storage path for the downloaded and staged chart artifacts")
 	flag.BoolVar(&disableRemediation, "disable-remediation", false, "Disable the remediation (delete/rollback) of the workflow on failure (useful if you wish to debug failures in the workflow/executor container")
 	flag.BoolVar(&cleanupDownloadedCharts, "cleanup-downloaded-charts", false, "Enable/disable the cleanup of the charts downloaded to the chart-store-path")
+	flag.Int64Var(&workflowParallelism, "workflow-parallelism", 10, "Specifies the max number of workflow pods that can be executed in parallel")
 	flag.IntVar(&debugLevel, "debug", 0, "Debug log level")
 	flag.Parse()
 
@@ -120,7 +123,7 @@ func main() {
 		Scheme:                  mgr.GetScheme(),
 		RegistryClient:          rc,
 		StagingRepoName:         "staging",
-		Engine:                  workflow.Argo(scheme, mgr.GetClient(), stagingRepoURL),
+		Engine:                  workflow.Argo(scheme, mgr.GetClient(), stagingRepoURL, workflowParallelism),
 		TargetDir:               tempChartStoreTargetDir,
 		Recorder:                mgr.GetEventRecorderFor("appgroup-controller"),
 		DisableRemediation:      disableRemediation,
@@ -130,6 +133,14 @@ func main() {
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
+
+	probe, err := pkg.ProbeHandler(stagingRepoURL, "health")
+	if err != nil {
+		setupLog.Error(err, "unable to start readiness/liveness probes", "controller", "ApplicationGroup")
+		os.Exit(1)
+	}
+
+	probe.Start("8086")
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {

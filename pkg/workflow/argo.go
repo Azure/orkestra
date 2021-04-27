@@ -34,24 +34,22 @@ const (
 	ChartLabelKey   = "chart"
 )
 
-var (
-	timeout int64 = 3600
-)
-
 type argo struct {
 	scheme *runtime.Scheme
 	cli    client.Client
 	wf     *v1alpha12.Workflow
 
 	stagingRepoURL string
+	parallelism    *int64
 }
 
 // Argo implements the Workflow interface for the Argo Workflow based DAG engine
-func Argo(scheme *runtime.Scheme, c client.Client, stagingRepoURL string) *argo { //nolint:golint
+func Argo(scheme *runtime.Scheme, c client.Client, stagingRepoURL string, workflowParallelism int64) *argo { //nolint:golint
 	return &argo{
 		scheme:         scheme,
 		cli:            c,
 		stagingRepoURL: stagingRepoURL,
+		parallelism:    &workflowParallelism,
 	}
 }
 
@@ -72,6 +70,8 @@ func (a *argo) initWorkflowObject() {
 
 	// Initialize the Templates slice
 	a.wf.Spec.Templates = make([]v1alpha12.Template, 0)
+
+	a.wf.Spec.Parallelism = a.parallelism
 }
 
 func (a *argo) Generate(ctx context.Context, l logr.Logger, g *v1alpha1.ApplicationGroup) error {
@@ -227,6 +227,7 @@ func (a *argo) generateAppGroupTpls(ctx context.Context, g *v1alpha1.Application
 			// TBD (nitishm): Do we need to failfast?
 			// FailFast: true
 		},
+		Parallelism: a.parallelism,
 	}
 
 	adt, err := a.generateAppDAGTemplates(ctx, g, a.stagingRepoURL)
@@ -280,7 +281,8 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, g *v1alpha1.Applicat
 		if len(app.Spec.Subcharts) > 0 {
 			hasSubcharts = true
 			t := v1alpha12.Template{
-				Name: pkg.ConvertToDNS1123(app.Name),
+				Name:        pkg.ConvertToDNS1123(app.Name),
+				Parallelism: a.parallelism,
 			}
 
 			t.DAG = &v1alpha12.DAGTemplate{}
@@ -346,7 +348,8 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, g *v1alpha1.Applicat
 			}
 
 			tApp := v1alpha12.Template{
-				Name: pkg.ConvertToDNS1123(app.Name),
+				Name:        pkg.ConvertToDNS1123(app.Name),
+				Parallelism: a.parallelism,
 				DAG: &v1alpha12.DAGTemplate{
 					Tasks: []v1alpha12.DAGTask{
 						{
@@ -607,10 +610,6 @@ func convertSliceToDNS1123(in []string) []string {
 		out = append(out, pkg.ConvertToDNS1123(s))
 	}
 	return out
-}
-
-func boolToBoolPtr(in bool) *bool {
-	return &in
 }
 
 func strToStrPtr(in string) *string {

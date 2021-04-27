@@ -37,7 +37,7 @@ spec:
           - --config
           - /etc/controller/config.yaml
           - --chart-store-path
-          - /etc/orkestra/charts/pull
+          - {{ .Values.chartStorePath }} 
           {{- if .Values.remediation.disabled }}
           - --disable-remediation
           {{- end }}
@@ -52,6 +52,20 @@ spec:
             value: {{ include "orkestra.serviceAccountName" . }} 
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+          # define a liveness probe that checks every 5 seconds, starting after 5 seconds
+          livenessProbe:
+            httpGet:
+              path: /live
+              port: 8086
+            initialDelaySeconds: 5
+            periodSeconds: 5
+
+          # define a readiness probe that checks every 5 seconds
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8086
+            periodSeconds: 5
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

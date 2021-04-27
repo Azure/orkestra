@@ -5,12 +5,27 @@ package v1alpha1
 
 import (
 	"encoding/json"
+	"time"
 
 	"github.com/Azure/Orkestra/pkg/meta"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+const (
+	DefaultProgressingRequeue = 5 * time.Second
+	DefaultSucceededRequeue   = 5 * time.Minute
+)
+
+// GetInterval returns the interval if specified in the application group
+// Otherwise, it returns the default requeue time for the appGroup
+func GetInterval(appGroup *ApplicationGroup) time.Duration {
+	if appGroup.Spec.Interval != nil {
+		return appGroup.Spec.Interval.Duration
+	}
+	return DefaultSucceededRequeue
+}
 
 // ApplicationSpec defines the desired state of Application
 type ApplicationSpec struct {
@@ -133,6 +148,11 @@ type ChartStatus struct {
 type ApplicationGroupSpec struct {
 	// Applications that make up the application group
 	Applications []Application `json:"applications,omitempty"`
+
+	// Interval specifies the between reconciliations of the ApplicationGroup
+	// Defaults to 5s for short requeue and 30s for long requeue
+	// +optional
+	Interval *metav1.Duration `json:"interval,omitempty"`
 }
 
 // Application spec and dependency on other applications

@@ -151,7 +151,6 @@ spec:
                           items:
                             description: DAG contains the dependency information
                             properties:
-                              dependencies:
                                 description: Dependencies on other applications by name
                                 items:
                                   type: string
@@ -169,11 +168,6 @@ spec:
                       type: object
                   required:
                   - name
-                  type: object
-                type: array
-            type: object
-          status:
-            description: ApplicationGroupStatus defines the observed state of ApplicationGroup
             properties:
               conditions:
                 description: Conditions holds the conditions of the ApplicationGroup
