@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	fluxhelm "github.com/fluxcd/helm-controller/api/v2beta1"
+	fluxhelmv2beta1 "github.com/fluxcd/helm-controller/api/v2beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -43,7 +43,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	hr := &fluxhelm.HelmRelease{}
+	hr := &fluxhelmv2beta1.HelmRelease{}
 	yaml.Unmarshal(decodedSpec, hr)
 
 	kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{})
@@ -53,7 +53,7 @@ func main() {
 		os.Exit(1)
 	}
 	scheme := scheme.Scheme
-	if err := fluxhelm.AddToScheme(scheme); err != nil {
+	if err := fluxhelmv2beta1.AddToScheme(scheme); err != nil {
 		fmt.Printf("Failed to add the flux helm scheme to the configuration scheme with %v", err)
 		os.Exit(1)
 	}

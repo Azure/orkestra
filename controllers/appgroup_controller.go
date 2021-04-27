@@ -14,7 +14,7 @@ import (
 	"github.com/Azure/Orkestra/pkg/registry"
 	"github.com/Azure/Orkestra/pkg/workflow"
 	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
-	fluxhelm "github.com/fluxcd/helm-controller/api/v2beta1"
+	fluxhelmv2beta1 "github.com/fluxcd/helm-controller/api/v2beta1"
 	"github.com/go-logr/logr"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
@@ -379,14 +379,14 @@ func (r *ApplicationGroupReconciler) handleRemediation(ctx context.Context, logr
 			logr.Info("Remediating the applicationgroup with helmrelease failure status")
 			for _, app := range g.Status.Applications {
 				switch meta.GetResourceCondition(&app.ChartStatus, meta.ReleasedCondition).Reason {
-				case fluxhelm.InstallFailedReason, fluxhelm.UpgradeFailedReason, fluxhelm.UninstallFailedReason,
-					fluxhelm.ArtifactFailedReason, fluxhelm.InitFailedReason, fluxhelm.GetLastReleaseFailedReason:
+				case fluxhelmv2beta1.InstallFailedReason, fluxhelmv2beta1.UpgradeFailedReason, fluxhelmv2beta1.UninstallFailedReason,
+					fluxhelmv2beta1.ArtifactFailedReason, fluxhelmv2beta1.InitFailedReason, fluxhelmv2beta1.GetLastReleaseFailedReason:
 					listOption := client.MatchingLabels{
 						workflow.OwnershipLabel: g.Name,
 						workflow.HeritageLabel:  workflow.Project,
 						workflow.ChartLabelKey:  app.Name,
 					}
-					helmReleases := fluxhelm.HelmReleaseList{}
+					helmReleases := fluxhelmv2beta1.HelmReleaseList{}
 					err = r.List(ctx, &helmReleases, listOption)
 					if err != nil {
 						logr.Error(err, "failed to find generated HelmRelease instances")
@@ -438,7 +438,7 @@ func (r *ApplicationGroupReconciler) marshallChartStatus(ctx context.Context, ap
 	// XXX (nitishm) Not sure why this happens ???
 	// Lookup all associated HelmReleases for status as well since the Workflow will not always reflect the status of the HelmRelease
 	// Lookup Workflow by ownership and heritage labels
-	helmReleases := fluxhelm.HelmReleaseList{}
+	helmReleases := fluxhelmv2beta1.HelmReleaseList{}
 	err = r.List(ctx, &helmReleases, listOption)
 	if err != nil {
 		r.Log.Error(err, "failed to find generated HelmRelease instance")
@@ -488,8 +488,8 @@ func allHelmReleaseStatus(appGroup orkestrav1alpha1.ApplicationGroup, appConditi
 	for _, conditions := range appConditions {
 		condition := apimeta.FindStatusCondition(conditions, meta.ReadyCondition)
 		switch condition.Reason {
-		case fluxhelm.InstallFailedReason, fluxhelm.UpgradeFailedReason, fluxhelm.UninstallFailedReason,
-			fluxhelm.ArtifactFailedReason, fluxhelm.InitFailedReason, fluxhelm.GetLastReleaseFailedReason:
+		case fluxhelmv2beta1.InstallFailedReason, fluxhelmv2beta1.UpgradeFailedReason, fluxhelmv2beta1.UninstallFailedReason,
+			fluxhelmv2beta1.ArtifactFailedReason, fluxhelmv2beta1.InitFailedReason, fluxhelmv2beta1.GetLastReleaseFailedReason:
 			return ErrHelmReleaseInFailureStatus
 		}
 	}
@@ -500,7 +500,7 @@ func allHelmReleaseStatus(appGroup orkestrav1alpha1.ApplicationGroup, appConditi
 	return nil
 }
 
-func (r *ApplicationGroupReconciler) rollbackFailedHelmReleases(ctx context.Context, hrs []fluxhelm.HelmRelease) error {
+func (r *ApplicationGroupReconciler) rollbackFailedHelmReleases(ctx context.Context, hrs []fluxhelmv2beta1.HelmRelease) error {
 	for _, hr := range hrs {
 		err := pkg.HelmRollback(hr.Spec.ReleaseName, hr.Spec.TargetNamespace)
 		if err != nil {

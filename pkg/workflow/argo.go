@@ -9,7 +9,7 @@ import (
 	"github.com/Azure/Orkestra/api/v1alpha1"
 	"github.com/Azure/Orkestra/pkg"
 	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
-	fluxhelm "github.com/fluxcd/helm-controller/api/v2beta1"
+	fluxhelmv2beta1 "github.com/fluxcd/helm-controller/api/v2beta1"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -297,7 +297,7 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, g *v1alpha1.Applicat
 		}
 
 		if !hasSubcharts {
-			hr := fluxhelm.HelmRelease{
+			hr := fluxhelmv2beta1.HelmRelease{
 				TypeMeta: v1.TypeMeta{
 					Kind:       "HelmRelease",
 					APIVersion: "helm.toolkit.fluxcd.io/v2beta1",
@@ -306,12 +306,12 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, g *v1alpha1.Applicat
 					Name:      pkg.ConvertToDNS1123(app.Name),
 					Namespace: app.Spec.Release.TargetNamespace,
 				},
-				Spec: fluxhelm.HelmReleaseSpec{
-					Chart: fluxhelm.HelmChartTemplate{
-						Spec: fluxhelm.HelmChartTemplateSpec{
+				Spec: fluxhelmv2beta1.HelmReleaseSpec{
+					Chart: fluxhelmv2beta1.HelmChartTemplate{
+						Spec: fluxhelmv2beta1.HelmChartTemplateSpec{
 							Chart:   app.Spec.Chart.Name,
 							Version: app.Spec.Chart.Version,
-							SourceRef: fluxhelm.CrossNamespaceObjectReference{
+							SourceRef: fluxhelmv2beta1.CrossNamespaceObjectReference{
 								Kind:      "HelmRepository",
 								Name:      "chartmuseum",
 								Namespace: workflowNamespace(),
@@ -326,18 +326,18 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, g *v1alpha1.Applicat
 				},
 			}
 			if app.Spec.Release.Install != nil {
-				hr.Spec.Install = &fluxhelm.Install{
+				hr.Spec.Install = &fluxhelmv2beta1.Install{
 					DisableWait: app.Spec.Release.Install.DisableWait,
 				}
 			}
 			if app.Spec.Release.Upgrade != nil {
-				hr.Spec.Upgrade = &fluxhelm.Upgrade{
+				hr.Spec.Upgrade = &fluxhelmv2beta1.Upgrade{
 					DisableWait: app.Spec.Release.Upgrade.DisableWait,
 					Force:       app.Spec.Release.Upgrade.Force,
 				}
 			}
 			if app.Spec.Release.Rollback != nil {
-				hr.Spec.Rollback = &fluxhelm.Rollback{
+				hr.Spec.Rollback = &fluxhelmv2beta1.Rollback{
 					DisableWait: app.Spec.Release.Rollback.DisableWait,
 				}
 			}
@@ -418,7 +418,7 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 		tasks = append(tasks, task)
 	}
 
-	hr := fluxhelm.HelmRelease{
+	hr := fluxhelmv2beta1.HelmRelease{
 		TypeMeta: v1.TypeMeta{
 			Kind:       "HelmRelease",
 			APIVersion: "helm.toolkit.fluxcd.io/v2beta1",
@@ -427,12 +427,12 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 			Name:      pkg.ConvertToDNS1123(app.Name),
 			Namespace: app.Spec.Release.TargetNamespace,
 		},
-		Spec: fluxhelm.HelmReleaseSpec{
-			Chart: fluxhelm.HelmChartTemplate{
-				Spec: fluxhelm.HelmChartTemplateSpec{
+		Spec: fluxhelmv2beta1.HelmReleaseSpec{
+			Chart: fluxhelmv2beta1.HelmChartTemplate{
+				Spec: fluxhelmv2beta1.HelmChartTemplateSpec{
 					Chart:   app.Spec.Chart.Name,
 					Version: app.Spec.Chart.Version,
-					SourceRef: fluxhelm.CrossNamespaceObjectReference{
+					SourceRef: fluxhelmv2beta1.CrossNamespaceObjectReference{
 						Kind:      "HelmRepository",
 						Name:      "chartmuseum",
 						Namespace: workflowNamespace(),
@@ -447,18 +447,18 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 		},
 	}
 	if app.Spec.Release.Install != nil {
-		hr.Spec.Install = &fluxhelm.Install{
+		hr.Spec.Install = &fluxhelmv2beta1.Install{
 			DisableWait: app.Spec.Release.Install.DisableWait,
 		}
 	}
 	if app.Spec.Release.Upgrade != nil {
-		hr.Spec.Upgrade = &fluxhelm.Upgrade{
+		hr.Spec.Upgrade = &fluxhelmv2beta1.Upgrade{
 			DisableWait: app.Spec.Release.Upgrade.DisableWait,
 			Force:       app.Spec.Release.Upgrade.Force,
 		}
 	}
 	if app.Spec.Release.Rollback != nil {
-		hr.Spec.Rollback = &fluxhelm.Rollback{
+		hr.Spec.Rollback = &fluxhelmv2beta1.Rollback{
 			DisableWait: app.Spec.Release.Rollback.DisableWait,
 		}
 	}
@@ -533,7 +533,7 @@ func defaultExecutor() v1alpha12.Template {
 	}
 }
 
-func hrToYAML(hr fluxhelm.HelmRelease) string {
+func hrToYAML(hr fluxhelmv2beta1.HelmRelease) string {
 	b, err := yaml.Marshal(hr)
 	if err != nil {
 		return ""
@@ -542,8 +542,8 @@ func hrToYAML(hr fluxhelm.HelmRelease) string {
 	return string(b)
 }
 
-func generateSubchartHelmRelease(a v1alpha1.Application, appName, scName, version, repo, targetNS string, isStaged bool) (*fluxhelm.HelmRelease, error) {
-	hr := &fluxhelm.HelmRelease{
+func generateSubchartHelmRelease(a v1alpha1.Application, appName, scName, version, repo, targetNS string, isStaged bool) (*fluxhelmv2beta1.HelmRelease, error) {
+	hr := &fluxhelmv2beta1.HelmRelease{
 		TypeMeta: v1.TypeMeta{
 			Kind:       "HelmRelease",
 			APIVersion: "helm.toolkit.fluxcd.io/v2beta1",
@@ -552,12 +552,12 @@ func generateSubchartHelmRelease(a v1alpha1.Application, appName, scName, versio
 			Name:      pkg.ConvertToDNS1123(pkg.ToInitials(appName) + "-" + scName),
 			Namespace: targetNS,
 		},
-		Spec: fluxhelm.HelmReleaseSpec{
-			Chart: fluxhelm.HelmChartTemplate{
-				Spec: fluxhelm.HelmChartTemplateSpec{
+		Spec: fluxhelmv2beta1.HelmReleaseSpec{
+			Chart: fluxhelmv2beta1.HelmChartTemplate{
+				Spec: fluxhelmv2beta1.HelmChartTemplateSpec{
 					Chart:   pkg.ConvertToDNS1123(pkg.ToInitials(appName) + "-" + scName),
 					Version: version,
-					SourceRef: fluxhelm.CrossNamespaceObjectReference{
+					SourceRef: fluxhelmv2beta1.CrossNamespaceObjectReference{
 						Kind:      "HelmRepository",
 						Name:      "chartmuseum",
 						Namespace: workflowNamespace(),
@@ -567,10 +567,10 @@ func generateSubchartHelmRelease(a v1alpha1.Application, appName, scName, versio
 			ReleaseName:     pkg.ConvertToDNS1123(scName),
 			TargetNamespace: targetNS,
 			Timeout:         a.Spec.Release.Timeout,
-			Install: &fluxhelm.Install{
+			Install: &fluxhelmv2beta1.Install{
 				DisableWait: false,
 			},
-			Upgrade: &fluxhelm.Upgrade{
+			Upgrade: &fluxhelmv2beta1.Upgrade{
 				DisableWait: false,
 			},
 		},
