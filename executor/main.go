@@ -87,8 +87,9 @@ func main() {
 			os.Exit(1)
 		}
 	} else {
-		patch := client.MergeFrom(instance)
-		if err := clientSet.Patch(ctx, hr, patch); err != nil {
+		instance.Labels = hr.Labels
+		instance.Spec = hr.Spec
+		if err := clientSet.Update(ctx, instance); err != nil {
 			fmt.Printf("Failed to update the helmrelease with %v", err)
 			os.Exit(1)
 		}

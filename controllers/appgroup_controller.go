@@ -539,15 +539,6 @@ func (r *ApplicationGroupReconciler) cleanupWorkflow(ctx context.Context, logr l
 
 		for _, bucket := range rev {
 			for _, hr := range bucket {
-				err = pkg.HelmUninstall(hr.Spec.ReleaseName, hr.Spec.TargetNamespace)
-				if err != nil {
-					logr.Error(err, "failed to uninstall helm release using helm actions - continuing with cleanup")
-				}
-			}
-		}
-
-		for _, bucket := range rev {
-			for _, hr := range bucket {
 				err = r.Client.Delete(ctx, &hr)
 				if err != nil {
 					logr.Error(err, "failed to delete helmrelease CRO - continuing with cleanup")
