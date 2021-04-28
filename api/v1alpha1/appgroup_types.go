@@ -106,11 +106,11 @@ type ReleaseRollbackSpec struct {
 type ChartRef struct {
 	// The Helm repository URL, a valid URL contains at least a protocol and host.
 	// +required
-	Url string `json:"url"`
+	Url string `json:"url"` //nolint: golint
 
 	// The name or path the Helm chart is available at in the SourceRef.
 	// +required
-	Name string `json:"name"`
+	Name string `json:"name"` //nolint: golint
 
 	// Version semver expression, ignored for charts from v1beta1.GitRepository and
 	// v1beta1.Bucket sources. Defaults to latest when omitted.
@@ -331,7 +331,7 @@ func (in *ChartStatus) GetStatusConditions() *[]metav1.Condition {
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 // ApplicationGroup is the Schema for the applicationgroups API
-type ApplicationGroup struct {
+type ApplicationGroup struct { //nolint: gocritic
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 

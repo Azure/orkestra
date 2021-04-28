@@ -8,15 +8,6 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
-func helmValues(v string) map[string]interface{} {
-	out := make(map[string]interface{})
-	err := json.Unmarshal([]byte(v), &out)
-	if err != nil {
-		panic(err)
-	}
-	return out
-}
-
 func Test_subchartValues(t *testing.T) {
 	type args struct {
 		sc string
@@ -79,7 +70,7 @@ func Test_subchartValues(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			values := make(map[string]interface{})
-			json.Unmarshal(tt.args.av.Raw, &values)
+			_ = json.Unmarshal(tt.args.av.Raw, &values)
 			if got, _ := subchartValues(tt.args.sc, values); !cmp.Equal(got, tt.want) {
 				t.Errorf("subchartValues() = %v", cmp.Diff(got, tt.want))
 			}

@@ -462,7 +462,6 @@ func (r *ApplicationGroupReconciler) marshallChartStatus(ctx context.Context, ap
 			}
 			subChartConditionMap[parent][hr.Spec.ReleaseName] = append(subChartConditionMap[parent][hr.Spec.ReleaseName], hr.Status.Conditions...)
 		}
-
 	}
 	return chartConditionMap, subChartConditionMap, nil
 }
