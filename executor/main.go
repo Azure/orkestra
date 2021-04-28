@@ -5,10 +5,10 @@ import (
 	"encoding/base64"
 	"flag"
 	"fmt"
-	"os"
 	"time"
 
 	fluxhelmv2beta1 "github.com/fluxcd/helm-controller/api/v2beta1"
+	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -34,13 +34,12 @@ func main() {
 	flag.Parse()
 
 	if spec == "" {
-		os.Exit(1)
+		log.Fatal("Spec is empty, unable to apply an empty spec on the cluster")
 	}
 
 	decodedSpec, err := base64.StdEncoding.DecodeString(spec)
 	if err != nil {
-		fmt.Printf("Failed to decode the string as a base64 string; got the string %v", spec)
-		os.Exit(1)
+		log.Fatalf("Failed to decode the string as a base64 string; got the string %v", spec)
 	}
 
 	hr := &fluxhelmv2beta1.HelmRelease{}
@@ -49,18 +48,15 @@ func main() {
 	kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{})
 	config, err := kubeConfig.ClientConfig()
 	if err != nil {
-		fmt.Printf("Failed to initialize the client config with %v", err)
-		os.Exit(1)
+		log.Fatalf("Failed to initialize the client config with %v", err)
 	}
 	scheme := scheme.Scheme
 	if err := fluxhelmv2beta1.AddToScheme(scheme); err != nil {
-		fmt.Printf("Failed to add the flux helm scheme to the configuration scheme with %v", err)
-		os.Exit(1)
+		log.Fatalf("Failed to add the flux helm scheme to the configuration scheme with %v", err)
 	}
 	clientSet, err := client.New(config, client.Options{Scheme: scheme})
 	if err != nil {
-		fmt.Printf("Failed to create the clientset with the given config with %v", err)
-		os.Exit(1)
+		log.Fatalf("Failed to create the clientset with the given config with %v", err)
 	}
 
 	ns := &corev1.Namespace{
@@ -78,20 +74,17 @@ func main() {
 		Namespace: hr.Namespace,
 	}
 	if err := clientSet.Get(ctx, key, instance); client.IgnoreNotFound(err) != nil {
-		fmt.Printf("Failed to get instance of the helmrelease with %v", err)
-		os.Exit(1)
+		log.Fatalf("Failed to get instance of the helmrelease with %v", err)
 	} else if err != nil {
 		// This means that the object was not found
 		if err := clientSet.Create(ctx, hr); err != nil {
-			fmt.Printf("Failed to create the helmrelease with %v", err)
-			os.Exit(1)
+			log.Fatalf("Failed to create the helmrelease with %v", err)
 		}
 	} else {
 		instance.Labels = hr.Labels
 		instance.Spec = hr.Spec
 		if err := clientSet.Update(ctx, instance); err != nil {
-			fmt.Printf("Failed to update the helmrelease with %v", err)
-			os.Exit(1)
+			log.Fatalf("Failed to update the helmrelease with %v", err)
 		}
 	}
 
@@ -106,8 +99,7 @@ func main() {
 
 	// We give the poller two minutes before we time it out
 	if err := PollStatus(ctx, clientSet, config, time.Minute*2, identifiers); err != nil {
-		fmt.Printf("%v", err)
-		os.Exit(1)
+		log.Fatalf("%v", err)
 	}
 }
 
