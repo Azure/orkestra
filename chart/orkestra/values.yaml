@@ -65,20 +65,7 @@ chartmuseum:
   interval: 5m
   env:
     open:
-      DISABLE_API: false 
-
-helm-operator:
-  workers: 10
-  enabled: false
-  rbac:
-    create: false 
-    pspEnabled: false 
-  serviceAccount:
-    create: false 
-    annotations: {}
-    name: *serviceAccount
-  helm:
-    versions: "v3"
+      DISABLE_API: false
 
 argo:
   images:
