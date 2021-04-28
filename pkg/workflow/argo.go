@@ -2,15 +2,18 @@ package workflow
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/Azure/Orkestra/api/v1alpha1"
 	"github.com/Azure/Orkestra/pkg"
 	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
-	helmopv1 "github.com/fluxcd/helm-operator/pkg/apis/helm.fluxcd.io/v1"
+	fluxhelmv2beta1 "github.com/fluxcd/helm-controller/api/v2beta1"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -242,7 +245,7 @@ func (a *argo) generateAppGroupTpls(ctx context.Context, g *v1alpha1.Application
 
 	// TODO: Add the executor template
 	// This should eventually be configurable
-	a.updateWorkflowTemplates(defaultExecutor())
+	a.updateWorkflowTemplates(defaultExecutor(5 * time.Minute))
 
 	return nil
 }
@@ -295,41 +298,54 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, g *v1alpha1.Applicat
 		}
 
 		if !hasSubcharts {
-			hr := helmopv1.HelmRelease{
+			hr := fluxhelmv2beta1.HelmRelease{
 				TypeMeta: v1.TypeMeta{
 					Kind:       "HelmRelease",
-					APIVersion: "helm.fluxcd.io/v1",
+					APIVersion: "helm.toolkit.fluxcd.io/v2beta1",
 				},
 				ObjectMeta: v1.ObjectMeta{
 					Name:      pkg.ConvertToDNS1123(app.Name),
 					Namespace: app.Spec.Release.TargetNamespace,
 				},
-				Spec: helmopv1.HelmReleaseSpec{
-					HelmVersion: helmopv1.HelmVersion(app.Spec.Release.HelmVersion),
-					ChartSource: helmopv1.ChartSource{
-						GitChartSource:  &app.Spec.Chart.GitChartSource,
-						RepoChartSource: &app.Spec.Chart.RepoChartSource,
+				Spec: fluxhelmv2beta1.HelmReleaseSpec{
+					Chart: fluxhelmv2beta1.HelmChartTemplate{
+						Spec: fluxhelmv2beta1.HelmChartTemplateSpec{
+							Chart:   app.Spec.Chart.Name,
+							Version: app.Spec.Chart.Version,
+							SourceRef: fluxhelmv2beta1.CrossNamespaceObjectReference{
+								Kind:      "HelmRepository",
+								Name:      "chartmuseum",
+								Namespace: workflowNamespace(),
+							},
+						},
 					},
-					ReleaseName:     app.Name,
+					Interval:        app.Spec.Release.Interval,
+					ReleaseName:     pkg.ConvertToDNS1123(app.Name),
 					TargetNamespace: app.Spec.Release.TargetNamespace,
 					Timeout:         app.Spec.Release.Timeout,
-					Wait:            app.Spec.Release.Wait,
-					ForceUpgrade:    app.Spec.Release.ForceUpgrade,
 					Values:          app.Spec.Release.Values,
 				},
 			}
-
-			hr.Spec.ReleaseName = pkg.ConvertToDNS1123(app.Name)
-
+			if app.Spec.Release.Install != nil {
+				hr.Spec.Install = &fluxhelmv2beta1.Install{
+					DisableWait: app.Spec.Release.Install.DisableWait,
+				}
+			}
+			if app.Spec.Release.Upgrade != nil {
+				hr.Spec.Upgrade = &fluxhelmv2beta1.Upgrade{
+					DisableWait: app.Spec.Release.Upgrade.DisableWait,
+					Force:       app.Spec.Release.Upgrade.Force,
+				}
+			}
+			if app.Spec.Release.Rollback != nil {
+				hr.Spec.Rollback = &fluxhelmv2beta1.Rollback{
+					DisableWait: app.Spec.Release.Rollback.DisableWait,
+				}
+			}
 			hr.Labels = map[string]string{
 				ChartLabelKey:  app.Name,
 				OwnershipLabel: g.Name,
 				HeritageLabel:  Project,
-			}
-			// hr.Spec.RepoChartSource.RepoURL = repo
-
-			if appStatus.Staged {
-				hr.Spec.RepoURL = repo
 			}
 
 			tApp := v1alpha12.Template{
@@ -344,7 +360,7 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, g *v1alpha1.Applicat
 								Parameters: []v1alpha12.Parameter{
 									{
 										Name:  helmReleaseArg,
-										Value: strToStrPtr(hrToYAML(hr)),
+										Value: strToStrPtr(base64.StdEncoding.EncodeToString([]byte(hrToYAML(hr)))),
 									},
 								},
 							},
@@ -373,7 +389,10 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 		isStaged := subchartsStatus[scName].Staged
 		version := subchartsStatus[scName].Version
 
-		hr := generateSubchartHelmRelease(*app, app.Name, scName, version, repo, targetNS, isStaged)
+		hr, err := generateSubchartHelmRelease(*app, app.Name, scName, version, repo, targetNS, isStaged)
+		if err != nil {
+			return nil, err
+		}
 		hr.Annotations = map[string]string{
 			"orkestra/parent-chart": app.Name,
 		}
@@ -390,7 +409,7 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 				Parameters: []v1alpha12.Parameter{
 					{
 						Name:  helmReleaseArg,
-						Value: strToStrPtr(hrToYAML(hr)),
+						Value: strToStrPtr(base64.StdEncoding.EncodeToString([]byte(hrToYAML(*hr)))),
 					},
 				},
 			},
@@ -400,48 +419,69 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 		tasks = append(tasks, task)
 	}
 
-	hr := helmopv1.HelmRelease{
+	hr := fluxhelmv2beta1.HelmRelease{
 		TypeMeta: v1.TypeMeta{
 			Kind:       "HelmRelease",
-			APIVersion: "helm.fluxcd.io/v1",
+			APIVersion: "helm.toolkit.fluxcd.io/v2beta1",
 		},
 		ObjectMeta: v1.ObjectMeta{
 			Name:      pkg.ConvertToDNS1123(app.Name),
 			Namespace: app.Spec.Release.TargetNamespace,
 		},
-		Spec: helmopv1.HelmReleaseSpec{
-			HelmVersion: helmopv1.HelmVersion(app.Spec.Release.HelmVersion),
-			ChartSource: helmopv1.ChartSource{
-				GitChartSource:  &app.Spec.Chart.GitChartSource,
-				RepoChartSource: &app.Spec.Chart.RepoChartSource,
+		Spec: fluxhelmv2beta1.HelmReleaseSpec{
+			Chart: fluxhelmv2beta1.HelmChartTemplate{
+				Spec: fluxhelmv2beta1.HelmChartTemplateSpec{
+					Chart:   app.Spec.Chart.Name,
+					Version: app.Spec.Chart.Version,
+					SourceRef: fluxhelmv2beta1.CrossNamespaceObjectReference{
+						Kind:      "HelmRepository",
+						Name:      "chartmuseum",
+						Namespace: workflowNamespace(),
+					},
+				},
 			},
-			ReleaseName:     app.Name,
+			Interval:        app.Spec.Release.Interval,
+			ReleaseName:     pkg.ConvertToDNS1123(app.Name),
 			TargetNamespace: app.Spec.Release.TargetNamespace,
 			Timeout:         app.Spec.Release.Timeout,
-			Wait:            app.Spec.Release.Wait,
-			ForceUpgrade:    app.Spec.Release.ForceUpgrade,
 			Values:          app.Spec.Release.Values,
 		},
 	}
-
-	hr.Spec.ReleaseName = pkg.ConvertToDNS1123(app.Name)
-
+	if app.Spec.Release.Install != nil {
+		hr.Spec.Install = &fluxhelmv2beta1.Install{
+			DisableWait: app.Spec.Release.Install.DisableWait,
+		}
+	}
+	if app.Spec.Release.Upgrade != nil {
+		hr.Spec.Upgrade = &fluxhelmv2beta1.Upgrade{
+			DisableWait: app.Spec.Release.Upgrade.DisableWait,
+			Force:       app.Spec.Release.Upgrade.Force,
+		}
+	}
+	if app.Spec.Release.Rollback != nil {
+		hr.Spec.Rollback = &fluxhelmv2beta1.Rollback{
+			DisableWait: app.Spec.Release.Rollback.DisableWait,
+		}
+	}
 	hr.Labels = map[string]string{
 		ChartLabelKey:  app.Name,
 		OwnershipLabel: g.Name,
 		HeritageLabel:  Project,
 	}
 
-	hr.Spec.RepoURL = repo
-
 	// Force disable all subchart for the staged application chart
 	// to prevent duplication and possible collision of deployed resources
 	// Since the subchart should have been deployed in a prior DAG step,
 	// we must not redeploy it along with the parent application chart.
+
+	values := app.GetValues()
 	for _, d := range app.Spec.Subcharts {
-		hr.Spec.Values.Data[d.Name] = map[string]interface{}{
+		values[d.Name] = map[string]interface{}{
 			"enabled": false,
 		}
+	}
+	if err := app.SetValues(values); err != nil {
+		return nil, err
 	}
 
 	task := v1alpha12.DAGTask{
@@ -451,7 +491,7 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 			Parameters: []v1alpha12.Parameter{
 				{
 					Name:  helmReleaseArg,
-					Value: strToStrPtr(hrToYAML(hr)),
+					Value: strToStrPtr(base64.StdEncoding.EncodeToString([]byte(hrToYAML(hr)))),
 				},
 			},
 		},
@@ -462,7 +502,6 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 			return out
 		}(),
 	}
-
 	tasks = append(tasks, task)
 
 	return tasks, nil
@@ -472,7 +511,8 @@ func (a *argo) updateWorkflowTemplates(tpls ...v1alpha12.Template) {
 	a.wf.Spec.Templates = append(a.wf.Spec.Templates, tpls...)
 }
 
-func defaultExecutor() v1alpha12.Template {
+func defaultExecutor(timeout time.Duration) v1alpha12.Template {
+	executorArgs := []string{"--spec", "{{inputs.parameters.helmrelease}}", "--timeout", timeout.String()}
 	return v1alpha12.Template{
 		Name:               helmReleaseExecutor,
 		ServiceAccountName: workflowServiceAccountName(),
@@ -487,17 +527,15 @@ func defaultExecutor() v1alpha12.Template {
 			ServiceAccountName: workflowServiceAccountName(),
 		},
 		Outputs: v1alpha12.Outputs{},
-		Resource: &v1alpha12.ResourceTemplate{
-			// SetOwnerReference: true,
-			Action:           "apply",
-			Manifest:         "{{inputs.parameters.helmrelease}}",
-			SuccessCondition: "status.phase == Succeeded",
-			FailureCondition: "status.phase == Failed",
+		Container: &corev1.Container{
+			Name:  "executor",
+			Image: "azureorkestra/executor:v0.1.0",
+			Args:  executorArgs,
 		},
 	}
 }
 
-func hrToYAML(hr helmopv1.HelmRelease) string {
+func hrToYAML(hr fluxhelmv2beta1.HelmRelease) string {
 	b, err := yaml.Marshal(hr)
 	if err != nil {
 		return ""
@@ -506,61 +544,66 @@ func hrToYAML(hr helmopv1.HelmRelease) string {
 	return string(b)
 }
 
-func generateSubchartHelmRelease(app v1alpha1.Application, appName, scName, version, repo, targetNS string, isStaged bool) helmopv1.HelmRelease {
-	hr := helmopv1.HelmRelease{
+func generateSubchartHelmRelease(a v1alpha1.Application, appName, scName, version, repo, targetNS string, isStaged bool) (*fluxhelmv2beta1.HelmRelease, error) {
+	hr := &fluxhelmv2beta1.HelmRelease{
 		TypeMeta: v1.TypeMeta{
 			Kind:       "HelmRelease",
-			APIVersion: "helm.fluxcd.io/v1",
+			APIVersion: "helm.toolkit.fluxcd.io/v2beta1",
 		},
 		ObjectMeta: v1.ObjectMeta{
 			Name:      pkg.ConvertToDNS1123(pkg.ToInitials(appName) + "-" + scName),
 			Namespace: targetNS,
 		},
-		Spec: helmopv1.HelmReleaseSpec{
-			HelmVersion: helmopv1.HelmVersion(app.Spec.Release.HelmVersion),
-			ReleaseName: pkg.ConvertToDNS1123(scName),
-			ChartSource: helmopv1.ChartSource{
-				RepoChartSource: &helmopv1.RepoChartSource{},
+		Spec: fluxhelmv2beta1.HelmReleaseSpec{
+			Chart: fluxhelmv2beta1.HelmChartTemplate{
+				Spec: fluxhelmv2beta1.HelmChartTemplateSpec{
+					Chart:   pkg.ConvertToDNS1123(pkg.ToInitials(appName) + "-" + scName),
+					Version: version,
+					SourceRef: fluxhelmv2beta1.CrossNamespaceObjectReference{
+						Kind:      "HelmRepository",
+						Name:      "chartmuseum",
+						Namespace: workflowNamespace(),
+					},
+				},
 			},
+			ReleaseName:     pkg.ConvertToDNS1123(scName),
 			TargetNamespace: targetNS,
-			Timeout:         app.Spec.Release.Timeout,
-			Wait:            app.Spec.Release.Wait,
-			ForceUpgrade:    app.Spec.Release.ForceUpgrade,
-			Values:          app.Spec.Release.Values,
+			Timeout:         a.Spec.Release.Timeout,
+			Install: &fluxhelmv2beta1.Install{
+				DisableWait: false,
+			},
+			Upgrade: &fluxhelmv2beta1.Upgrade{
+				DisableWait: false,
+			},
 		},
 	}
 
-	// NOTE: Ownership label is added in the caller function
-	hr.Spec.ChartSource.RepoChartSource = &app.DeepCopy().Spec.Chart.RepoChartSource
-	hr.Spec.ChartSource.RepoChartSource.Name = pkg.ConvertToDNS1123(pkg.ToInitials(appName) + "-" + scName)
-	hr.Spec.ChartSource.RepoChartSource.RepoURL = repo
-	hr.Spec.ChartSource.RepoChartSource.Version = version
-
-	hr.Spec.Values = subchartValues(scName, app.Spec.Release.Values)
-
-	return hr
+	val, err := subchartValues(scName, a.GetValues())
+	if err != nil {
+		return nil, err
+	}
+	hr.Spec.Values = val
+	return hr, nil
 }
 
-func subchartValues(sc string, av helmopv1.HelmValues) helmopv1.HelmValues {
-	v := helmopv1.HelmValues{
-		Data: make(map[string]interface{}),
-	}
+func subchartValues(sc string, values map[string]interface{}) (*apiextensionsv1.JSON, error) {
+	data := make(map[string]interface{})
 
-	if scVals, ok := av.Data[sc]; ok {
+	if scVals, ok := values[sc]; ok {
 		if vv, ok := scVals.(map[string]interface{}); ok {
 			for k, val := range vv {
-				v.Data[k] = val
+				data[k] = val
 			}
 		}
 	}
 
-	if gVals, ok := av.Data[valuesKeyGlobal]; ok {
+	if gVals, ok := values[valuesKeyGlobal]; ok {
 		if vv, ok := gVals.(map[string]interface{}); ok {
-			v.Data[valuesKeyGlobal] = vv
+			data[valuesKeyGlobal] = vv
 		}
 	}
 
-	return v
+	return v1alpha1.GetJSON(data)
 }
 
 func convertSliceToDNS1123(in []string) []string {

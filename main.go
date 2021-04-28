@@ -19,7 +19,7 @@ import (
 	orkestrav1alpha1 "github.com/Azure/Orkestra/api/v1alpha1"
 	"github.com/Azure/Orkestra/controllers"
 	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
-	helmopv1 "github.com/fluxcd/helm-operator/pkg/apis/helm.fluxcd.io/v1"
+	fluxhelmv2beta1 "github.com/fluxcd/helm-controller/api/v2beta1"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -42,7 +42,7 @@ func init() {
 	_ = v1alpha12.AddToScheme(scheme)
 
 	// Add HelmRelease scheme to operator
-	_ = helmopv1.AddToScheme(scheme)
+	_ = fluxhelmv2beta1.AddToScheme(scheme)
 }
 
 func main() {
