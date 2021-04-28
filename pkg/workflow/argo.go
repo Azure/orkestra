@@ -73,6 +73,10 @@ func (a *argo) initWorkflowObject() {
 	a.wf.Spec.Templates = make([]v1alpha12.Template, 0)
 
 	a.wf.Spec.Parallelism = a.parallelism
+
+	a.wf.Spec.PodGC = &v1alpha12.PodGC{
+		Strategy: v1alpha12.PodGCOnWorkflowCompletion,
+	}
 }
 
 func (a *argo) Generate(ctx context.Context, l logr.Logger, g *v1alpha1.ApplicationGroup) error {
