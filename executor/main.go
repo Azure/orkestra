@@ -90,6 +90,7 @@ func main() {
 			log.Fatalf("Failed to create the helmrelease with %v", err)
 		}
 	} else {
+		instance.Annotations = hr.Annotations
 		instance.Labels = hr.Labels
 		instance.Spec = hr.Spec
 		if err := clientSet.Update(ctx, instance); err != nil {

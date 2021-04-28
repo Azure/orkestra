@@ -23,11 +23,11 @@ func Test_subchartValues(t *testing.T) {
 			args: args{
 				sc: "subchart",
 				av: apiextensionsv1.JSON{
-					Raw: []byte(`{"global": {"keyG": "valueG"},"subchart": {"keySC": "valueSC"}}`),
+					Raw: []byte(`{"global":{"keyG":"valueG"},"subchart":{"keySC":"valueSC"}}`),
 				},
 			},
 			want: apiextensionsv1.JSON{
-				Raw: []byte(`{"global": {"keyG": "valueG"},"keySC": "valueSC"}`),
+				Raw: []byte(`{"global":{"keyG":"valueG"},"keySC":"valueSC"}`),
 			},
 		},
 		{
@@ -35,11 +35,11 @@ func Test_subchartValues(t *testing.T) {
 			args: args{
 				sc: "subchart",
 				av: apiextensionsv1.JSON{
-					Raw: []byte(`{"global": {"keyG": "valueG"}}`),
+					Raw: []byte(`{"global":{"keyG":"valueG"}}`),
 				},
 			},
 			want: apiextensionsv1.JSON{
-				Raw: []byte(`{"global": {"keyG": "valueG"}}`),
+				Raw: []byte(`{"global":{"keyG":"valueG"}}`),
 			},
 		},
 		{
@@ -47,11 +47,11 @@ func Test_subchartValues(t *testing.T) {
 			args: args{
 				sc: "subchart",
 				av: apiextensionsv1.JSON{
-					Raw: []byte(`{"subchart": {"keySC": "valueSC"}}`),
+					Raw: []byte(`{"subchart":{"keySC":"valueSC"}}`),
 				},
 			},
 			want: apiextensionsv1.JSON{
-				Raw: []byte(`{"keySC": "valueSC"}`),
+				Raw: []byte(`{"keySC":"valueSC"}`),
 			},
 		},
 		{
@@ -63,7 +63,7 @@ func Test_subchartValues(t *testing.T) {
 				},
 			},
 			want: apiextensionsv1.JSON{
-				Raw: []byte(""),
+				Raw: []byte("{}"),
 			},
 		},
 	}
@@ -71,8 +71,8 @@ func Test_subchartValues(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			values := make(map[string]interface{})
 			_ = json.Unmarshal(tt.args.av.Raw, &values)
-			if got, _ := subchartValues(tt.args.sc, values); !cmp.Equal(got, tt.want) {
-				t.Errorf("subchartValues() = %v", cmp.Diff(got, tt.want))
+			if got, _ := subchartValues(tt.args.sc, values); !cmp.Equal(*got, tt.want) {
+				t.Errorf("subchartValues() = %v", cmp.Diff(*got, tt.want))
 			}
 		})
 	}
