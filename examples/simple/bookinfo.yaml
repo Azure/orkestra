@@ -32,7 +32,7 @@ spec:
       dependencies: [ambassador]
       spec:
         chart:
-          url: "https://nitishm.github.io/istio-bookinfo-chart"
+          url: "https://nitishm.github.io/charts"
           name: bookinfo 
           version: v1
         subcharts:

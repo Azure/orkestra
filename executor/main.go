@@ -28,10 +28,17 @@ import (
 
 func main() {
 	var spec string
+	var timeoutStr string
 	ctx := context.Background()
 
-	flag.StringVar(&spec, "spec", "", "The spec of the helmrelease object to apply")
+	flag.StringVar(&spec, "spec", "", "Spec of the helmrelease object to apply")
+	flag.StringVar(&timeoutStr, "timeout", "5m", "Timeout for the execution of the argo workflow task")
 	flag.Parse()
+
+	timeout, err := time.ParseDuration(timeoutStr)
+	if err != nil {
+		log.Fatalf("Failed to parse timeout as a duration with %v", err)
+	}
 
 	if spec == "" {
 		log.Fatal("Spec is empty, unable to apply an empty spec on the cluster")
@@ -43,18 +50,20 @@ func main() {
 	}
 
 	hr := &fluxhelmv2beta1.HelmRelease{}
-	yaml.Unmarshal(decodedSpec, hr)
+	if err := yaml.Unmarshal(decodedSpec, hr); err != nil {
+		log.Fatalf("Failed to decode the spec into yaml with the err %v", err)
+	}
 
 	kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(clientcmd.NewDefaultClientConfigLoadingRules(), &clientcmd.ConfigOverrides{})
 	config, err := kubeConfig.ClientConfig()
 	if err != nil {
 		log.Fatalf("Failed to initialize the client config with %v", err)
 	}
-	scheme := scheme.Scheme
-	if err := fluxhelmv2beta1.AddToScheme(scheme); err != nil {
+	k8sScheme := scheme.Scheme
+	if err := fluxhelmv2beta1.AddToScheme(k8sScheme); err != nil {
 		log.Fatalf("Failed to add the flux helm scheme to the configuration scheme with %v", err)
 	}
-	clientSet, err := client.New(config, client.Options{Scheme: scheme})
+	clientSet, err := client.New(config, client.Options{Scheme: k8sScheme})
 	if err != nil {
 		log.Fatalf("Failed to create the clientset with the given config with %v", err)
 	}
@@ -98,7 +107,7 @@ func main() {
 	}
 
 	// We give the poller two minutes before we time it out
-	if err := PollStatus(ctx, clientSet, config, time.Minute*2, identifiers); err != nil {
+	if err := PollStatus(ctx, clientSet, config, timeout, identifiers); err != nil {
 		log.Fatalf("%v", err)
 	}
 }

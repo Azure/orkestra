@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/Azure/Orkestra/api/v1alpha1"
 	"github.com/Azure/Orkestra/pkg"
@@ -244,7 +245,7 @@ func (a *argo) generateAppGroupTpls(ctx context.Context, g *v1alpha1.Application
 
 	// TODO: Add the executor template
 	// This should eventually be configurable
-	a.updateWorkflowTemplates(defaultExecutor())
+	a.updateWorkflowTemplates(defaultExecutor(5 * time.Minute))
 
 	return nil
 }
@@ -510,7 +511,8 @@ func (a *argo) updateWorkflowTemplates(tpls ...v1alpha12.Template) {
 	a.wf.Spec.Templates = append(a.wf.Spec.Templates, tpls...)
 }
 
-func defaultExecutor() v1alpha12.Template {
+func defaultExecutor(timeout time.Duration) v1alpha12.Template {
+	executorArgs := []string{"--spec", "{{inputs.parameters.helmrelease}}", "--timeout", timeout.String()}
 	return v1alpha12.Template{
 		Name:               helmReleaseExecutor,
 		ServiceAccountName: workflowServiceAccountName(),
@@ -528,7 +530,7 @@ func defaultExecutor() v1alpha12.Template {
 		Container: &corev1.Container{
 			Name:  "executor",
 			Image: "azureorkestra/executor:v0.1.0",
-			Args:  []string{"--spec", "{{inputs.parameters.helmrelease}}"},
+			Args:  executorArgs,
 		},
 	}
 }
