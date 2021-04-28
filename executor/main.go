@@ -68,12 +68,30 @@ func main() {
 			Name: hr.Namespace,
 		},
 	}
-	// Best try at creating the namespace
+
+	// Best try at creating the namespace if it doesn't exist
 	clientSet.Create(ctx, ns)
 
-	if err := clientSet.Create(ctx, hr); err != nil {
-		fmt.Printf("Failed to create the helmrelease with %v", err)
+	instance := &fluxhelmv2beta1.HelmRelease{}
+	key := client.ObjectKey{
+		Name:      hr.Name,
+		Namespace: hr.Namespace,
+	}
+	if err := clientSet.Get(ctx, key, instance); client.IgnoreNotFound(err) != nil {
+		fmt.Printf("Failed to get instance of the helmrelease with %v", err)
 		os.Exit(1)
+	} else if err != nil {
+		// This means that the object was not found
+		if err := clientSet.Create(ctx, hr); err != nil {
+			fmt.Printf("Failed to create the helmrelease with %v", err)
+			os.Exit(1)
+		}
+	} else {
+		patch := client.MergeFrom(instance)
+		if err := clientSet.Patch(ctx, hr, patch); err != nil {
+			fmt.Printf("Failed to update the helmrelease with %v", err)
+			os.Exit(1)
+		}
 	}
 
 	identifiers := object.ObjMetadata{
@@ -85,7 +103,7 @@ func main() {
 		},
 	}
 
-	// We give the poller a minute before we time it out
+	// We give the poller two minutes before we time it out
 	if err := PollStatus(ctx, clientSet, config, time.Minute*2, identifiers); err != nil {
 		fmt.Printf("%v", err)
 		os.Exit(1)
