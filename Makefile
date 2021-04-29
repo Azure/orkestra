@@ -84,6 +84,5 @@ else
 CONTROLLER_GEN=$(shell which controller-gen)
 endif
 
-
 test-e2e:
 	./testing/validation.sh

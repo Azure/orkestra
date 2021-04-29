@@ -2,7 +2,7 @@ const { events, Job } = require('brigadier')
 
 events.on("exec", (brigadeEvent, project) => {
   console.log("Running on exec")
-  let test = new Job("test-runner",)
+  let test = new Job("test-runner")
   test.timeout = 1500000
   test.image = "ubuntu"
   test.shell = "bash"
