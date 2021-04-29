@@ -41,14 +41,14 @@ function resetLogFile {
 }
 
 function validateOrkestraDeployment {
-    resources=$(kubectl get pods --namespace orkestra &>> $LOG_FILE | grep -i -c running)
+    resources=$(kubectl get pods --namespace orkestra 2>> $LOG_FILE | grep -i -c running)
     if [ $resources -ne $ORKESTRA_RESOURCE_COUNT ]; then
         testSuiteMessage "TEST_FAIL" "No running orkestra resources. Currently $resources running resources. Expected $ORKESTRA_RESOURCE_COUNT"
     else
         testSuiteMessage "TEST_PASS" "orkestra resources are running"
     fi
 
-    orkestraStatus=$(helm status orkestra -n orkestra &>> $LOG_FILE | grep -c deployed)
+    orkestraStatus=$(helm status orkestra -n orkestra 2>> $LOG_FILE | grep -c deployed)
     if [ $orkestraStatus -eq 1 ]; then
         testSuiteMessage "TEST_PASS" "orkestra deployed successfully"
     else
@@ -57,7 +57,7 @@ function validateOrkestraDeployment {
 }
 
 function validateBookInfoDeployment {
-    ambassadorStatus=$(helm status ambassador -n ambassador &>> $LOG_FILE | grep -c deployed)
+    ambassadorStatus=$(helm status ambassador -n ambassador 2>> $LOG_FILE | grep -c deployed)
     if [ $ambassadorStatus -eq 1 ]; then
         testSuiteMessage "TEST_PASS" "ambassador deployed successfully"
     else
@@ -68,7 +68,7 @@ function validateBookInfoDeployment {
 
     for var in "${bookinfoReleaseNames[@]}"
     do  
-        deployedStatus=$(helm status $var -n bookinfo &>> $LOG_FILE | grep -c deployed)
+        deployedStatus=$(helm status $var -n bookinfo 2>> $LOG_FILE | grep -c deployed)
         if [ $deployedStatus -eq 1 ]; then
             testSuiteMessage "TEST_PASS" "$var deployed successfully"
         else
@@ -109,56 +109,48 @@ function validateArgoWorkflow {
 }
 
 function validateApplicationGroup {
-    bookInfoGroupJson=$(kubectl get applicationgroup bookinfo -o json | jq '.spec.applications')
-    
-    temp=$(echo "$bookInfoGroupJson" | jq -r '.[0].name')
-    if [ "$temp" == "ambassador" ]; then
-        testSuiteMessage "TEST_PASS" "ambassador application found"
+    applicationGroupJson=$(kubectl get applicationgroup bookinfo -o json | jq '.status')
+
+    groupReason=$(echo "$applicationGroupJson" | jq -r '.conditions[0].reason')
+    groupType=$(echo "$applicationGroupJson" | jq -r '.conditions[0].type')
+
+    if [ "$groupReason" == "Succeeded" ] && [ "$groupType" == "Ready" ]; then
+        testSuiteMessage "TEST_PASS" "ApplicationGroup status correct"
     else
-        testSuiteMessage "TEST_FAIL" "expected ambassador got $temp"
+        testSuiteMessage "TEST_FAIL" "ApplicationGroup status. Expected (Succeeded, Ready). Got ($groupReason, $groupType)"
     fi
 
-    temp=$(echo "$bookInfoGroupJson" | jq -r '.[1].name')
-    if [ "$temp" == "bookinfo" ]; then
-        testSuiteMessage "TEST_PASS" "bookinfo application found"
+    applicationsJson=$(echo "$applicationGroupJson" | jq '.status')
+
+    ambassadorReason=$(echo "$applicationsJson" | jq -r '.[0].conditions[0].reason')
+    ambassadorType=$(echo "$applicationsJson" | jq -r '.[0].conditions[0].type')
+    if [ "$ambassadorReason" == "Succeeded" ] && [ "$ambassadorType" == "Ready" ]; then
+        testSuiteMessage "TEST_PASS" "Ambassador status correct"
     else
-        testSuiteMessage "TEST_FAIL" "expected bookinfo got $temp"
+        testSuiteMessage "TEST_FAIL" "Ambassador status. Expected (Succeeded, Ready). Got ($ambassadorReason, $ambassadorType)"
+    fi
+
+    bookInfoReason=$(echo "$applicationsJson" | jq -r '.[1].conditions[0].reason')
+    bookInfoType=$(echo "$applicationsJson" | jq -r '.[1].conditions[0].type')
+    if [ "$bookInfoReason" == "Succeeded" ] && [ "$bookInfoType" == "Ready" ]; then
+        testSuiteMessage "TEST_PASS" "BookInfo status correct"
+    else
+        testSuiteMessage "TEST_FAIL" "BookInfo status. Expected (Succeeded, Ready). Got ($bookInfoReason, $bookInfoType)"
     fi
 
     subcharts=("details" "productpage" "ratings" "reviews")
-
+    
     for chart in "${subcharts[@]}"
     do
-        temp=$(echo "$bookInfoGroupJson" | jq --arg c "$chart" -c '.[1].spec.subcharts[] | select(.name==$c)')
-        if [ "$chart" == "productpage" ]; then
-            dependency=$(echo "$temp" | jq -r '.dependencies | index( "reviews" )' )
-            if [ "$dependency" == "null" ] || [ -z "$dependency" ]; then
-                testSuiteMessage "TEST_FAIL" "productpage dependency: reviews not found"
-            else
-                testSuiteMessage "TEST_PASS" "productpage dependency: reviews found"
-            fi
-        elif [ "$chart" == "reviews" ]; then 
-            dependency=$(echo "$temp" | jq -r '.dependencies | index( "details" )' )
-            if [ "$dependency" == "null" ] || [ -z "$dependency" ]; then
-                testSuiteMessage "TEST_FAIL" "reviews dependency: details not found"
-            else
-                testSuiteMessage "TEST_PASS" "reviews dependency: details found"
-            fi
-
-            dependency=$(echo "$temp" | jq -r '.dependencies | index( "ratings" )' )
-            if [ "$dependency" == "null" ] || [ -z "$dependency" ]; then
-                testSuiteMessage "TEST_FAIL" "reviews dependency: ratings not found"
-            else
-                testSuiteMessage "TEST_PASS" "reviews dependency: ratings found"
-            fi
-        fi
-        
-        if [ -z $temp ]; then
-            testSuiteMessage "TEST_FAIL" "Did not find $chart in subcharts"
+        applicationReason=$(echo "$applicationsJson" | jq -r --arg c "$chart" '.[1].subcharts[$c].conditions[0].reason')
+        applicationType=$(echo "$applicationsJson" | jq -r --arg c "$chart" '.[1].subcharts[$c].conditions[0].type')
+        if [ "$applicationReason" == "Succeeded" ] && [ "$applicationType" == "Ready" ]; then
+            testSuiteMessage "TEST_PASS" "$chart status correct"
         else
-            testSuiteMessage "TEST_PASS" "$chart in subcharts"
+            testSuiteMessage "TEST_FAIL" "$chart status. Expected (Succeeded, Ready). Got ($applicationReason, $applicationType)"
         fi
     done
+
 }
 
 function runValidation {

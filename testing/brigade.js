@@ -37,7 +37,6 @@ events.on("exec", (brigadeEvent, project) => {
     "echo cloned orkestra",
     "cd orkestra",
     "git checkout remotes/origin/danaya/addtesting",
-    "make setup-kubebuilder",
     "kubectl apply -k ./config/crd",
     "helm install --wait orkestra chart/orkestra/ --namespace orkestra --create-namespace",
     "kubectl apply -f examples/simple/bookinfo.yaml",
