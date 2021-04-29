@@ -1,0 +1,10 @@
+apiVersion: source.toolkit.fluxcd.io/v1beta1
+kind: HelmRepository
+metadata:
+  name: chartmuseum
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "orkestra.labels" . | nindent 4 }}
+spec:
+  interval: {{ .Values.chartmuseum.interval }}
+  url: http://{{ .Release.Name }}-chartmuseum.{{ .Release.Namespace }}:8080

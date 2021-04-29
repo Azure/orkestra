@@ -44,7 +44,7 @@ type helmActionConfig struct {
 }
 
 type Client struct {
-	l logr.InfoLogger
+	l logr.Logger
 	// rfile is the handle to the helm repo file configuration
 	rfile *repo.File
 	// repoFilePath is the location of the helm repo file
@@ -61,7 +61,7 @@ type Client struct {
 }
 
 // NewClient is the constructor for the registry client
-func NewClient(l logr.InfoLogger, opts ...Option) (*Client, error) {
+func NewClient(l logr.Logger, opts ...Option) (*Client, error) {
 	cm, err := chartmuseum.NewClient()
 	if err != nil {
 		return nil, err
@@ -192,11 +192,7 @@ func (c *Client) RegistryConfig(name string) (*Config, error) {
 	return v, nil
 }
 
-func chartURL(repo, repoPath, chart, version string) string {
-	if repoPath != "" {
-		chart = strings.Trim(repoPath, "/") + "/" + chart
-	}
-
+func chartURL(repo, chart, version string) string {
 	s := fmt.Sprintf("%s/%s-%s.tgz",
 		strings.Trim(repo, "/"),
 		strings.Trim(chart, "/"),
@@ -217,7 +213,7 @@ func SaveChartPackage(ch *chart.Chart, dir string) (string, error) {
 func GetHelmRepoConfig(app *orkestrav1alpha1.Application, c client.Client) (*Config, error) {
 	cfg := &Config{
 		Name: app.Name,
-		URL:  app.Spec.Chart.RepoURL,
+		URL:  app.Spec.Chart.Url,
 	}
 
 	if app.Spec.Chart.AuthSecretRef != nil {

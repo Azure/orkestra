@@ -62,23 +62,10 @@ debug:
 
 # Dependency overlay values
 chartmuseum:
+  interval: 5m
   env:
     open:
-      DISABLE_API: false 
-
-helm-operator:
-# Amount of workers processing releases
-  workers: 10
-  enabled: true
-  rbac:
-    create: false 
-    pspEnabled: false 
-  serviceAccount:
-    create: false 
-    annotations: {}
-    name: *serviceAccount
-  helm:
-    versions: "v3"
+      DISABLE_API: false
 
 argo:
   images:
@@ -108,7 +95,7 @@ argo:
     createServiceAccount: false
 
 helm-controller:
-  enabled: false
+  enabled: true
   serviceAccount:
     create: false
     name: *serviceAccount 
