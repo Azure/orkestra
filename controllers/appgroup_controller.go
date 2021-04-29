@@ -17,7 +17,6 @@ import (
 	fluxhelmv2beta1 "github.com/fluxcd/helm-controller/api/v2beta1"
 	"github.com/go-logr/logr"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
@@ -270,13 +269,6 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	appGroup.Status.Applications = getAppStatus(&appGroup, chartConditionMap, subChartConditionMap)
 
 	// This is the cumulative status from the workflow phase and the helmrelease object statuses
-	err = allHelmReleaseStatus(appGroup, chartConditionMap)
-	if err != nil {
-		// Any error arising from the workflow or the helmreleases should be marked as a NodeError
-		logr.Error(err, "")
-		appGroup.ReadyFailed(err.Error())
-	}
-
 	switch appGroup.GetReadyCondition() {
 	case meta.ProgressingReason:
 		logr.V(1).Info("workflow in init/running state")
@@ -378,7 +370,7 @@ func (r *ApplicationGroupReconciler) handleRemediation(ctx context.Context, logr
 			// Example: chart=kafka-dev,heritage=orkestra,owner=dev, where chart=<top-level-chart>
 			logr.Info("Remediating the applicationgroup with helmrelease failure status")
 			for _, app := range g.Status.Applications {
-				switch meta.GetResourceCondition(&app.ChartStatus, meta.ReleasedCondition).Reason {
+				switch meta.GetResourceCondition(&app.ChartStatus, meta.ReadyCondition).Reason {
 				case fluxhelmv2beta1.InstallFailedReason, fluxhelmv2beta1.UpgradeFailedReason, fluxhelmv2beta1.UninstallFailedReason,
 					fluxhelmv2beta1.ArtifactFailedReason, fluxhelmv2beta1.InitFailedReason, fluxhelmv2beta1.GetLastReleaseFailedReason:
 					listOption := client.MatchingLabels{
@@ -481,22 +473,6 @@ func getAppStatus(
 		v = append(v, app)
 	}
 	return v
-}
-
-func allHelmReleaseStatus(appGroup orkestrav1alpha1.ApplicationGroup, appConditions map[string][]metav1.Condition) error {
-	for _, conditions := range appConditions {
-		condition := apimeta.FindStatusCondition(conditions, meta.ReadyCondition)
-		switch condition.Reason {
-		case fluxhelmv2beta1.InstallFailedReason, fluxhelmv2beta1.UpgradeFailedReason, fluxhelmv2beta1.UninstallFailedReason,
-			fluxhelmv2beta1.ArtifactFailedReason, fluxhelmv2beta1.InitFailedReason, fluxhelmv2beta1.GetLastReleaseFailedReason:
-			return ErrHelmReleaseInFailureStatus
-		}
-	}
-
-	if appGroup.GetReadyCondition() == meta.FailedReason {
-		return ErrWorkflowInFailureStatus
-	}
-	return nil
 }
 
 func (r *ApplicationGroupReconciler) rollbackFailedHelmReleases(ctx context.Context, hrs []fluxhelmv2beta1.HelmRelease) error {
