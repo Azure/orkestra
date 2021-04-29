@@ -505,26 +505,31 @@ func (r *ApplicationGroupReconciler) cleanupWorkflow(ctx context.Context, logr l
 		for _, node := range wf.Status.Nodes {
 			nodes[node.ID] = node
 		}
-		graph, err := workflow.Build(g.Name, nodes)
+		// Generate the reversal Workflow object to submit to Argo
+		err := r.generateReversalWorkflow(ctx, logr, nodes, &g)
 		if err != nil {
-			logr.Error(err, "failed to build the wf status DAG")
-		}
-
-		rev := graph.Reverse()
-
-		for _, bucket := range rev {
-			for _, hr := range bucket {
-				err = r.Client.Delete(ctx, &hr)
-				if err != nil {
-					logr.Error(err, "failed to delete helmrelease CRO - continuing with cleanup")
-				}
-			}
+			logr.Error(err, "failed to generate reversal workflow")
 		}
 
 		err = r.Client.Delete(ctx, &wf)
 		if err != nil {
 			logr.Error(err, "failed to delete workflow CRO - continuing with cleanup")
 		}
+	}
+	return nil
+}
+
+func (r *ApplicationGroupReconciler) generateReversalWorkflow(ctx context.Context, logr logr.Logger, nodes map[string]v1alpha12.NodeStatus, g *orkestrav1alpha1.ApplicationGroup) (err error) {
+	err = r.Engine.GenerateReversal(ctx, logr, nodes, g)
+	if err != nil {
+		logr.Error(err, "engine failed to generate reversal workflow")
+		return fmt.Errorf("failed to generate reversal workflow : %w", err)
+	}
+
+	err = r.Engine.SubmitReversal(ctx, logr, g)
+	if err != nil {
+		logr.Error(err, "engine failed to submit reversal workflow")
+		return err
 	}
 	return nil
 }

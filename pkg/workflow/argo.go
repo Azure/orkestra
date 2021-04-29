@@ -28,8 +28,9 @@ const (
 	argoKind          = "Workflow"
 	entrypointTplName = "entry"
 
-	helmReleaseArg      = "helmrelease"
-	helmReleaseExecutor = "helmrelease-executor"
+	helmReleaseArg              = "helmrelease"
+	helmReleaseExecutor         = "helmrelease-executor"
+	helmReleaseReversalExecutor = "helmrelease-reversal-executor"
 
 	valuesKeyGlobal = "global"
 	ChartLabelKey   = "chart"
@@ -39,6 +40,7 @@ type argo struct {
 	scheme *runtime.Scheme
 	cli    client.Client
 	wf     *v1alpha12.Workflow
+	rwf    *v1alpha12.Workflow
 
 	stagingRepoURL string
 	parallelism    *int64
@@ -54,27 +56,27 @@ func Argo(scheme *runtime.Scheme, c client.Client, stagingRepoURL string, workfl
 	}
 }
 
-func (a *argo) initWorkflowObject() {
-	a.wf = &v1alpha12.Workflow{
+func initWorkflowObject(wf **v1alpha12.Workflow) {
+	*wf = &v1alpha12.Workflow{
 		ObjectMeta: v1.ObjectMeta{
 			Labels: make(map[string]string),
 		},
 	}
 
-	a.wf.Labels[HeritageLabel] = Project
+	(*wf).Labels[HeritageLabel] = Project
 
-	a.wf.APIVersion = argoAPIVersion
-	a.wf.Kind = argoKind
+	(*wf).APIVersion = argoAPIVersion
+	(*wf).Kind = argoKind
 
 	// Entry point is the entry node into the Application Group DAG
-	a.wf.Spec.Entrypoint = entrypointTplName
+	(*wf).Spec.Entrypoint = entrypointTplName
 
 	// Initialize the Templates slice
-	a.wf.Spec.Templates = make([]v1alpha12.Template, 0)
+	(*wf).Spec.Templates = make([]v1alpha12.Template, 0)
 
-	a.wf.Spec.Parallelism = a.parallelism
+	(*wf).Spec.Parallelism = a.parallelism
 
-	a.wf.Spec.PodGC = &v1alpha12.PodGC{
+	(*wf).Spec.PodGC = &v1alpha12.PodGC{
 		Strategy: v1alpha12.PodGCOnWorkflowCompletion,
 	}
 }
@@ -85,7 +87,7 @@ func (a *argo) Generate(ctx context.Context, l logr.Logger, g *v1alpha1.Applicat
 		return fmt.Errorf("applicationGroup object cannot be nil")
 	}
 
-	a.initWorkflowObject()
+	initWorkflowObject(&a.wf)
 
 	// Set name and namespace based on the input application group
 	a.wf.Name = g.Name
@@ -206,12 +208,133 @@ func (a *argo) Submit(ctx context.Context, l logr.Logger, g *v1alpha1.Applicatio
 	return nil
 }
 
+func (a *argo) GenerateReversal(ctx context.Context, l logr.Logger, nodes map[string]v1alpha12.NodeStatus, g *v1alpha1.ApplicationGroup) error {
+	if g == nil {
+		l.Error(nil, "ApplicationGroup object cannot be nil")
+		return fmt.Errorf("applicationGroup object cannot be nil")
+	}
+
+	initWorkflowObject(&a.rwf)
+
+	// Set name and namespace based on the input application group
+	a.rwf.Name = fmt.Sprintf("%s-reversal", g.Name)
+	a.rwf.Namespace = workflowNamespace()
+
+	err := a.generateReversalWorkflow(ctx, l, nodes, g)
+	if err != nil {
+		l.Error(err, "failed to generate reversal workflow")
+		return fmt.Errorf("failed to generate argo reversal workflow : %w", err)
+	}
+
+	return nil
+}
+
+func (a *argo) SubmitReversal(ctx context.Context, l logr.Logger, g *v1alpha1.ApplicationGroup) error {
+	if a.rwf == nil {
+		l.Error(nil, "reversal workflow object cannot be nil")
+		return fmt.Errorf("reversal workflow object cannot be nil")
+	}
+
+	if g == nil {
+		l.Error(nil, "applicationGroup object cannot be nil")
+		return fmt.Errorf("applicationGroup object cannot be nil")
+	}
+
+	obj := &v1alpha12.Workflow{
+		ObjectMeta: v1.ObjectMeta{Labels: make(map[string]string)},
+	}
+
+	err := a.cli.Get(ctx, types.NamespacedName{Namespace: a.rwf.Namespace, Name: a.rwf.Name}, obj)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// Add OwnershipReference
+			err = controllerutil.SetControllerReference(g, a.rwf, a.scheme)
+			if err != nil {
+				l.Error(err, "unable to set ApplicationGroup as owner of Argo Workflow object")
+				return fmt.Errorf("unable to set ApplicationGroup as owner of Argo Workflow: %w", err)
+			}
+
+			a.rwf.Labels[OwnershipLabel] = g.Name
+
+			// If the argo Workflow object is NotFound and not AlreadyExists on the cluster
+			// create a new object and submit it to the cluster
+			err = a.cli.Create(ctx, a.rwf)
+			if err != nil {
+				l.Error(err, "failed to CREATE argo workflow object")
+				return fmt.Errorf("failed to CREATE argo workflow object : %w", err)
+			}
+		} else {
+			l.Error(err, "failed to GET workflow object with an unrecoverable error")
+			return fmt.Errorf("failed to GET workflow object with an unrecoverable error : %w", err)
+		}
+	}
+
+	return nil
+}
+
 func (a *argo) generateWorkflow(ctx context.Context, g *v1alpha1.ApplicationGroup) error {
 	// Generate the Entrypoint template and Application Group DAG
 	err := a.generateAppGroupTpls(ctx, g)
 	if err != nil {
 		return fmt.Errorf("failed to generate Application Group DAG : %w", err)
 	}
+
+	return nil
+}
+
+func getTaskNamesFromHelmReleases(bucket []helmopv1.HelmRelease) []string {
+	out := []string{}
+	for _, hr := range bucket {
+		out = append(out, pkg.ConvertToDNS1123(hr.GetReleaseName()))
+	}
+	return out
+}
+
+func (a *argo) generateReversalWorkflow(ctx context.Context, l logr.Logger, nodes map[string]v1alpha12.NodeStatus, g *v1alpha1.ApplicationGroup) error {
+	graph, err := Build(g.Name, nodes)
+	if err != nil {
+		l.Error(err, "failed to build the wf status DAG")
+		return fmt.Errorf("failed to build the wf status DAG : %w", err)
+	}
+
+	rev := graph.Reverse()
+
+	entry := v1alpha12.Template{
+		Name: entrypointTplName,
+		DAG: &v1alpha12.DAGTemplate{
+			Tasks: make([]v1alpha12.DAGTask, 0),
+		},
+	}
+
+	var prevbucket []helmopv1.HelmRelease
+	for _, bucket := range rev {
+		for _, hr := range bucket {
+			task := v1alpha12.DAGTask{
+				Name:     pkg.ConvertToDNS1123(hr.GetReleaseName()),
+				Template: helmReleaseReversalExecutor,
+				Arguments: v1alpha12.Arguments{
+					Parameters: []v1alpha12.Parameter{
+						{
+							Name:  helmReleaseArg,
+							Value: strToStrPtr(hrToYAML(hr)),
+						},
+					},
+				},
+				Dependencies: convertSliceToDNS1123(getTaskNamesFromHelmReleases(prevbucket)),
+			}
+
+			entry.DAG.Tasks = append(entry.DAG.Tasks, task)
+		}
+		prevbucket = bucket
+	}
+
+	if len(entry.DAG.Tasks) == 0 {
+		return fmt.Errorf("entry template must have at least one task")
+	}
+
+	a.updateWorkflowTemplates(a.rwf, entry)
+
+	a.updateWorkflowTemplates(a.rwf, defaultReversalExecutor())
 
 	return nil
 }
@@ -239,17 +362,17 @@ func (a *argo) generateAppGroupTpls(ctx context.Context, g *v1alpha1.Application
 	if err != nil {
 		return fmt.Errorf("failed to generate application DAG templates : %w", err)
 	}
-	a.updateWorkflowTemplates(adt...)
+	a.updateWorkflowTemplates(a.wf, adt...)
 
 	err = updateAppGroupDAG(g, &entry, adt)
 	if err != nil {
 		return fmt.Errorf("failed to generate Application Group DAG : %w", err)
 	}
-	a.updateWorkflowTemplates(entry)
+	a.updateWorkflowTemplates(a.wf, entry)
 
 	// TODO: Add the executor template
 	// This should eventually be configurable
-	a.updateWorkflowTemplates(defaultExecutor(5 * time.Minute))
+	a.updateWorkflowTemplates(a.wf, defaultExecutor(5*time.Minute))
 
 	return nil
 }
@@ -511,8 +634,8 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 	return tasks, nil
 }
 
-func (a *argo) updateWorkflowTemplates(tpls ...v1alpha12.Template) {
-	a.wf.Spec.Templates = append(a.wf.Spec.Templates, tpls...)
+func (a *argo) updateWorkflowTemplates(wf *v1alpha12.Workflow, tpls ...v1alpha12.Template) {
+	wf.Spec.Templates = append(wf.Spec.Templates, tpls...)
 }
 
 func defaultExecutor(timeout time.Duration) v1alpha12.Template {
@@ -535,6 +658,28 @@ func defaultExecutor(timeout time.Duration) v1alpha12.Template {
 			Name:  "executor",
 			Image: "azureorkestra/executor:v0.1.0",
 			Args:  executorArgs,
+		},
+	}
+}
+
+func defaultReversalExecutor() v1alpha12.Template {
+	return v1alpha12.Template{
+		Name:               helmReleaseReversalExecutor,
+		ServiceAccountName: workflowServiceAccountName(),
+		Inputs: v1alpha12.Inputs{
+			Parameters: []v1alpha12.Parameter{
+				{
+					Name: "helmrelease",
+				},
+			},
+		},
+		Executor: &v1alpha12.ExecutorConfig{
+			ServiceAccountName: workflowServiceAccountName(),
+		},
+		Resource: &v1alpha12.ResourceTemplate{
+			// SetOwnerReference: true,
+			Action:   "delete",
+			Manifest: "{{inputs.parameters.helmrelease}}",
 		},
 	}
 }
