@@ -18,7 +18,6 @@ import (
 	"github.com/go-logr/logr"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
@@ -133,7 +132,11 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			err = r.cleanupWorkflow(ctx, logr, appGroup)
 			if err != nil {
 				if err == ErrStartedReverseWorkflow {
+					logr.Info("reverse workflow is in progress")
 					requeue = true
+				} else {
+					logr.Error(err, "failed to start reverse workflow")
+					return ctrl.Result{}, err
 				}
 			}
 			appGroup.Finalizers = nil
@@ -418,8 +421,11 @@ func (r *ApplicationGroupReconciler) handleRemediation(ctx context.Context, logr
 	err = r.cleanupWorkflow(ctx, logr, g)
 	if err != nil {
 		if err == ErrStartedReverseWorkflow {
+			logr.Info("reverse workflow is in progress")
 			return reconcile.Result{Requeue: true}, nil
 		}
+		logr.Error(err, "failed to start reverse workflow")
+		return reconcile.Result{}, err
 	}
 
 	return reconcile.Result{}, nil
@@ -519,9 +525,7 @@ func (r *ApplicationGroupReconciler) cleanupWorkflow(ctx context.Context, logr l
 		for _, node := range wf.Status.Nodes {
 			nodes[node.ID] = node
 		}
-		rwf := &v1alpha12.Workflow{
-			ObjectMeta: v1.ObjectMeta{Labels: make(map[string]string)},
-		}
+		rwf := &v1alpha12.Workflow{}
 
 		rwfName := fmt.Sprintf("%s-reverse", wf.Name)
 		rwfNamespace := wf.Namespace
@@ -537,9 +541,13 @@ func (r *ApplicationGroupReconciler) cleanupWorkflow(ctx context.Context, logr l
 				// update the forward workflow metadata with a finalizer
 				wf.Finalizers = []string{rwffinalizer}
 
+				wfPatch := client.MergeFrom(wf.DeepCopy())
+				_ = r.Client.Patch(ctx, &wf, wfPatch)
+
 				err = r.Client.Delete(ctx, &wf)
 				if err != nil {
 					logr.Error(err, "failed to delete workflow CRO - continuing with cleanup")
+					return err
 				}
 
 				// requeue
@@ -551,6 +559,9 @@ func (r *ApplicationGroupReconciler) cleanupWorkflow(ctx context.Context, logr l
 				// remove the finalizer from the forward workflow
 				wf.Finalizers = nil
 				return nil
+			} else {
+				// requeue
+				return ErrStartedReverseWorkflow
 			}
 		}
 	}
