@@ -56,27 +56,21 @@ func Argo(scheme *runtime.Scheme, c client.Client, stagingRepoURL string, workfl
 	}
 }
 
-func (a *argo) initWorkflowObject(wf **v1alpha12.Workflow) {
-	*wf = &v1alpha12.Workflow{
-		ObjectMeta: v1.ObjectMeta{
-			Labels: make(map[string]string),
-		},
-	}
+func (a *argo) initWorkflowObject(wf *v1alpha12.Workflow) {
+	wf.Labels[HeritageLabel] = Project
 
-	(*wf).Labels[HeritageLabel] = Project
-
-	(*wf).APIVersion = argoAPIVersion
-	(*wf).Kind = argoKind
+	wf.APIVersion = argoAPIVersion
+	wf.Kind = argoKind
 
 	// Entry point is the entry node into the Application Group DAG
-	(*wf).Spec.Entrypoint = entrypointTplName
+	wf.Spec.Entrypoint = entrypointTplName
 
 	// Initialize the Templates slice
-	(*wf).Spec.Templates = make([]v1alpha12.Template, 0)
+	wf.Spec.Templates = make([]v1alpha12.Template, 0)
 
-	(*wf).Spec.Parallelism = a.parallelism
+	wf.Spec.Parallelism = a.parallelism
 
-	(*wf).Spec.PodGC = &v1alpha12.PodGC{
+	wf.Spec.PodGC = &v1alpha12.PodGC{
 		Strategy: v1alpha12.PodGCOnWorkflowCompletion,
 	}
 }
@@ -87,7 +81,13 @@ func (a *argo) Generate(ctx context.Context, l logr.Logger, g *v1alpha1.Applicat
 		return fmt.Errorf("applicationGroup object cannot be nil")
 	}
 
-	a.initWorkflowObject(&a.wf)
+	a.wf = &v1alpha12.Workflow{
+		ObjectMeta: v1.ObjectMeta{
+			Labels: make(map[string]string),
+		},
+	}
+
+	a.initWorkflowObject(a.wf)
 
 	// Set name and namespace based on the input application group
 	a.wf.Name = g.Name
@@ -214,7 +214,13 @@ func (a *argo) GenerateReverse(ctx context.Context, l logr.Logger, nodes map[str
 		return fmt.Errorf("applicationGroup object cannot be nil")
 	}
 
-	a.initWorkflowObject(&a.rwf)
+	a.rwf = &v1alpha12.Workflow{
+		ObjectMeta: v1.ObjectMeta{
+			Labels: make(map[string]string),
+		},
+	}
+
+	a.initWorkflowObject(a.rwf)
 
 	// Set name and namespace based on the input application group
 	a.rwf.Name = fmt.Sprintf("%s-reverse", g.Name)
