@@ -1,5 +1,5 @@
 #!/bin/bash
-ORKESTRA_RESOURCE_COUNT=5
+ORKESTRA_RESOURCE_COUNT=6
 LOG_FILE="OrkestraValidation.log"
 OUTPUT_TO_LOG=0
 g_successCount=0
@@ -110,44 +110,36 @@ function validateArgoWorkflow {
 
 function validateApplicationGroup {
     applicationGroupJson=$(kubectl get applicationgroup bookinfo -o json | jq '.status')
-
-    groupReason=$(echo "$applicationGroupJson" | jq -r '.conditions[0].reason')
-    groupType=$(echo "$applicationGroupJson" | jq -r '.conditions[0].type')
-
-    if [ "$groupReason" == "Succeeded" ] && [ "$groupType" == "Ready" ]; then
+    groupCondition=$(echo "$applicationGroupJson" | jq -r '.conditions[0] | select(.reason=="Succeeded") | select(.type=="Ready")')
+    if [ -n "$groupCondition" ]; then
         testSuiteMessage "TEST_PASS" "ApplicationGroup status correct"
     else
-        testSuiteMessage "TEST_FAIL" "ApplicationGroup status. Expected (Succeeded, Ready). Got ($groupReason, $groupType)"
+        testSuiteMessage "TEST_FAIL" "ApplicationGroup status. Expected (Succeeded, Ready)"
     fi
 
     applicationsJson=$(echo "$applicationGroupJson" | jq '.status')
-
-    ambassadorReason=$(echo "$applicationsJson" | jq -r '.[0].conditions[0].reason')
-    ambassadorType=$(echo "$applicationsJson" | jq -r '.[0].conditions[0].type')
-    if [ "$ambassadorReason" == "Succeeded" ] && [ "$ambassadorType" == "Ready" ]; then
+    ambassadorReason=$(echo "$applicationsJson" | jq -r '.[0].conditions[] | select(.reason=="InstallSucceeded")')
+    if [ -n "$ambassadorReason" ]; then
         testSuiteMessage "TEST_PASS" "Ambassador status correct"
     else
-        testSuiteMessage "TEST_FAIL" "Ambassador status. Expected (Succeeded, Ready). Got ($ambassadorReason, $ambassadorType)"
+        testSuiteMessage "TEST_FAIL" "Ambassador status. Expected InstallSucceeded"
     fi
 
-    bookInfoReason=$(echo "$applicationsJson" | jq -r '.[1].conditions[0].reason')
-    bookInfoType=$(echo "$applicationsJson" | jq -r '.[1].conditions[0].type')
-    if [ "$bookInfoReason" == "Succeeded" ] && [ "$bookInfoType" == "Ready" ]; then
+    bookInfoReason=$(echo "$applicationsJson" | jq -r '.[1].conditions[] | select(.reason=="InstallSucceeded")')
+    if [ -n "$bookInfoReason" ]; then
         testSuiteMessage "TEST_PASS" "BookInfo status correct"
     else
-        testSuiteMessage "TEST_FAIL" "BookInfo status. Expected (Succeeded, Ready). Got ($bookInfoReason, $bookInfoType)"
+        testSuiteMessage "TEST_FAIL" "BookInfo status. Expected InstallSucceeded"
     fi
 
     subcharts=("details" "productpage" "ratings" "reviews")
-    
     for chart in "${subcharts[@]}"
     do
-        applicationReason=$(echo "$applicationsJson" | jq -r --arg c "$chart" '.[1].subcharts[$c].conditions[0].reason')
-        applicationType=$(echo "$applicationsJson" | jq -r --arg c "$chart" '.[1].subcharts[$c].conditions[0].type')
-        if [ "$applicationReason" == "Succeeded" ] && [ "$applicationType" == "Ready" ]; then
+        applicationReason=$(echo "$applicationsJson" | jq -r --arg c "$chart" '.[1].subcharts[$c].conditions[] | select(.reason=="InstallSucceeded")')
+        if [ -n "$applicationReason" ]; then
             testSuiteMessage "TEST_PASS" "$chart status correct"
         else
-            testSuiteMessage "TEST_FAIL" "$chart status. Expected (Succeeded, Ready). Got ($applicationReason, $applicationType)"
+            testSuiteMessage "TEST_FAIL" "$chart status. Expected InstallSucceeded"
         fi
     done
 
