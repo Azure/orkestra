@@ -56,7 +56,7 @@ func Argo(scheme *runtime.Scheme, c client.Client, stagingRepoURL string, workfl
 	}
 }
 
-func initWorkflowObject(wf **v1alpha12.Workflow) {
+func (a *argo) initWorkflowObject(wf **v1alpha12.Workflow) {
 	*wf = &v1alpha12.Workflow{
 		ObjectMeta: v1.ObjectMeta{
 			Labels: make(map[string]string),
@@ -87,7 +87,7 @@ func (a *argo) Generate(ctx context.Context, l logr.Logger, g *v1alpha1.Applicat
 		return fmt.Errorf("applicationGroup object cannot be nil")
 	}
 
-	initWorkflowObject(&a.wf)
+	a.initWorkflowObject(&a.wf)
 
 	// Set name and namespace based on the input application group
 	a.wf.Name = g.Name
@@ -214,7 +214,7 @@ func (a *argo) GenerateReverse(ctx context.Context, l logr.Logger, nodes map[str
 		return fmt.Errorf("applicationGroup object cannot be nil")
 	}
 
-	initWorkflowObject(&a.rwf)
+	a.initWorkflowObject(&a.rwf)
 
 	// Set name and namespace based on the input application group
 	a.rwf.Name = fmt.Sprintf("%s-reverse", g.Name)
@@ -282,7 +282,7 @@ func (a *argo) generateWorkflow(ctx context.Context, g *v1alpha1.ApplicationGrou
 	return nil
 }
 
-func getTaskNamesFromHelmReleases(bucket []helmopv1.HelmRelease) []string {
+func getTaskNamesFromHelmReleases(bucket []fluxhelmv2beta1.HelmRelease) []string {
 	out := []string{}
 	for _, hr := range bucket {
 		out = append(out, pkg.ConvertToDNS1123(hr.GetReleaseName()))
@@ -306,7 +306,7 @@ func (a *argo) generateReverseWorkflow(ctx context.Context, l logr.Logger, nodes
 		},
 	}
 
-	var prevbucket []helmopv1.HelmRelease
+	var prevbucket []fluxhelmv2beta1.HelmRelease
 	for _, bucket := range rev {
 		for _, hr := range bucket {
 			task := v1alpha12.DAGTask{
