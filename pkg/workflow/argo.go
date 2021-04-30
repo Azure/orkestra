@@ -28,9 +28,9 @@ const (
 	argoKind          = "Workflow"
 	entrypointTplName = "entry"
 
-	helmReleaseArg              = "helmrelease"
-	helmReleaseExecutor         = "helmrelease-executor"
-	helmReleaseReversalExecutor = "helmrelease-reversal-executor"
+	helmReleaseArg             = "helmrelease"
+	helmReleaseExecutor        = "helmrelease-executor"
+	helmReleaseReverseExecutor = "helmrelease-reverse-executor"
 
 	valuesKeyGlobal = "global"
 	ChartLabelKey   = "chart"
@@ -208,7 +208,7 @@ func (a *argo) Submit(ctx context.Context, l logr.Logger, g *v1alpha1.Applicatio
 	return nil
 }
 
-func (a *argo) GenerateReversal(ctx context.Context, l logr.Logger, nodes map[string]v1alpha12.NodeStatus, g *v1alpha1.ApplicationGroup) error {
+func (a *argo) GenerateReverse(ctx context.Context, l logr.Logger, nodes map[string]v1alpha12.NodeStatus, g *v1alpha1.ApplicationGroup) error {
 	if g == nil {
 		l.Error(nil, "ApplicationGroup object cannot be nil")
 		return fmt.Errorf("applicationGroup object cannot be nil")
@@ -217,22 +217,22 @@ func (a *argo) GenerateReversal(ctx context.Context, l logr.Logger, nodes map[st
 	initWorkflowObject(&a.rwf)
 
 	// Set name and namespace based on the input application group
-	a.rwf.Name = fmt.Sprintf("%s-reversal", g.Name)
+	a.rwf.Name = fmt.Sprintf("%s-reverse", g.Name)
 	a.rwf.Namespace = workflowNamespace()
 
-	err := a.generateReversalWorkflow(ctx, l, nodes, g)
+	err := a.generateReverseWorkflow(ctx, l, nodes, g)
 	if err != nil {
-		l.Error(err, "failed to generate reversal workflow")
-		return fmt.Errorf("failed to generate argo reversal workflow : %w", err)
+		l.Error(err, "failed to generate reverse workflow")
+		return fmt.Errorf("failed to generate argo reverse workflow : %w", err)
 	}
 
 	return nil
 }
 
-func (a *argo) SubmitReversal(ctx context.Context, l logr.Logger, g *v1alpha1.ApplicationGroup) error {
+func (a *argo) SubmitReverse(ctx context.Context, l logr.Logger, g *v1alpha1.ApplicationGroup) error {
 	if a.rwf == nil {
-		l.Error(nil, "reversal workflow object cannot be nil")
-		return fmt.Errorf("reversal workflow object cannot be nil")
+		l.Error(nil, "reverse workflow object cannot be nil")
+		return fmt.Errorf("reverse workflow object cannot be nil")
 	}
 
 	if g == nil {
@@ -248,13 +248,13 @@ func (a *argo) SubmitReversal(ctx context.Context, l logr.Logger, g *v1alpha1.Ap
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Add OwnershipReference
-			err = controllerutil.SetControllerReference(g, a.rwf, a.scheme)
+			err = controllerutil.SetControllerReference(a.wf, a.rwf, a.scheme)
 			if err != nil {
-				l.Error(err, "unable to set ApplicationGroup as owner of Argo Workflow object")
-				return fmt.Errorf("unable to set ApplicationGroup as owner of Argo Workflow: %w", err)
+				l.Error(err, "unable to set forward workflow as owner of Argo reverse Workflow object")
+				return fmt.Errorf("unable to set forward workflow as owner of Argo reverse Workflow: %w", err)
 			}
 
-			a.rwf.Labels[OwnershipLabel] = g.Name
+			a.rwf.Labels[OwnershipLabel] = a.wf.Name
 
 			// If the argo Workflow object is NotFound and not AlreadyExists on the cluster
 			// create a new object and submit it to the cluster
@@ -290,7 +290,7 @@ func getTaskNamesFromHelmReleases(bucket []helmopv1.HelmRelease) []string {
 	return out
 }
 
-func (a *argo) generateReversalWorkflow(ctx context.Context, l logr.Logger, nodes map[string]v1alpha12.NodeStatus, g *v1alpha1.ApplicationGroup) error {
+func (a *argo) generateReverseWorkflow(ctx context.Context, l logr.Logger, nodes map[string]v1alpha12.NodeStatus, g *v1alpha1.ApplicationGroup) error {
 	graph, err := Build(g.Name, nodes)
 	if err != nil {
 		l.Error(err, "failed to build the wf status DAG")
@@ -311,7 +311,7 @@ func (a *argo) generateReversalWorkflow(ctx context.Context, l logr.Logger, node
 		for _, hr := range bucket {
 			task := v1alpha12.DAGTask{
 				Name:     pkg.ConvertToDNS1123(hr.GetReleaseName()),
-				Template: helmReleaseReversalExecutor,
+				Template: helmReleaseReverseExecutor,
 				Arguments: v1alpha12.Arguments{
 					Parameters: []v1alpha12.Parameter{
 						{
@@ -334,7 +334,7 @@ func (a *argo) generateReversalWorkflow(ctx context.Context, l logr.Logger, node
 
 	a.updateWorkflowTemplates(a.rwf, entry)
 
-	a.updateWorkflowTemplates(a.rwf, defaultReversalExecutor())
+	a.updateWorkflowTemplates(a.rwf, defaultReverseExecutor())
 
 	return nil
 }
@@ -662,9 +662,9 @@ func defaultExecutor(timeout time.Duration) v1alpha12.Template {
 	}
 }
 
-func defaultReversalExecutor() v1alpha12.Template {
+func defaultReverseExecutor() v1alpha12.Template {
 	return v1alpha12.Template{
-		Name:               helmReleaseReversalExecutor,
+		Name:               helmReleaseReverseExecutor,
 		ServiceAccountName: workflowServiceAccountName(),
 		Inputs: v1alpha12.Inputs{
 			Parameters: []v1alpha12.Parameter{

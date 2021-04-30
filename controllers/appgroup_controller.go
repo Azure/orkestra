@@ -18,7 +18,9 @@ import (
 	"github.com/go-logr/logr"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -31,12 +33,14 @@ import (
 const (
 	appgroupNameKey                   = "appgroup"
 	finalizer                         = "application-group-finalizer"
+	rwffinalizer                      = "reverse-workflow-finalizer"
 	lastSuccessfulApplicationGroupKey = "orkestra/last-successful-applicationgroup"
 )
 
 var (
 	ErrWorkflowInFailureStatus    = errors.New("workflow in failure status")
 	ErrHelmReleaseInFailureStatus = errors.New("helmrelease in failure status")
+	ErrStartedReverseWorkflow     = errors.New("started reverse workflow")
 )
 
 // ApplicationGroupReconciler reconciles a ApplicationGroup object
@@ -126,7 +130,12 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 				appGroup.Annotations[lastSuccessfulApplicationGroupKey] = ""
 			}
 			requeue = false
-			_ = r.cleanupWorkflow(ctx, logr, appGroup)
+			err = r.cleanupWorkflow(ctx, logr, appGroup)
+			if err != nil {
+				if err == ErrStartedReverseWorkflow {
+					requeue = true
+				}
+			}
 			appGroup.Finalizers = nil
 			_ = r.Patch(ctx, &appGroup, patch)
 			return r.handleResponseAndEvent(ctx, logr, appGroup, patch, requeue, nil)
@@ -406,7 +415,12 @@ func (r *ApplicationGroupReconciler) handleRemediation(ctx context.Context, logr
 	g.RollingBack()
 	_ = r.Status().Patch(ctx, &g, patch)
 
-	_ = r.cleanupWorkflow(ctx, logr, g)
+	err = r.cleanupWorkflow(ctx, logr, g)
+	if err != nil {
+		if err == ErrStartedReverseWorkflow {
+			return reconcile.Result{Requeue: true}, nil
+		}
+	}
 
 	return reconcile.Result{}, nil
 }
@@ -505,30 +519,54 @@ func (r *ApplicationGroupReconciler) cleanupWorkflow(ctx context.Context, logr l
 		for _, node := range wf.Status.Nodes {
 			nodes[node.ID] = node
 		}
-		// Generate the reversal Workflow object to submit to Argo
-		err := r.generateReversalWorkflow(ctx, logr, nodes, &g)
-		if err != nil {
-			logr.Error(err, "failed to generate reversal workflow")
+		rwf := &v1alpha12.Workflow{
+			ObjectMeta: v1.ObjectMeta{Labels: make(map[string]string)},
 		}
 
-		err = r.Client.Delete(ctx, &wf)
+		rwfName := fmt.Sprintf("%s-reverse", wf.Name)
+		rwfNamespace := wf.Namespace
+		err := r.Client.Get(ctx, types.NamespacedName{Namespace: rwfNamespace, Name: rwfName}, rwf)
 		if err != nil {
-			logr.Error(err, "failed to delete workflow CRO - continuing with cleanup")
+			if kerrors.IsNotFound(err) {
+				err = r.generateReverseWorkflow(ctx, logr, nodes, &g)
+				if err != nil {
+					logr.Error(err, "failed to generate reverse workflow")
+					return err
+				}
+
+				// update the forward workflow metadata with a finalizer
+				wf.Finalizers = []string{rwffinalizer}
+
+				err = r.Client.Delete(ctx, &wf)
+				if err != nil {
+					logr.Error(err, "failed to delete workflow CRO - continuing with cleanup")
+				}
+
+				// requeue
+				return ErrStartedReverseWorkflow
+			}
+		} else {
+			// check the completion of the reverse workflow
+			if !rwf.Status.FinishedAt.IsZero() {
+				// remove the finalizer from the forward workflow
+				wf.Finalizers = nil
+				return nil
+			}
 		}
 	}
 	return nil
 }
 
-func (r *ApplicationGroupReconciler) generateReversalWorkflow(ctx context.Context, logr logr.Logger, nodes map[string]v1alpha12.NodeStatus, g *orkestrav1alpha1.ApplicationGroup) (err error) {
-	err = r.Engine.GenerateReversal(ctx, logr, nodes, g)
+func (r *ApplicationGroupReconciler) generateReverseWorkflow(ctx context.Context, logr logr.Logger, nodes map[string]v1alpha12.NodeStatus, g *orkestrav1alpha1.ApplicationGroup) (err error) {
+	err = r.Engine.GenerateReverse(ctx, logr, nodes, g)
 	if err != nil {
-		logr.Error(err, "engine failed to generate reversal workflow")
-		return fmt.Errorf("failed to generate reversal workflow : %w", err)
+		logr.Error(err, "engine failed to generate reverse workflow")
+		return fmt.Errorf("failed to generate reverse workflow : %w", err)
 	}
 
-	err = r.Engine.SubmitReversal(ctx, logr, g)
+	err = r.Engine.SubmitReverse(ctx, logr, g)
 	if err != nil {
-		logr.Error(err, "engine failed to submit reversal workflow")
+		logr.Error(err, "engine failed to submit reverse workflow")
 		return err
 	}
 	return nil
