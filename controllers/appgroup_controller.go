@@ -558,6 +558,10 @@ func (r *ApplicationGroupReconciler) cleanupWorkflow(ctx context.Context, logr l
 			if !rwf.Status.FinishedAt.IsZero() {
 				// remove the finalizer from the forward workflow
 				wf.Finalizers = nil
+
+				wfPatch := client.MergeFrom(wf.DeepCopy())
+				_ = r.Client.Patch(ctx, &wf, wfPatch)
+
 				return nil
 			} else {
 				// requeue
