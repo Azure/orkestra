@@ -563,10 +563,9 @@ func (r *ApplicationGroupReconciler) cleanupWorkflow(ctx context.Context, logr l
 				_ = r.Client.Patch(ctx, &wf, wfPatch)
 
 				return nil
-			} else {
-				// requeue
-				return ErrStartedReverseWorkflow
 			}
+			// requeue
+			return ErrStartedReverseWorkflow
 		}
 	}
 	return nil
