@@ -1,5 +1,7 @@
 #!/bin/bash
 ORKESTRA_RESOURCE_COUNT=6
+AMBASSADOR_VERSION="6.6.0"
+BAD_AMBASSADOR_VERSION="100.0.0"
 LOG_FILE="OrkestraValidation.log"
 OUTPUT_TO_LOG=0
 g_successCount=0
@@ -110,11 +112,12 @@ function validateArgoWorkflow {
 
 function validateApplicationGroup {
     applicationGroupJson=$(kubectl get applicationgroup bookinfo -o json | jq '.status')
-    groupCondition=$(echo "$applicationGroupJson" | jq -r '.conditions[0] | select(.reason=="Succeeded") | select(.type=="Ready")')
+    echo $applicationGroupJson
+    groupCondition=$(echo "$applicationGroupJson" | jq -r '.conditions[] | select(.reason=="Succeeded") | select(.type=="Ready")')
     if [ -n "$groupCondition" ]; then
         testSuiteMessage "TEST_PASS" "ApplicationGroup status correct"
     else
-        testSuiteMessage "TEST_FAIL" "ApplicationGroup status. Expected (Succeeded, Ready)"
+        testSuiteMessage "TEST_FAIL" "ApplicationGroup status expected: (Succeeded, Ready)"
     fi
 
     applicationsJson=$(echo "$applicationGroupJson" | jq '.status')
@@ -122,14 +125,14 @@ function validateApplicationGroup {
     if [ -n "$ambassadorReason" ]; then
         testSuiteMessage "TEST_PASS" "Ambassador status correct"
     else
-        testSuiteMessage "TEST_FAIL" "Ambassador status. Expected InstallSucceeded"
+        testSuiteMessage "TEST_FAIL" "Ambassador status expected: InstallSucceeded"
     fi
 
     bookInfoReason=$(echo "$applicationsJson" | jq -r '.[1].conditions[] | select(.reason=="InstallSucceeded")')
     if [ -n "$bookInfoReason" ]; then
         testSuiteMessage "TEST_PASS" "BookInfo status correct"
     else
-        testSuiteMessage "TEST_FAIL" "BookInfo status. Expected InstallSucceeded"
+        testSuiteMessage "TEST_FAIL" "BookInfo status expected: InstallSucceeded"
     fi
 
     subcharts=("details" "productpage" "ratings" "reviews")
@@ -139,10 +142,41 @@ function validateApplicationGroup {
         if [ -n "$applicationReason" ]; then
             testSuiteMessage "TEST_PASS" "$chart status correct"
         else
-            testSuiteMessage "TEST_FAIL" "$chart status. Expected InstallSucceeded"
+            testSuiteMessage "TEST_FAIL" "$chart status expected: InstallSucceeded"
         fi
     done
 
+}
+
+function applyFailureOnExistingDeployment {
+    kubectl get deployments.apps orkestra -n orkestra -o json | jq '.spec.template.spec.containers[].args += ["--disable-remediation"]' | kubectl replace -f -
+    kubectl get applicationgroup bookinfo -o json | jq --arg v "$BAD_AMBASSADOR_VERSION" '.spec.applications[0].spec.chart.version = $v' | kubectl replace -f -
+}
+
+function deployFailure {
+    kubectl delete applicationgroup bookinfo
+    sed "s/${AMBASSADOR_VERSION}/${BAD_AMBASSADOR_VERSION}/g" ./examples/simple/bookinfo.yaml | kubectl apply -f -
+    sleep 5
+}
+
+function validateFailedApplicationGroup {
+    applicationGroupJson=$(kubectl get applicationgroup bookinfo -o json | jq '.status')
+    groupCondition=$(echo "$applicationGroupJson" | jq -r '.conditions[] | select(.reason=="Failed")')
+    if [ -n "$groupCondition" ]; then
+        testSuiteMessage "TEST_PASS" "ApplicationGroup status correct"
+    else
+        testSuiteMessage "TEST_FAIL" "ApplicationGroup status expected: (Failed)"
+    fi
+}
+
+function runFailureScenarios {
+    echo Running Failure Scenarios
+    applyFailureOnExistingDeployment
+    validateFailedApplicationGroup
+    deployFailure
+    validateFailedApplicationGroup
+    summary
+    echo DONE
 }
 
 function runValidation {
@@ -159,3 +193,4 @@ function runValidation {
 }
 
 runValidation
+runFailureScenarios

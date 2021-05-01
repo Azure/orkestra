@@ -16,6 +16,7 @@ events.on("exec", (brigadeEvent, project) => {
     "apt-get install make -y",
     "apt-get install wget -y",
     "apt-get install jq -y",
+    "apt-get install sed -y",
     "curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.18.17/bin/linux/amd64/kubectl",
     "chmod +x ./kubectl",
     "sudo mv ./kubectl /usr/local/bin/kubectl",
