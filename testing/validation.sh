@@ -185,7 +185,7 @@ function runValidation {
     fi
     echo Running Validation
     validateOrkestraDeployment
-    validateBookInfoDeployment
+    # validateBookInfoDeployment
     validateArgoWorkflow
     validateApplicationGroup
     summary
