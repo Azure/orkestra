@@ -208,10 +208,10 @@ func (a *argo) Submit(ctx context.Context, l logr.Logger, g *v1alpha1.Applicatio
 	return nil
 }
 
-func (a *argo) GenerateReverse(ctx context.Context, l logr.Logger, nodes map[string]v1alpha12.NodeStatus, g *v1alpha1.ApplicationGroup) error {
-	if g == nil {
-		l.Error(nil, "ApplicationGroup object cannot be nil")
-		return fmt.Errorf("applicationGroup object cannot be nil")
+func (a *argo) GenerateReverse(ctx context.Context, l logr.Logger, nodes map[string]v1alpha12.NodeStatus, wf *v1alpha12.Workflow) error {
+	if wf == nil {
+		l.Error(nil, "forward workflow object cannot be nil")
+		return fmt.Errorf("forward workflow object cannot be nil")
 	}
 
 	a.rwf = &v1alpha12.Workflow{
@@ -222,11 +222,11 @@ func (a *argo) GenerateReverse(ctx context.Context, l logr.Logger, nodes map[str
 
 	a.initWorkflowObject(a.rwf)
 
-	// Set name and namespace based on the input application group
-	a.rwf.Name = fmt.Sprintf("%s-reverse", g.Name)
+	// Set name and namespace based on the forward workflow
+	a.rwf.Name = fmt.Sprintf("%s-reverse", wf.Name)
 	a.rwf.Namespace = workflowNamespace()
 
-	err := a.generateReverseWorkflow(ctx, l, nodes, g)
+	err := a.generateReverseWorkflow(ctx, l, nodes, wf)
 	if err != nil {
 		l.Error(err, "failed to generate reverse workflow")
 		return fmt.Errorf("failed to generate argo reverse workflow : %w", err)
@@ -235,15 +235,15 @@ func (a *argo) GenerateReverse(ctx context.Context, l logr.Logger, nodes map[str
 	return nil
 }
 
-func (a *argo) SubmitReverse(ctx context.Context, l logr.Logger, g *v1alpha1.ApplicationGroup) error {
+func (a *argo) SubmitReverse(ctx context.Context, l logr.Logger, wf *v1alpha12.Workflow) error {
 	if a.rwf == nil {
 		l.Error(nil, "reverse workflow object cannot be nil")
 		return fmt.Errorf("reverse workflow object cannot be nil")
 	}
 
-	if g == nil {
-		l.Error(nil, "applicationGroup object cannot be nil")
-		return fmt.Errorf("applicationGroup object cannot be nil")
+	if wf == nil {
+		l.Error(nil, "forward workflow object cannot be nil")
+		return fmt.Errorf("forward workflow object cannot be nil")
 	}
 
 	obj := &v1alpha12.Workflow{
@@ -254,13 +254,13 @@ func (a *argo) SubmitReverse(ctx context.Context, l logr.Logger, g *v1alpha1.App
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Add OwnershipReference
-			err = controllerutil.SetControllerReference(a.wf, a.rwf, a.scheme)
+			err = controllerutil.SetControllerReference(wf, a.rwf, a.scheme)
 			if err != nil {
 				l.Error(err, "unable to set forward workflow as owner of Argo reverse Workflow object")
 				return fmt.Errorf("unable to set forward workflow as owner of Argo reverse Workflow: %w", err)
 			}
 
-			a.rwf.Labels[OwnershipLabel] = a.wf.Name
+			a.rwf.Labels[OwnershipLabel] = wf.Name
 
 			// If the argo Workflow object is NotFound and not AlreadyExists on the cluster
 			// create a new object and submit it to the cluster
@@ -296,8 +296,8 @@ func getTaskNamesFromHelmReleases(bucket []fluxhelmv2beta1.HelmRelease) []string
 	return out
 }
 
-func (a *argo) generateReverseWorkflow(ctx context.Context, l logr.Logger, nodes map[string]v1alpha12.NodeStatus, g *v1alpha1.ApplicationGroup) error {
-	graph, err := Build(g.Name, nodes)
+func (a *argo) generateReverseWorkflow(ctx context.Context, l logr.Logger, nodes map[string]v1alpha12.NodeStatus, wf *v1alpha12.Workflow) error {
+	graph, err := Build(wf.Name, nodes)
 	if err != nil {
 		l.Error(err, "failed to build the wf status DAG")
 		return fmt.Errorf("failed to build the wf status DAG : %w", err)

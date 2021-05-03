@@ -532,7 +532,7 @@ func (r *ApplicationGroupReconciler) cleanupWorkflow(ctx context.Context, logr l
 		err := r.Client.Get(ctx, types.NamespacedName{Namespace: rwfNamespace, Name: rwfName}, rwf)
 		if err != nil {
 			if kerrors.IsNotFound(err) {
-				err = r.generateReverseWorkflow(ctx, logr, nodes, &g)
+				err = r.generateReverseWorkflow(ctx, logr, nodes, &wf)
 				if err != nil {
 					logr.Error(err, "failed to generate reverse workflow")
 					return err
@@ -571,14 +571,14 @@ func (r *ApplicationGroupReconciler) cleanupWorkflow(ctx context.Context, logr l
 	return nil
 }
 
-func (r *ApplicationGroupReconciler) generateReverseWorkflow(ctx context.Context, logr logr.Logger, nodes map[string]v1alpha12.NodeStatus, g *orkestrav1alpha1.ApplicationGroup) (err error) {
-	err = r.Engine.GenerateReverse(ctx, logr, nodes, g)
+func (r *ApplicationGroupReconciler) generateReverseWorkflow(ctx context.Context, logr logr.Logger, nodes map[string]v1alpha12.NodeStatus, wf *v1alpha12.Workflow) (err error) {
+	err = r.Engine.GenerateReverse(ctx, logr, nodes, wf)
 	if err != nil {
 		logr.Error(err, "engine failed to generate reverse workflow")
 		return fmt.Errorf("failed to generate reverse workflow : %w", err)
 	}
 
-	err = r.Engine.SubmitReverse(ctx, logr, g)
+	err = r.Engine.SubmitReverse(ctx, logr, wf)
 	if err != nil {
 		logr.Error(err, "engine failed to submit reverse workflow")
 		return err
