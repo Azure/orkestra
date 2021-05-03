@@ -75,3 +75,7 @@ manager
 
 # artifacts
 */**.tgz
+
+# temporary directories
+tmp/
+temp/

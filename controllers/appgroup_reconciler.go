@@ -7,7 +7,6 @@ import (
 
 	"fmt"
 
-	"github.com/Azure/Orkestra/api/v1alpha1"
 	orkestrav1alpha1 "github.com/Azure/Orkestra/api/v1alpha1"
 	"github.com/Azure/Orkestra/pkg"
 	"github.com/Azure/Orkestra/pkg/registry"
@@ -54,7 +53,7 @@ func (r *ApplicationGroupReconciler) reconcile(ctx context.Context, l logr.Logge
 	return r.generateWorkflow(ctx, l, appGroup)
 }
 
-func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGroup *v1alpha1.ApplicationGroup) error {
+func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGroup *orkestrav1alpha1.ApplicationGroup) error {
 	stagingDir := r.TargetDir + "/" + r.StagingRepoName
 	// Pull and conditionally stage application & dependency charts
 	for i, application := range appGroup.Spec.Applications {
