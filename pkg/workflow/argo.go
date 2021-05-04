@@ -56,22 +56,23 @@ func Argo(scheme *runtime.Scheme, c client.Client, stagingRepoURL string, workfl
 	}
 }
 
-func (a *argo) initWorkflowObject(wf *v1alpha12.Workflow) {
-	wf.Labels[HeritageLabel] = Project
-
-	wf.APIVersion = argoAPIVersion
-	wf.Kind = argoKind
-
-	// Entry point is the entry node into the Application Group DAG
-	wf.Spec.Entrypoint = entrypointTplName
-
-	// Initialize the Templates slice
-	wf.Spec.Templates = make([]v1alpha12.Template, 0)
-
-	wf.Spec.Parallelism = a.parallelism
-
-	wf.Spec.PodGC = &v1alpha12.PodGC{
-		Strategy: v1alpha12.PodGCOnWorkflowCompletion,
+func (a *argo) initWorkflowObject() *v1alpha12.Workflow {
+	return &v1alpha12.Workflow{
+		ObjectMeta: v1.ObjectMeta{
+			Labels: map[string]string{HeritageLabel: Project},
+		},
+		TypeMeta: v1.TypeMeta{
+			APIVersion: argoAPIVersion,
+			Kind:       argoKind,
+		},
+		Spec: v1alpha12.WorkflowSpec{
+			Entrypoint:  entrypointTplName,
+			Templates:   make([]v1alpha12.Template, 0),
+			Parallelism: a.parallelism,
+			PodGC: &v1alpha12.PodGC{
+				Strategy: v1alpha12.PodGCOnWorkflowCompletion,
+			},
+		},
 	}
 }
 
@@ -81,13 +82,7 @@ func (a *argo) Generate(ctx context.Context, l logr.Logger, g *v1alpha1.Applicat
 		return fmt.Errorf("applicationGroup object cannot be nil")
 	}
 
-	a.wf = &v1alpha12.Workflow{
-		ObjectMeta: v1.ObjectMeta{
-			Labels: make(map[string]string),
-		},
-	}
-
-	a.initWorkflowObject(a.wf)
+	a.wf = a.initWorkflowObject()
 
 	// Set name and namespace based on the input application group
 	a.wf.Name = g.Name
@@ -214,13 +209,7 @@ func (a *argo) GenerateReverse(ctx context.Context, l logr.Logger, nodes map[str
 		return fmt.Errorf("forward workflow object cannot be nil")
 	}
 
-	a.rwf = &v1alpha12.Workflow{
-		ObjectMeta: v1.ObjectMeta{
-			Labels: make(map[string]string),
-		},
-	}
-
-	a.initWorkflowObject(a.rwf)
+	a.rwf = a.initWorkflowObject()
 
 	// Set name and namespace based on the forward workflow
 	a.rwf.Name = fmt.Sprintf("%s-reverse", wf.Name)
@@ -246,9 +235,7 @@ func (a *argo) SubmitReverse(ctx context.Context, l logr.Logger, wf *v1alpha12.W
 		return fmt.Errorf("forward workflow object cannot be nil")
 	}
 
-	obj := &v1alpha12.Workflow{
-		ObjectMeta: v1.ObjectMeta{Labels: make(map[string]string)},
-	}
+	obj := &v1alpha12.Workflow{}
 
 	err := a.cli.Get(ctx, types.NamespacedName{Namespace: a.rwf.Namespace, Name: a.rwf.Name}, obj)
 	if err != nil {
