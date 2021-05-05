@@ -53,6 +53,113 @@ $ helm upgrade orkestra chart/orkestra -n orkestra --create-namespace --set imag
 $ helm upgrade orkestra chart/orkestra -n orkestra --create-namespace --set image.repository=<azureorkestra/orkestra> --set image.tag=my-tag [--disable-remediation]
 ```
 
+### E2E Testing
+
+Create a KinD cluster for E2E testing with port mapping configuration, to access the chartmuseum port from the host.
+
+```shell
+$ kind create cluster -name orkestra --config .kind-cluster.yaml
+Creating cluster "orkestra" ...
+ ✓ Ensuring node image (kindest/node:v1.20.2) 🖼 
+ ✓ Preparing nodes 📦  
+ ✓ Writing configuration 📜 
+ ✓ Starting control-plane 🕹️ 
+ ✓ Installing CNI 🔌 
+ ✓ Installing StorageClass 💾 
+Set kubectl context to "kind-orkestra"
+You can now use your cluster with:
+
+kubectl cluster-info --context kind-orkestra
+
+Not sure what to do next? 😅  Check out https://kind.sigs.k8s.io/docs/user/quick-start/
+```
+
+Install Orkestra helm chart using E2E CI values.yaml
+
+```shell
+$ helm install orkestra chart/orkestra --wait --atomic -n orkestra --create-namespace --values chart/orkestra/values-ci.yaml
+manifest_sorter.go:192: info: skipping unknown hook: "crd-install"
+manifest_sorter.go:192: info: skipping unknown hook: "crd-install"
+manifest_sorter.go:192: info: skipping unknown hook: "crd-install"
+manifest_sorter.go:192: info: skipping unknown hook: "crd-install"
+NAME: orkestra
+LAST DEPLOYED: Wed May  5 14:25:42 2021
+NAMESPACE: orkestra
+STATUS: deployed
+REVISION: 1
+TEST SUITE: None
+NOTES:
+Happy Helming with Azure/Orkestra
+```
+
+Verify orkestra-chartmuseum service reachability
+
+```shell
+$ curl http://127.0.0.1:8080/index.yaml                                                 main ⍟2
+apiVersion: v1
+entries: {}
+generated: "2021-05-05T21:26:26Z"
+serverInfo: {}
+```
+
+Run the tests
+
+```shell
+$ make test
+go test -v ./... -coverprofile coverage.txt
+?       github.com/Azure/Orkestra       [no test files]
+?       github.com/Azure/Orkestra/api/v1alpha1  [no test files]
+=== RUN   TestAPIs
+Running Suite: Controller Suite
+===============================
+Random Seed: 1620250177
+Will run 1 of 1 specs
+
+• [SLOW TEST:10.026 seconds]
+ApplicationGroup Controller
+/Users/nitish_malhotra/github/azure/orkestra/controllers/appgroup_controller_test.go:11
+  Submit Bookinfo ApplicationGroup
+  /Users/nitish_malhotra/github/azure/orkestra/controllers/appgroup_controller_test.go:20
+    Should create successfully
+    /Users/nitish_malhotra/github/azure/orkestra/controllers/appgroup_controller_test.go:21
+------------------------------
+
+
+Ran 1 of 1 Specs in 13.364 seconds
+SUCCESS! -- 1 Passed | 0 Failed | 0 Pending | 0 Skipped
+You're using deprecated Ginkgo functionality:
+=============================================
+Ginkgo 2.0 is under active development and will introduce (a small number of) breaking changes.
+To learn more, view the migration guide at https://github.com/onsi/ginkgo/blob/v2/docs/MIGRATING_TO_V2.md
+To comment, chime in at https://github.com/onsi/ginkgo/issues/711
+
+  You are using a custom reporter.  Support for custom reporters will likely be removed in V2.  Most users were using them to generate junit or teamcity reports and this functionality will be merged into the core reporter.  In addition, Ginkgo 2.0 will support emitting a JSON-formatted report that users can then manipulate to generate custom reports.
+
+  If this change will be impactful to you please leave a comment on https://github.com/onsi/ginkgo/issues/711
+  Learn more at: https://github.com/onsi/ginkgo/blob/v2/docs/MIGRATING_TO_V2.md#removed-custom-reporters
+
+--- PASS: TestAPIs (13.36s)
+PASS
+coverage: 45.2% of statements
+ok      github.com/Azure/Orkestra/controllers   14.435s coverage: 45.2% of statements
+?       github.com/Azure/Orkestra/pkg   [no test files]
+?       github.com/Azure/Orkestra/pkg/meta      [no test files]
+?       github.com/Azure/Orkestra/pkg/registry  [no test files]
+=== RUN   Test_subchartValues
+=== RUN   Test_subchartValues/withGlobalSuchart
+=== RUN   Test_subchartValues/withOnlyGlobal
+=== RUN   Test_subchartValues/withOnlySubchart
+=== RUN   Test_subchartValues/withNone
+--- PASS: Test_subchartValues (0.00s)
+    --- PASS: Test_subchartValues/withGlobalSuchart (0.00s)
+    --- PASS: Test_subchartValues/withOnlyGlobal (0.00s)
+    --- PASS: Test_subchartValues/withOnlySubchart (0.00s)
+    --- PASS: Test_subchartValues/withNone (0.00s)
+PASS
+coverage: 3.9% of statements
+ok      github.com/Azure/Orkestra/pkg/workflow  0.935s  coverage: 3.9% of statements
+```
+
 ### Using Tilt
 
 Install `tilt` using the official [installation](https://docs.tilt.dev/install.html) instructions
