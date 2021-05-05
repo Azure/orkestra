@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 
 	"github.com/chartmuseum/helm-push/pkg/chartmuseum"
 	"github.com/go-logr/logr"
@@ -24,6 +25,11 @@ func (c *Client) PushChart(l logr.Logger, repoKey, pkgPath string, ch *chart.Cha
 	if err != nil {
 		l.Error(err, "failed to find registry with provided key in registries map")
 		return fmt.Errorf("failed to find registry with repoKey %s Name %s Version %s in registries map : %w", repoKey, chartName, version, err)
+	}
+
+	// Set the URL to the port-forward address:port of chartmuseum (http://localhost:8080)
+	if url := os.Getenv("CI_ENVTEST_CHARTMUSEUM_URL"); url != "" {
+		rCfg.URL = url
 	}
 
 	c.cfg.push, err = chartmuseum.NewClient(
