@@ -1,11 +1,13 @@
 # Orkestra
 
-
+[![Go Reference](https://pkg.go.dev/badge/github.com/Azure/Orkestra.svg)](https://pkg.go.dev/github.com/Azure/Orkestra)
+![GitHub Workflow Status](https://img.shields.io/github/workflow/status/azure/orkestra/E2E%20Testing?label=e2e)
 ![Docker Pulls](https://img.shields.io/docker/pulls/azureorkestra/orkestra)
 ![Docker Image Version (latest by date)](https://img.shields.io/docker/v/azureorkestra/orkestra)
 [![codecov](https://codecov.io/gh/Azure/orkestra/branch/main/graph/badge.svg?token=7zcSfCKZSw)](https://codecov.io/gh/Azure/orkestra)
 ![GitHub commits since latest release (by SemVer)](https://img.shields.io/github/commits-since/azure/orkestra/latest)
 ![GitHub contributors](https://img.shields.io/github/contributors/azure/orkestra)
+![GitHub Workflow Status](https://img.shields.io/github/workflow/status/azure/orkestra/E2E%20Testing?label=e2e)
 
 <p align="center"><img src="./assets/orkestra-core.png" width="750x" /></p>
 
