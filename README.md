@@ -7,7 +7,6 @@
 [![codecov](https://codecov.io/gh/Azure/orkestra/branch/main/graph/badge.svg?token=7zcSfCKZSw)](https://codecov.io/gh/Azure/orkestra)
 ![GitHub commits since latest release (by SemVer)](https://img.shields.io/github/commits-since/azure/orkestra/latest)
 ![GitHub contributors](https://img.shields.io/github/contributors/azure/orkestra)
-![GitHub Workflow Status](https://img.shields.io/github/workflow/status/azure/orkestra/E2E%20Testing?label=e2e)
 
 <p align="center"><img src="./assets/orkestra-core.png" width="750x" /></p>
 
