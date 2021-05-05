@@ -1,6 +1,6 @@
 ---
 layout: default
-title: Developers 
+title: Developers
 nav_order: 5
 ---
 # Guide for contributors and developers
@@ -33,8 +33,6 @@ $ make manifests
 $ cp config/crd/bases/orkestra.azure.microsoft.com_applicationgroups.yaml chart/orkestra/crds/orkestra.azure.microsoft.com_applicationgroups.yaml
 ```
 
-### Manually
-
 - Build the docker image and push it to (your own) docker registry
 
 ```shell
@@ -49,23 +47,28 @@ $ helm upgrade orkestra chart/orkestra -n orkestra --create-namespace --set imag
 ```
 
 *Example*
+
 ```shell
 $ helm upgrade orkestra chart/orkestra -n orkestra --create-namespace --set image.repository=<azureorkestra/orkestra> --set image.tag=my-tag [--disable-remediation]
 ```
 
+---
+
+## Testing & Debugging
+
 ### E2E Testing
 
-Create a KinD cluster for E2E testing with port mapping configuration, to access the chartmuseum port from the host.
+- Create a KinD cluster for E2E testing with port mapping configuration, to access the chartmuseum port from the host.
 
 ```shell
 $ kind create cluster -name orkestra --config .kind-cluster.yaml
 Creating cluster "orkestra" ...
- ✓ Ensuring node image (kindest/node:v1.20.2) 🖼 
- ✓ Preparing nodes 📦  
- ✓ Writing configuration 📜 
- ✓ Starting control-plane 🕹️ 
- ✓ Installing CNI 🔌 
- ✓ Installing StorageClass 💾 
+ ✓ Ensuring node image (kindest/node:v1.20.2) 🖼
+ ✓ Preparing nodes 📦
+ ✓ Writing configuration 📜
+ ✓ Starting control-plane 🕹️
+ ✓ Installing CNI 🔌
+ ✓ Installing StorageClass 💾
 Set kubectl context to "kind-orkestra"
 You can now use your cluster with:
 
@@ -74,7 +77,7 @@ kubectl cluster-info --context kind-orkestra
 Not sure what to do next? 😅  Check out https://kind.sigs.k8s.io/docs/user/quick-start/
 ```
 
-Install Orkestra helm chart using E2E CI values.yaml
+- Install Orkestra helm chart using E2E CI values.yaml
 
 ```shell
 $ helm install orkestra chart/orkestra --wait --atomic -n orkestra --create-namespace --values chart/orkestra/values-ci.yaml
@@ -92,17 +95,17 @@ NOTES:
 Happy Helming with Azure/Orkestra
 ```
 
-Verify orkestra-chartmuseum service reachability
+- Verify orkestra-chartmuseum service reachability
 
 ```shell
-$ curl http://127.0.0.1:8080/index.yaml                                                 main ⍟2
+$ curl http://127.0.0.1:8080/index.yaml
 apiVersion: v1
 entries: {}
 generated: "2021-05-05T21:26:26Z"
 serverInfo: {}
 ```
 
-Run the tests
+- Run the tests
 
 ```shell
 $ make test
@@ -127,17 +130,6 @@ ApplicationGroup Controller
 
 Ran 1 of 1 Specs in 13.364 seconds
 SUCCESS! -- 1 Passed | 0 Failed | 0 Pending | 0 Skipped
-You're using deprecated Ginkgo functionality:
-=============================================
-Ginkgo 2.0 is under active development and will introduce (a small number of) breaking changes.
-To learn more, view the migration guide at https://github.com/onsi/ginkgo/blob/v2/docs/MIGRATING_TO_V2.md
-To comment, chime in at https://github.com/onsi/ginkgo/issues/711
-
-  You are using a custom reporter.  Support for custom reporters will likely be removed in V2.  Most users were using them to generate junit or teamcity reports and this functionality will be merged into the core reporter.  In addition, Ginkgo 2.0 will support emitting a JSON-formatted report that users can then manipulate to generate custom reports.
-
-  If this change will be impactful to you please leave a comment on https://github.com/onsi/ginkgo/issues/711
-  Learn more at: https://github.com/onsi/ginkgo/blob/v2/docs/MIGRATING_TO_V2.md#removed-custom-reporters
-
 --- PASS: TestAPIs (13.36s)
 PASS
 coverage: 45.2% of statements
@@ -160,60 +152,75 @@ coverage: 3.9% of statements
 ok      github.com/Azure/Orkestra/pkg/workflow  0.935s  coverage: 3.9% of statements
 ```
 
-### Using Tilt
+### Guide for creating e2e tests
 
-Install `tilt` using the official [installation](https://docs.tilt.dev/install.html) instructions
+[`EnvTests`](https://pkg.go.dev/sigs.k8s.io/controller-runtime/pkg/envtest) use [Ginkgo](https://github.com/onsi/ginkgo) and [Gomega](https://github.com/onsi/gomega) libraries for testing and assertion.
 
-```shell
-$ tilt up
-Tilt started on http://localhost:10350/
-v0.19.0, built 2021-03-19
+Reference:
 
-(space) to open the browser
-(s) to stream logs (--stream=true)
-(t) to open legacy terminal mode (--legacy=true)
-(ctrl-c) to exit
-```
+- [Azure Databricks Operator Tests](https://github.com/microsoft/azure-databricks-operator/blob/0f722a710fea06b86ecdccd9455336ca712bf775/controllers/run_controller_test.go)
+- [Migrations Operator Tests](https://github.com/coderanger/migrations-operator/blob/main/integration/integration_test.go)
+- [Flux Source Controller Tests](https://github.com/fluxcd/source-controller/blob/main/controllers/gitrepository_controller_test.go)
+- [Kubebuilder Samples](https://book.kubebuilder.io/cronjob-tutorial/writing-tests.html)
 
-#### Tiltfile
+---
 
-Use the provided [`Tiltfile`](../Tiltfile) to start developing
+### Debugging
 
-## Debugging using [Visual Studio Code](https://code.visualstudio.com/) and [delve](https://github.com/go-delve/delve)
+- **<ins>On Build/Dev Machine</ins>**
 
-### "Bridge to Kubernetes"
+  The process described in E2E Testing can be used for local debugging of the orkestra controller as well. This is preferred over okteto and bridge-to-kubernetes since it is faster.
 
-#### Required extensions
+  Substitute the "Run the [delve](https://github.com/go-delve/delve) against the modified codebase using your IDE (*VSCode* is preferred)
 
-- ["Bridge to Kubernetes"](https://marketplace.visualstudio.com/items?itemName=mindaro.mindaro) 
-- ["Kubernetes"](https://marketplace.visualstudio.com/items?itemName=ms-kubernetes-tools.vscode-kubernetes-tools)
+- **<ins>Using [Tilt](https://docs.tilt.dev/)</ins>**
 
-Deploy the orkestra controller using the deployment methods shown above - **Manually** or  using **`Tilt`**
+  Install `tilt` using the official [installation](https://docs.tilt.dev/install.html) instructions
 
-Once the orkestra helm release has been successfully deployed you can start debugging by following the step-by-step tutorial below -
+  ```shell
+  $ tilt up
+  Tilt started on http://localhost:10350/
+  v0.19.0, built 2021-03-19
 
-![Bridge to Kubernetes tutorial GIF](./assets/bridge-to-kubernetes-tutorial.gif)
+  (space) to open the browser
+  (s) to stream logs (--stream=true)
+  (t) to open legacy terminal mode (--legacy=true)
+  (ctrl-c) to exit
+  ```
 
-### Okteto "Remote - Kubernetes"
+  Use the provided [`Tiltfile`](../Tiltfile) to start developing
 
-#### Required extensions
+---
 
-- ["Remote - SSH"](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-ssh)
-- ["Remote - Kubernetes"](https://marketplace.visualstudio.com/items?itemName=okteto.remote-kubernetes)
+- **<ins>Debugging using [Visual Studio Code](https://code.visualstudio.com/) and [delve](https://github.com/go-delve/delve)</ins>**
 
-#### Installing Okteto binary
+  - <ins>[Bridge to Kubernetes](https://marketplace.visualstudio.com/items?itemName=mindaro.mindaro) </ins>
 
-Install [okteto](https://okteto.com/) using `[CMD + Shift + p]` (`[Ctrl + Shift + p]` on Windows)  > __"Okteto: Install"__
+    - Required extensions:
+      - ["Bridge to Kubernetes"](https://marketplace.visualstudio.com/items?itemName=mindaro.mindaro)
+      - ["Kubernetes"](https://marketplace.visualstudio.com/items?itemName=ms-kubernetes-tools.vscode-kubernetes-tools)
 
-#### Configuration
+    Deploy the orkestra controller using the deployment methods shown above - **Manually** or  using **`Tilt`**
 
-A default [`okteto.yml`](../okteto.yml) has been provided with this repository.
+    Once the orkestra helm release has been successfully deployed you can start debugging by following the step-by-step tutorial below -
 
-[*optional*] Configure okteto (do this if you wish to use your own okteto.yml) using `[CMD + Shift + p]` > __"Okteto: Create Manifest"__
+    ![Bridge to Kubernetes tutorial GIF](./assets/bridge-to-kubernetes-tutorial.gif)
 
-#### Start debugging
+  - <ins>[Okteto (Remote - Kubernetes](https://marketplace.visualstudio.com/items?itemName=okteto.remote-kubernetes))</ins>
 
-Start the okteto debugger using `[CMD + Shift + p]` > __"Okteto: Up"__
+    - Required extensions:
+      - ["Remote - SSH"](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-ssh)
+      - ["Remote - Kubernetes"](https://marketplace.visualstudio.com/items?itemName=okteto.remote-kubernetes)
+
+    Install [okteto](https://okteto.com/) using `[CMD + Shift + p]` (`[Ctrl + Shift + p]` on Windows)  > __"Okteto: Install"__
+
+    A default [`okteto.yml`](../okteto.yml) has been provided with this repository.
+
+    [*optional*] Configure okteto (do this if you wish to use your own okteto.yml) using `[CMD + Shift + p]` > __"Okteto: Create Manifest"__
+
+    Start the okteto debugger using `[CMD + Shift + p]` > __"Okteto: Up"__
+
+---
 
 ## Structure
 
@@ -234,6 +241,8 @@ Start the okteto debugger using `[CMD + Shift + p]` > __"Okteto: Up"__
 | | **registry/** | Helm Registry functions using the office helmv2 package and chartmuseum for pull and push functionality, respectively | No |
 | | **workflow/** | DAG workflow generation and submission interface, implemented using Argo Workflows | No |
 | | **meta/** | `ApplicationGroup` transition states | No |
+
+---
 
 ## Workflow
 
