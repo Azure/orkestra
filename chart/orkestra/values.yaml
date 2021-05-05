@@ -22,7 +22,7 @@ serviceAccount:
 ci:
   enabled: false
   env:
-    chartmuseumURL: "http://localhost:8080"
+    chartmuseumURL: "http://127.0.0.1:8080"
 
 podAnnotations: {}
 

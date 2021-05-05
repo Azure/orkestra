@@ -1,0 +1,9 @@
+ci:
+  enabled: true
+  env:
+    chartmuseumURL: "http://127.0.0.1:8080"
+chartmuseum:
+  service:
+    type: NodePort 
+    externalPort: 8080
+    nodePort: 30950

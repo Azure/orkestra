@@ -37,7 +37,7 @@ var k8sManager ctrl.Manager
 var k8sClient client.Client
 var testEnv *envtest.Environment
 var tempChartStoreTargetDir string
-var portForwardStagingRepoURL string = "http://localhost:8080"
+var portForwardStagingRepoURL string = "http://127.0.0.1:8080"
 var inClusterstagingRepoURL string = "http://orkestra-chartmuseum.orkestra:8080"
 
 func init() {
@@ -79,7 +79,9 @@ var _ = BeforeSuite(func() {
 	// +kubebuilder:scaffold:scheme
 
 	k8sManager, err = ctrl.NewManager(cfg, ctrl.Options{
-		Scheme: scheme.Scheme,
+		Scheme:             scheme.Scheme,
+		MetricsBindAddress: ":8081",
+		Port:               9443,
 	})
 
 	rc, err := registry.NewClient(
