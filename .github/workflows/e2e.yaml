@@ -8,6 +8,8 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v2
       - name: Create k8s Kind Cluster
         uses: engineerd/setup-kind@v0.5.0
         with:
@@ -15,8 +17,6 @@ jobs:
           name: orkestra
           wait: 10s
           config: .kind-cluster.yaml
-      - name: Checkout
-        uses: actions/checkout@v2
       - name: Deploy
         run: |
           curl https://baltocdn.com/helm/signing.asc | sudo apt-key add -
