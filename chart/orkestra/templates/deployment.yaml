@@ -1,3 +1,4 @@
+{{ if not .Values.ci.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -50,6 +51,10 @@ spec:
             value: {{ .Release.Namespace }} 
           - name: WORKFLOW_SERVICEACCOUNT_NAME 
             value: {{ include "orkestra.serviceAccountName" . }} 
+          {{- if .Values.ci.enabled }}
+          - name: CI_ENVTEST_CHARTMUSEUM_URL
+            value: {{ .Values.ci.env.chartmuseumURL }}
+          {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           # define a liveness probe that checks every 5 seconds, starting after 5 seconds
@@ -78,3 +83,4 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+{{- end }}

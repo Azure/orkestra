@@ -14,8 +14,8 @@ endif
 all: manager
 
 # Run tests
-test: generate fmt vet manifests
-	go test ./... -coverprofile cover.out
+test:
+	go test -v ./... -coverprofile coverage.txt
 
 # Build manager binary
 manager: generate fmt vet
@@ -83,3 +83,6 @@ CONTROLLER_GEN=$(GOBIN)/controller-gen
 else
 CONTROLLER_GEN=$(shell which controller-gen)
 endif
+
+test-e2e:
+	./testing/validation.sh

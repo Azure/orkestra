@@ -19,20 +19,10 @@ serviceAccount:
   annotations: {}
   name: *serviceAccount
 
-# repositories:
-#   - name: staging 
-#     url: "http://orkestra-chartmuseum.orkestra:8080"
-#   - name: datawire 
-#     url: "https://www.getambassador.io/helm"
-#   - name: bookinfo 
-#     url: "https://nitishm.github.io/istio-bookinfo-chart"
-    # username: admin
-    # password: password
-    # authHeader: 'Authorization: Basic HTTPBASICAUTHCREDS'
-    # caFile: /path/to/ca/file
-    # certFile: /path/to/cert/file
-    # keyFile: /path/to/key/file
-    # insecureSkipVerify: false
+ci:
+  enabled: false
+  env:
+    chartmuseumURL: "http://127.0.0.1:8080"
 
 podAnnotations: {}
 
@@ -62,6 +52,7 @@ debug:
 
 # Dependency overlay values
 chartmuseum:
+  name: chartmuseum
   interval: 5m
   env:
     open:
