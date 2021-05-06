@@ -266,7 +266,7 @@ func (in *ApplicationGroup) RollingBack() {
 	meta.SetResourceCondition(in, meta.DeployCondition, metav1.ConditionTrue, meta.RollingBackReason, "rolling back because of failed helm releases...")
 }
 
-// Reversing sets the meta.ReversingCondition to 'True', with the given
+// Reversing sets the meta.ReadyCondition to 'False', with the given
 // meta.Reversing reason and message
 func (in *ApplicationGroup) Reversing() {
 	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionFalse, meta.ReversingReason, "workflow reversing because of helmreleases during install...")

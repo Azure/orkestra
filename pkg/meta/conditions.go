@@ -30,11 +30,6 @@ const (
 	// ReleasedCondition represents the status of the last release attempt
 	// (install/upgrade/test) against the latest desired state.
 	ReleasedCondition string = "Released"
-
-	// ReversingCondition is the name of the Reversed condiiton
-	// This captures the state of reversing the forward workflow
-	// on deletion of the ApplicationGroup
-	ReversingCondition string = "Reversing"
 )
 
 const (

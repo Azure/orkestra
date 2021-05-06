@@ -498,7 +498,7 @@ func (r *ApplicationGroupReconciler) rollbackFailedHelmReleases(ctx context.Cont
 	return nil
 }
 
-func (r *ApplicationGroupReconciler) cleanupWorkflow(ctx context.Context, logr logr.Logger, g orkestrav1alpha1.ApplicationGroup) (requeue bool) {
+func (r *ApplicationGroupReconciler) cleanupWorkflow(ctx context.Context, logr logr.Logger, g orkestrav1alpha1.ApplicationGroup) bool {
 	nodes := make(map[string]v1alpha12.NodeStatus)
 	wfs := v1alpha12.WorkflowList{}
 	listOption := client.MatchingLabels{
@@ -528,9 +528,9 @@ func (r *ApplicationGroupReconciler) cleanupWorkflow(ctx context.Context, logr l
 					err = r.Client.Delete(ctx, &wf)
 					if err != nil {
 						logr.Error(err, "failed to delete workflow CRO")
-						return
+						return false
 					}
-					return
+					return false
 				}
 
 				wfPatch := client.MergeFrom(wf.DeepCopy())
@@ -541,18 +541,17 @@ func (r *ApplicationGroupReconciler) cleanupWorkflow(ctx context.Context, logr l
 				err = r.Client.Patch(ctx, &wf, wfPatch)
 				if err != nil {
 					logr.Error(err, "failed to patch workflow CRO")
-					return
+					return false
 				}
 
 				err = r.Client.Delete(ctx, &wf)
 				if err != nil {
 					logr.Error(err, "failed to delete workflow CRO - continuing with cleanup")
-					return
+					return false
 				}
 
 				// reverse workflow started - requeue
-				requeue = true
-				return
+				return true
 			}
 			logr.Error(err, "failed to GET workflow object with an unrecoverable error")
 		} else {
@@ -567,17 +566,16 @@ func (r *ApplicationGroupReconciler) cleanupWorkflow(ctx context.Context, logr l
 				err = r.Client.Patch(ctx, &wf, wfPatch)
 				if err != nil {
 					logr.Error(err, "failed to patch workflow CRO")
-					return
+					return false
 				}
 
-				return
+				return false
 			}
 			// reverse workflow is not finished - requeue
-			requeue = true
-			return
+			return true
 		}
 	}
-	return
+	return false
 }
 
 func (r *ApplicationGroupReconciler) generateReverseWorkflow(ctx context.Context, logr logr.Logger, nodes map[string]v1alpha12.NodeStatus, wf *v1alpha12.Workflow) (err error) {
