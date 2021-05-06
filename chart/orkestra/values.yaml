@@ -52,6 +52,7 @@ debug:
 
 # Dependency overlay values
 chartmuseum:
+  name: chartmuseum
   interval: 5m
   env:
     open:
