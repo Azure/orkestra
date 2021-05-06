@@ -28,4 +28,6 @@ spec:
         env:
           - name: RELEASE_NAMESPACE
             value: {{ .Release.Namespace }}
-        command: ["kubectl", "delete", "helmrepositories", "-n", "$(RELEASE_NAMESPACE)", "--all"]
+          - name: HELMREPOSITORY_NAME
+            values: {{ .Values.chartmuseum.name }}
+        command: ["kubectl", "delete", "helmrepositories", "-n", "$(RELEASE_NAMESPACE)", "$(HELMREPOSITORY_NAME}"]
