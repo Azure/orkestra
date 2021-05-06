@@ -247,8 +247,6 @@ func (a *argo) SubmitReverse(ctx context.Context, l logr.Logger, wf *v1alpha12.W
 				return fmt.Errorf("unable to set forward workflow as owner of Argo reverse Workflow: %w", err)
 			}
 
-			a.rwf.Labels[OwnershipLabel] = wf.Name
-
 			// If the argo Workflow object is NotFound and not AlreadyExists on the cluster
 			// create a new object and submit it to the cluster
 			err = a.cli.Create(ctx, a.rwf)
@@ -325,9 +323,9 @@ func (a *argo) generateReverseWorkflow(ctx context.Context, l logr.Logger, nodes
 		return fmt.Errorf("entry template must have at least one task")
 	}
 
-	a.updateWorkflowTemplates(a.rwf, entry)
+	updateWorkflowTemplates(a.rwf, entry)
 
-	a.updateWorkflowTemplates(a.rwf, defaultReverseExecutor())
+	updateWorkflowTemplates(a.rwf, defaultReverseExecutor())
 
 	return nil
 }
@@ -355,17 +353,17 @@ func (a *argo) generateAppGroupTpls(ctx context.Context, g *v1alpha1.Application
 	if err != nil {
 		return fmt.Errorf("failed to generate application DAG templates : %w", err)
 	}
-	a.updateWorkflowTemplates(a.wf, adt...)
+	updateWorkflowTemplates(a.wf, adt...)
 
 	err = updateAppGroupDAG(g, &entry, adt)
 	if err != nil {
 		return fmt.Errorf("failed to generate Application Group DAG : %w", err)
 	}
-	a.updateWorkflowTemplates(a.wf, entry)
+	updateWorkflowTemplates(a.wf, entry)
 
 	// TODO: Add the executor template
 	// This should eventually be configurable
-	a.updateWorkflowTemplates(a.wf, defaultExecutor(5*time.Minute))
+	updateWorkflowTemplates(a.wf, defaultExecutor(5*time.Minute))
 
 	return nil
 }
@@ -627,7 +625,7 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 	return tasks, nil
 }
 
-func (a *argo) updateWorkflowTemplates(wf *v1alpha12.Workflow, tpls ...v1alpha12.Template) {
+func updateWorkflowTemplates(wf *v1alpha12.Workflow, tpls ...v1alpha12.Template) {
 	wf.Spec.Templates = append(wf.Spec.Templates, tpls...)
 }
 

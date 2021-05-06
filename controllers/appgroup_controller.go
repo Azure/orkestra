@@ -115,30 +115,25 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if !appGroup.DeletionTimestamp.IsZero() {
 		// If finalizer is found, remove it and requeue
 		if appGroup.Finalizers != nil {
-			logr.Info("cleaning up the applicationgroup resource")
-
-			// Change the app group spec into a progressing state
-			appGroup.Progressing()
-			_ = r.Status().Patch(ctx, &appGroup, patch)
-
 			// Reverse the entire workflow to remove all the Helm Releases
-
-			// unset the last successful spec annotation
-			r.lastSuccessfulApplicationGroup = nil
-			if _, ok := appGroup.Annotations[lastSuccessfulApplicationGroupKey]; ok {
-				appGroup.Annotations[lastSuccessfulApplicationGroupKey] = ""
-			}
-			requeue = false
-			requeue, err = r.cleanupWorkflow(ctx, logr, appGroup)
-			if err != nil {
-				logr.Error(err, "failed to start reverse workflow")
-				return ctrl.Result{}, err
-			}
+			requeue = r.cleanupWorkflow(ctx, logr, appGroup)
 			if requeue {
 				logr.Info("reverse workflow is in progress")
+			} else {
+				logr.Info("cleaning up the applicationgroup resource")
+
+				// Change the app group spec into a progressing state
+				appGroup.Progressing()
+				_ = r.Status().Patch(ctx, &appGroup, patch)
+
+				// unset the last successful spec annotation
+				r.lastSuccessfulApplicationGroup = nil
+				if _, ok := appGroup.Annotations[lastSuccessfulApplicationGroupKey]; ok {
+					appGroup.Annotations[lastSuccessfulApplicationGroupKey] = ""
+				}
+				appGroup.Finalizers = nil
+				_ = r.Patch(ctx, &appGroup, patch)
 			}
-			appGroup.Finalizers = nil
-			_ = r.Patch(ctx, &appGroup, patch)
 			return r.handleResponseAndEvent(ctx, logr, appGroup, patch, requeue, nil)
 		}
 		// Do nothing
@@ -416,11 +411,7 @@ func (r *ApplicationGroupReconciler) handleRemediation(ctx context.Context, logr
 	g.RollingBack()
 	_ = r.Status().Patch(ctx, &g, patch)
 
-	requeue, err := r.cleanupWorkflow(ctx, logr, g)
-	if err != nil {
-		logr.Error(err, "failed to start reverse workflow")
-		return reconcile.Result{}, err
-	}
+	requeue := r.cleanupWorkflow(ctx, logr, g)
 	if requeue {
 		logr.Info("reverse workflow is in progress")
 		return reconcile.Result{Requeue: true}, nil
@@ -507,7 +498,7 @@ func (r *ApplicationGroupReconciler) rollbackFailedHelmReleases(ctx context.Cont
 	return nil
 }
 
-func (r *ApplicationGroupReconciler) cleanupWorkflow(ctx context.Context, logr logr.Logger, g orkestrav1alpha1.ApplicationGroup) (requeue bool, err error) {
+func (r *ApplicationGroupReconciler) cleanupWorkflow(ctx context.Context, logr logr.Logger, g orkestrav1alpha1.ApplicationGroup) (requeue bool) {
 	nodes := make(map[string]v1alpha12.NodeStatus)
 	wfs := v1alpha12.WorkflowList{}
 	listOption := client.MatchingLabels{
@@ -517,8 +508,6 @@ func (r *ApplicationGroupReconciler) cleanupWorkflow(ctx context.Context, logr l
 	_ = r.List(ctx, &wfs, listOption)
 
 	if wfs.Items.Len() != 0 {
-		logr.Info("Reversing the workflow")
-
 		wf := wfs.Items[0]
 		for _, node := range wf.Status.Nodes {
 			nodes[node.ID] = node
@@ -527,19 +516,27 @@ func (r *ApplicationGroupReconciler) cleanupWorkflow(ctx context.Context, logr l
 
 		rwfName := fmt.Sprintf("%s-reverse", wf.Name)
 		rwfNamespace := wf.Namespace
-		err = r.Client.Get(ctx, types.NamespacedName{Namespace: rwfNamespace, Name: rwfName}, rwf)
+		err := r.Client.Get(ctx, types.NamespacedName{Namespace: rwfNamespace, Name: rwfName}, rwf)
 		if err != nil {
 			if kerrors.IsNotFound(err) {
+				logr.Info("Reversing the workflow")
+
 				err = r.generateReverseWorkflow(ctx, logr, nodes, &wf)
 				if err != nil {
 					logr.Error(err, "failed to generate reverse workflow")
+					// if generation of reverse workflow failed, delete the forward workflow and return
+					err = r.Client.Delete(ctx, &wf)
+					if err != nil {
+						logr.Error(err, "failed to delete workflow CRO")
+						return
+					}
 					return
 				}
 
 				wfPatch := client.MergeFrom(wf.DeepCopy())
 
 				// update the forward workflow metadata with a finalizer
-				wf.Finalizers = []string{rwffinalizer}
+				controllerutil.AddFinalizer(&wf, rwffinalizer)
 
 				err = r.Client.Patch(ctx, &wf, wfPatch)
 				if err != nil {
@@ -557,9 +554,11 @@ func (r *ApplicationGroupReconciler) cleanupWorkflow(ctx context.Context, logr l
 				requeue = true
 				return
 			}
+			logr.Error(err, "failed to GET workflow object with an unrecoverable error")
 		} else {
 			// check the completion of the reverse workflow
 			if !rwf.Status.FinishedAt.IsZero() {
+				logr.Info("reverse workflow is finished")
 				wfPatch := client.MergeFrom(wf.DeepCopy())
 
 				// remove the finalizer from the forward workflow
