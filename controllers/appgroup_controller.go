@@ -118,13 +118,13 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			// Reverse the entire workflow to remove all the Helm Releases
 			requeue = r.cleanupWorkflow(ctx, logr, appGroup)
 			if requeue {
+				// Change the app group spec into a reversing state
+				appGroup.Reversing()
+				_ = r.Status().Patch(ctx, &appGroup, patch)
+
 				logr.Info("reverse workflow is in progress")
 			} else {
 				logr.Info("cleaning up the applicationgroup resource")
-
-				// Change the app group spec into a progressing state
-				appGroup.Progressing()
-				_ = r.Status().Patch(ctx, &appGroup, patch)
 
 				// unset the last successful spec annotation
 				r.lastSuccessfulApplicationGroup = nil
@@ -335,12 +335,12 @@ func (r *ApplicationGroupReconciler) handleResponseAndEvent(ctx context.Context,
 	}
 
 	if requeue {
-		if grp.GetReadyCondition() != meta.ProgressingReason {
-			logr.WithValues("requeueTime", orkestrav1alpha1.DefaultProgressingRequeue.String())
+		if grp.GetReadyCondition() != meta.ProgressingReason && grp.GetReadyCondition() != meta.ReversingReason {
+			logr.WithValues("requeueTime", orkestrav1alpha1.GetInterval(&grp).String())
 			logr.V(1).Info("workflow has succeeded")
 			return reconcile.Result{RequeueAfter: orkestrav1alpha1.GetInterval(&grp)}, err
 		}
-		logr.WithValues("requeueTime", orkestrav1alpha1.GetInterval(&grp).String())
+		logr.WithValues("requeueTime", orkestrav1alpha1.DefaultProgressingRequeue.String())
 		logr.V(1).Info("workflow is still progressing")
 		return reconcile.Result{RequeueAfter: orkestrav1alpha1.DefaultProgressingRequeue}, err
 	}

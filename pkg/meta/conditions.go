@@ -30,6 +30,11 @@ const (
 	// ReleasedCondition represents the status of the last release attempt
 	// (install/upgrade/test) against the latest desired state.
 	ReleasedCondition string = "Released"
+
+	// ReversingCondition is the name of the Reversed condiiton
+	// This captures the state of reversing the forward workflow
+	// on deletion of the ApplicationGroup
+	ReversingCondition string = "Reversing"
 )
 
 const (
@@ -46,6 +51,9 @@ const (
 	// RollbackReason represents the fact that we are entering a rollback state
 	// and is transitioning into a non-terminal state
 	RollingBackReason string = "RollingBack"
+
+	// ReversingReason represents the fact that we are reversing the workflow
+	ReversingReason string = "Reversing"
 )
 
 // ObjectWithStatusConditions is an interface that describes kubernetes resource
