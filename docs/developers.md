@@ -58,10 +58,10 @@ $ helm upgrade orkestra chart/orkestra -n orkestra --create-namespace --set imag
 
 ### E2E Testing
 
-- Create a KinD cluster for E2E testing with port mapping configuration, to access the chartmuseum port from the host.
+- Create a KinD cluster for E2E testing using the provided `.kind-cluster.yaml` as the config file which adds an `extraPortMapping` from Port `8080` on the host to Port `30950` on the cluster node. The chartmuseum `Service` is being exposed on the cluster node using `type: NodePort` on port`30950`.
 
 ```shell
-$ kind create cluster -name orkestra --config .kind-cluster.yaml
+$ kind create cluster --name orkestra --config .kind-cluster.yaml
 Creating cluster "orkestra" ...
  ✓ Ensuring node image (kindest/node:v1.20.2) 🖼
  ✓ Preparing nodes 📦
@@ -77,7 +77,7 @@ kubectl cluster-info --context kind-orkestra
 Not sure what to do next? 😅  Check out https://kind.sigs.k8s.io/docs/user/quick-start/
 ```
 
-- Install Orkestra helm chart using E2E CI values.yaml
+- Install Orkestra helm chart using E2E the CI specific `chart/orkestra/values-ci.yaml` overlay. 
 
 ```shell
 $ helm install orkestra chart/orkestra --wait --atomic -n orkestra --create-namespace --values chart/orkestra/values-ci.yaml
