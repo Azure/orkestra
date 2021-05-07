@@ -19,6 +19,7 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -112,23 +113,25 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if !appGroup.DeletionTimestamp.IsZero() {
 		// If finalizer is found, remove it and requeue
 		if appGroup.Finalizers != nil {
-			logr.Info("cleaning up the applicationgroup resource")
-
-			// Change the app group spec into a progressing state
-			appGroup.Progressing()
-			_ = r.Status().Patch(ctx, &appGroup, patch)
-
 			// Reverse the entire workflow to remove all the Helm Releases
+			requeue = r.cleanupWorkflow(ctx, logr, appGroup)
+			if requeue {
+				// Change the app group spec into a reversing state
+				appGroup.Reversing()
+				_ = r.Status().Patch(ctx, &appGroup, patch)
 
-			// unset the last successful spec annotation
-			r.lastSuccessfulApplicationGroup = nil
-			if _, ok := appGroup.Annotations[lastSuccessfulApplicationGroupKey]; ok {
-				appGroup.Annotations[lastSuccessfulApplicationGroupKey] = ""
+				logr.Info("reverse workflow is in progress")
+			} else {
+				logr.Info("cleaning up the applicationgroup resource")
+
+				// unset the last successful spec annotation
+				r.lastSuccessfulApplicationGroup = nil
+				if _, ok := appGroup.Annotations[lastSuccessfulApplicationGroupKey]; ok {
+					appGroup.Annotations[lastSuccessfulApplicationGroupKey] = ""
+				}
+				appGroup.Finalizers = nil
+				_ = r.Patch(ctx, &appGroup, patch)
 			}
-			requeue = false
-			_ = r.cleanupWorkflow(ctx, logr, appGroup)
-			appGroup.Finalizers = nil
-			_ = r.Patch(ctx, &appGroup, patch)
 			return r.handleResponseAndEvent(ctx, logr, appGroup, patch, requeue, nil)
 		}
 		// Do nothing
@@ -330,12 +333,12 @@ func (r *ApplicationGroupReconciler) handleResponseAndEvent(ctx context.Context,
 	}
 
 	if requeue {
-		if grp.GetReadyCondition() != meta.ProgressingReason {
-			logr.WithValues("requeueTime", orkestrav1alpha1.DefaultProgressingRequeue.String())
+		if grp.GetReadyCondition() != meta.ProgressingReason && grp.GetReadyCondition() != meta.ReversingReason {
+			logr.WithValues("requeueTime", orkestrav1alpha1.GetInterval(&grp).String())
 			logr.V(1).Info("workflow has succeeded")
 			return reconcile.Result{RequeueAfter: orkestrav1alpha1.GetInterval(&grp)}, err
 		}
-		logr.WithValues("requeueTime", orkestrav1alpha1.GetInterval(&grp).String())
+		logr.WithValues("requeueTime", orkestrav1alpha1.DefaultProgressingRequeue.String())
 		logr.V(1).Info("workflow is still progressing")
 		return reconcile.Result{RequeueAfter: orkestrav1alpha1.DefaultProgressingRequeue}, err
 	}
@@ -406,7 +409,11 @@ func (r *ApplicationGroupReconciler) handleRemediation(ctx context.Context, logr
 	g.RollingBack()
 	_ = r.Status().Patch(ctx, &g, patch)
 
-	_ = r.cleanupWorkflow(ctx, logr, g)
+	requeue := r.cleanupWorkflow(ctx, logr, g)
+	if requeue {
+		logr.Info("reverse workflow is in progress")
+		return reconcile.Result{Requeue: true}, nil
+	}
 
 	return reconcile.Result{}, nil
 }
@@ -489,7 +496,7 @@ func (r *ApplicationGroupReconciler) rollbackFailedHelmReleases(ctx context.Cont
 	return nil
 }
 
-func (r *ApplicationGroupReconciler) cleanupWorkflow(ctx context.Context, logr logr.Logger, g orkestrav1alpha1.ApplicationGroup) error {
+func (r *ApplicationGroupReconciler) cleanupWorkflow(ctx context.Context, logr logr.Logger, g orkestrav1alpha1.ApplicationGroup) bool {
 	nodes := make(map[string]v1alpha12.NodeStatus)
 	wfs := v1alpha12.WorkflowList{}
 	listOption := client.MatchingLabels{
@@ -499,32 +506,66 @@ func (r *ApplicationGroupReconciler) cleanupWorkflow(ctx context.Context, logr l
 	_ = r.List(ctx, &wfs, listOption)
 
 	if wfs.Items.Len() != 0 {
-		logr.Info("Reversing the workflow")
-
 		wf := wfs.Items[0]
 		for _, node := range wf.Status.Nodes {
 			nodes[node.ID] = node
 		}
-		graph, err := workflow.Build(g.Name, nodes)
+		rwf := &v1alpha12.Workflow{}
+
+		rwfName := fmt.Sprintf("%s-reverse", wf.Name)
+		rwfNamespace := wf.Namespace
+		err := r.Client.Get(ctx, types.NamespacedName{Namespace: rwfNamespace, Name: rwfName}, rwf)
 		if err != nil {
-			logr.Error(err, "failed to build the wf status DAG")
-		}
+			if kerrors.IsNotFound(err) {
+				logr.Info("Reversing the workflow")
 
-		rev := graph.Reverse()
-
-		for _, bucket := range rev {
-			for _, hr := range bucket {
-				err = r.Client.Delete(ctx, &hr)
+				err = r.generateReverseWorkflow(ctx, logr, nodes, &wf)
 				if err != nil {
-					logr.Error(err, "failed to delete helmrelease CRO - continuing with cleanup")
+					logr.Error(err, "failed to generate reverse workflow")
+					// if generation of reverse workflow failed, delete the forward workflow and return
+					err = r.Client.Delete(ctx, &wf)
+					if err != nil {
+						logr.Error(err, "failed to delete workflow CRO")
+						return false
+					}
+					return false
 				}
-			}
-		}
 
-		err = r.Client.Delete(ctx, &wf)
-		if err != nil {
-			logr.Error(err, "failed to delete workflow CRO - continuing with cleanup")
+				// reverse workflow started - requeue
+				return true
+			}
+			logr.Error(err, "failed to GET workflow object with an unrecoverable error")
+		} else {
+			// check the completion of the reverse workflow
+			if !rwf.Status.FinishedAt.IsZero() {
+				logr.Info("reverse workflow is finished")
+
+				err = r.Client.Delete(ctx, &wf)
+				if err != nil {
+					logr.Error(err, "failed to delete workflow CRO - continuing with cleanup")
+					return false
+				}
+
+				return false
+			}
+			// reverse workflow is not finished - requeue
+			return true
 		}
+	}
+	return false
+}
+
+func (r *ApplicationGroupReconciler) generateReverseWorkflow(ctx context.Context, logr logr.Logger, nodes map[string]v1alpha12.NodeStatus, wf *v1alpha12.Workflow) (err error) {
+	err = r.Engine.GenerateReverse(ctx, logr, nodes, wf)
+	if err != nil {
+		logr.Error(err, "engine failed to generate reverse workflow")
+		return fmt.Errorf("failed to generate reverse workflow : %w", err)
+	}
+
+	err = r.Engine.SubmitReverse(ctx, logr, wf)
+	if err != nil {
+		logr.Error(err, "engine failed to submit reverse workflow")
+		return err
 	}
 	return nil
 }

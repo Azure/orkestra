@@ -62,11 +62,19 @@ func (g *Graph) bft(node v1alpha12.NodeStatus) error {
 		for _, c := range n.Children {
 			ch := g.nodes[c]
 			if _, ok := visited[ch.ID]; !ok {
-				visited[ch.ID] = &Node{
-					Status: ch,
-					Level:  level,
+				// don't visit the child if it is reachable indirectly
+				if !g.isIndirectChild(ch.ID, n) {
+					// don't visit failed nodes
+					if ch.Phase != v1alpha12.NodeSkipped &&
+						ch.Phase != v1alpha12.NodeFailed &&
+						ch.Phase != v1alpha12.NodeError {
+						visited[ch.ID] = &Node{
+							Status: ch,
+							Level:  level,
+						}
+						q = append(q, ch)
+					}
 				}
-				q = append(q, ch)
 			}
 		}
 		q = q[1:]
@@ -95,6 +103,42 @@ func (g *Graph) bft(node v1alpha12.NodeStatus) error {
 
 	g.maxLevel = level
 	return nil
+}
+
+func (g *Graph) isIndirectChild(nodeID string, node v1alpha12.NodeStatus) bool {
+	for _, c := range node.Children {
+		ch := g.nodes[c]
+		if ch.ID != nodeID && g.isChild(nodeID, ch) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (g *Graph) isChild(nodeID string, node v1alpha12.NodeStatus) bool {
+	visited := make(map[string]bool)
+	q := []v1alpha12.NodeStatus{}
+	q = append(q, node)
+
+	visited[node.ID] = true
+
+	for len(q) > 0 {
+		n := q[0]
+		for _, c := range n.Children {
+			ch := g.nodes[c]
+			if ch.ID == nodeID {
+				return true
+			}
+			if !visited[ch.ID] {
+				visited[ch.ID] = true
+				q = append(q, ch)
+			}
+		}
+		q = q[1:]
+	}
+
+	return false
 }
 
 func (g *Graph) Reverse() [][]fluxhelmv2beta1.HelmRelease {
