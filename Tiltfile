@@ -13,12 +13,7 @@ docker_build(
   '.',
   dockerfile='Dockerfile')
 
-yaml = helm(
-  'chart/orkestra',
-  name='orkestra',
-  namespace='orkestra',
-  values=['./chart/orkestra/values.yaml'],
-)
+yaml = local('helm template --namespace orkestra orkestra chart/orkestra --no-hooks --include-crds')
 
 k8s_yaml(yaml,allow_duplicates=True) 
 
