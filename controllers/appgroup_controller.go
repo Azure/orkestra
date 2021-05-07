@@ -23,7 +23,6 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -33,7 +32,6 @@ import (
 const (
 	appgroupNameKey                   = "appgroup"
 	finalizer                         = "application-group-finalizer"
-	rwffinalizer                      = "reverse-workflow-finalizer"
 	lastSuccessfulApplicationGroupKey = "orkestra/last-successful-applicationgroup"
 )
 
@@ -533,23 +531,6 @@ func (r *ApplicationGroupReconciler) cleanupWorkflow(ctx context.Context, logr l
 					return false
 				}
 
-				wfPatch := client.MergeFrom(wf.DeepCopy())
-
-				// update the forward workflow metadata with a finalizer
-				controllerutil.AddFinalizer(&wf, rwffinalizer)
-
-				err = r.Client.Patch(ctx, &wf, wfPatch)
-				if err != nil {
-					logr.Error(err, "failed to patch workflow CRO")
-					return false
-				}
-
-				err = r.Client.Delete(ctx, &wf)
-				if err != nil {
-					logr.Error(err, "failed to delete workflow CRO - continuing with cleanup")
-					return false
-				}
-
 				// reverse workflow started - requeue
 				return true
 			}
@@ -558,14 +539,10 @@ func (r *ApplicationGroupReconciler) cleanupWorkflow(ctx context.Context, logr l
 			// check the completion of the reverse workflow
 			if !rwf.Status.FinishedAt.IsZero() {
 				logr.Info("reverse workflow is finished")
-				wfPatch := client.MergeFrom(wf.DeepCopy())
 
-				// remove the finalizer from the forward workflow
-				controllerutil.RemoveFinalizer(&wf, rwffinalizer)
-
-				err = r.Client.Patch(ctx, &wf, wfPatch)
+				err = r.Client.Delete(ctx, &wf)
 				if err != nil {
-					logr.Error(err, "failed to patch workflow CRO")
+					logr.Error(err, "failed to delete workflow CRO - continuing with cleanup")
 					return false
 				}
 
