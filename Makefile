@@ -4,6 +4,7 @@ IMG ?= azureorkestra/orkestra:latest
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true"
 
+CI_VALUES ?= "chart/orkestra/values-ci.yaml"
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
 GOBIN=$(shell go env GOPATH)/bin
@@ -12,6 +13,16 @@ GOBIN=$(shell go env GOBIN)
 endif
 
 all: manager
+
+dev-up: dev-cluster dev-deploy
+dev-down: stop
+	kind delete cluster orkestra
+
+dev-cluster:
+	kind create cluster --config .kind-cluster.yaml
+
+dev-deploy:
+	helm install orkestra chart/orkestra --wait --atomic -n orkestra --create-namespace --values ${CI_VALUES} 
 
 # Run tests
 test:
@@ -22,8 +33,17 @@ manager: generate fmt vet
 	go build -o bin/manager main.go
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
-run: generate fmt vet manifests
-	go run ./main.go
+run:
+	helm install orkestra chart/orkestra --wait --atomic -n orkestra --create-namespace
+
+stop:
+	helm delete orkestra -n orkestra
+
+bookinfo:
+	kubectl create -f examples/simple/bookinfo.yaml
+
+make clean-bookinfo:
+	kubectl delete -f examples/simple/bookinfo.yaml
 
 # Install CRDs into a cluster
 install: manifests
