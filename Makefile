@@ -14,73 +14,54 @@ endif
 
 all: manager
 
-dev-up: dev-cluster dev-deploy
-dev-down: stop
-	kind delete cluster orkestra
+dev-up: 
+	-kind create cluster --config .kind-cluster.yaml --name orkestra
 
-dev-cluster:
-	kind create cluster --config .kind-cluster.yaml
+dev-down: dev-stop
+	-kind delete cluster --name orkestra 2>&1
 
-dev-deploy:
+dev-run: dev-up
 	helm install orkestra chart/orkestra --wait --atomic -n orkestra --create-namespace --values ${CI_VALUES} 
 
+dev-stop: 
+	-helm delete orkestra -n orkestra 2>&1
+
 # Run tests
-test:
+test: lint
 	go test -v ./... -coverprofile coverage.txt
 
 # Build manager binary
-manager: generate fmt vet
+manager: generate lint 
 	go build -o bin/manager main.go
 
-# Run against the configured Kubernetes cluster in ~/.kube/config
-run:
+up: 
+	kind create cluster --name orkestra
+
+down: stop
+	-kind delete cluster --name orkestra
+
+run: up
 	helm install orkestra chart/orkestra --wait --atomic -n orkestra --create-namespace
 
 stop:
-	helm delete orkestra -n orkestra
+	-helm delete orkestra -n orkestra
 
-bookinfo:
+bookinfo-up: 
 	kubectl create -f examples/simple/bookinfo.yaml
 
-make clean-bookinfo:
+bookinfo-down: 
 	kubectl delete -f examples/simple/bookinfo.yaml
-
-# Install CRDs into a cluster
-install: manifests
-	kustomize build config/crd | kubectl apply -f -
-
-# Uninstall CRDs from a cluster
-uninstall: manifests
-	kustomize build config/crd | kubectl delete -f -
-
-# Deploy controller in the configured Kubernetes cluster in ~/.kube/config
-deploy: manifests
-	cd config/manager && kustomize edit set image controller=${IMG}
-	kustomize build config/default | kubectl apply -f -
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
-# Run go fmt against code
-fmt:
-	go fmt ./...
-
-# Run go vet against code
-vet:
-	go vet ./...
+lint:
+	golangci-lint run .
 
 # Generate code
 generate: controller-gen
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
-
-# Build the docker image
-docker-build: test
-	docker build . -t ${IMG}
-
-# Push the docker image
-docker-push:
-	docker push ${IMG}
 
 # setup kubebuilder
 setup-kubebuilder:
@@ -106,3 +87,5 @@ endif
 
 test-e2e:
 	./testing/validation.sh
+
+.PHONY: all manager dev-up dev-down dev-run dev-stop up down run stop bookinfo-up bookinfo-down manifests generate
