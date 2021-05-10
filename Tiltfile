@@ -1,6 +1,3 @@
-load('ext://namespace', 'namespace_yaml')
-k8s_yaml(namespace_yaml("orkestra"),allow_duplicates=True)
-
 compile_cmd = 'CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o manager main.go'
 
 local_resource(
@@ -13,7 +10,7 @@ docker_build(
   '.',
   dockerfile='Dockerfile')
 
-yaml = local('helm template orkestra chart/orkestra -n orkestra --no-hooks --include-crds')
+yaml = local('helm template orkestra chart/orkestra --no-hooks --include-crds')
 
 k8s_yaml(yaml,allow_duplicates=True) 
 
