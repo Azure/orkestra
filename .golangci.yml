@@ -117,6 +117,7 @@ issues:
       text: "unnecessaryDefer:"
 
 run:
+  tests: false
   skip-dirs:
     - test/testdata_etc
     - internal/cache
