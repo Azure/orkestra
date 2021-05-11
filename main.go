@@ -4,8 +4,10 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"os"
+	"time"
 
 	"github.com/Azure/Orkestra/pkg"
 	"github.com/Azure/Orkestra/pkg/registry"
@@ -75,6 +77,15 @@ func main() {
 		ctrl.SetLogger(zap.New(zap.UseDevMode(false)))
 	}
 
+	// Start the probe at the very beginning
+	probe, err := pkg.ProbeHandler(stagingRepoURL, "health")
+	if err != nil {
+		setupLog.Error(err, "unable to start readiness/liveness probes", "controller", "ApplicationGroup")
+		os.Exit(1)
+	}
+
+	probe.Start("8086")
+
 	ctrl.Log.V(debugLevel)
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
@@ -108,12 +119,33 @@ func main() {
 	}
 
 	// Register the staging helm repository/registry
-	err = rc.AddRepo(&registry.Config{
-		Name: "staging",
-		URL:  stagingRepoURL,
-	})
-	if err != nil {
-		setupLog.Error(err, "failed to add staging helm repo")
+	// We perform retry on this so that we don't go into a crash loop backoff
+	retryChan := make(chan (bool))
+	retryCtx, cancel := context.WithTimeout(context.Background(), time.Minute*5)
+	go func() {
+		for {
+			err = rc.AddRepo(&registry.Config{
+				Name: "staging",
+				URL:  stagingRepoURL,
+			})
+			if err != nil {
+				setupLog.Info("failed to add staging helm repo, retrying...")
+				time.Sleep(time.Second * 5)
+			} else {
+				retryChan <- true
+				break
+			}
+		}
+	}()
+	select {
+	case <-retryChan:
+		cancel()
+		close(retryChan)
+		setupLog.Info("successfully set-up the local chartmuseum helm repository")
+	case <-retryCtx.Done():
+		cancel()
+		close(retryChan)
+		setupLog.Error(err, "pod timed out while trying to setup the helm chart museum...")
 		os.Exit(1)
 	}
 
@@ -133,14 +165,6 @@ func main() {
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
-
-	probe, err := pkg.ProbeHandler(stagingRepoURL, "health")
-	if err != nil {
-		setupLog.Error(err, "unable to start readiness/liveness probes", "controller", "ApplicationGroup")
-		os.Exit(1)
-	}
-
-	probe.Start("8086")
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
