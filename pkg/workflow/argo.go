@@ -363,7 +363,7 @@ func (a *argo) generateAppGroupTpls(ctx context.Context, g *v1alpha1.Application
 
 	// TODO: Add the executor template
 	// This should eventually be configurable
-	updateWorkflowTemplates(a.wf, defaultExecutor(5*time.Minute))
+	updateWorkflowTemplates(a.wf, defaultExecutor(maxInterval(g.Spec.Applications)))
 
 	return nil
 }
@@ -770,4 +770,15 @@ func workflowServiceAccountName() string {
 		return sa
 	}
 	return "orkestra"
+}
+
+func maxInterval(apps []v1alpha1.Application) time.Duration {
+	// set the default to 5m
+	max := 5 * time.Minute
+	for _, app := range apps {
+		if app.Spec.Release.Interval.Seconds() > max.Seconds() {
+			max = app.Spec.Release.Interval.Duration
+		}
+	}
+	return max
 }
