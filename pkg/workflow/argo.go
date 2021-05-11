@@ -276,7 +276,7 @@ func (a *argo) generateWorkflow(ctx context.Context, g *v1alpha1.ApplicationGrou
 func getTaskNamesFromHelmReleases(bucket []fluxhelmv2beta1.HelmRelease) []string {
 	out := []string{}
 	for _, hr := range bucket {
-		out = append(out, pkg.ConvertToDNS1123(hr.GetReleaseName()))
+		out = append(out, pkg.ConvertToDNS1123(hr.GetReleaseName()+"-"+(hr.Namespace)))
 	}
 	return out
 }
@@ -301,7 +301,7 @@ func (a *argo) generateReverseWorkflow(ctx context.Context, l logr.Logger, nodes
 	for _, bucket := range rev {
 		for _, hr := range bucket {
 			task := v1alpha12.DAGTask{
-				Name:     pkg.ConvertToDNS1123(hr.GetReleaseName()),
+				Name:     pkg.ConvertToDNS1123(hr.GetReleaseName() + "-" + hr.Namespace),
 				Template: helmReleaseReverseExecutor,
 				Arguments: v1alpha12.Arguments{
 					Parameters: []v1alpha12.Parameter{
