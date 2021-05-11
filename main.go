@@ -120,7 +120,7 @@ func main() {
 
 	// Register the staging helm repository/registry
 	// We perform retry on this so that we don't go into a crash loop backoff
-	retryChan := make(chan (bool))
+	retryChan := make(chan bool)
 	retryCtx, cancel := context.WithTimeout(context.Background(), time.Minute*5)
 	go func() {
 		for {
