@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/Azure/Orkestra/api/v1alpha1"
 	"github.com/Azure/Orkestra/pkg"
@@ -29,11 +28,16 @@ const (
 	entrypointTplName = "entry"
 
 	helmReleaseArg             = "helmrelease"
+	timeoutArg                 = "timeout"
 	helmReleaseExecutor        = "helmrelease-executor"
 	helmReleaseReverseExecutor = "helmrelease-reverse-executor"
 
 	valuesKeyGlobal = "global"
 	ChartLabelKey   = "chart"
+)
+
+var (
+	defaultTimeout = "5m"
 )
 
 type argo struct {
@@ -363,7 +367,7 @@ func (a *argo) generateAppGroupTpls(ctx context.Context, g *v1alpha1.Application
 
 	// TODO: Add the executor template
 	// This should eventually be configurable
-	updateWorkflowTemplates(a.wf, defaultExecutor(maxInterval(g.Spec.Applications)))
+	updateWorkflowTemplates(a.wf, defaultExecutor())
 
 	return nil
 }
@@ -480,6 +484,10 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, g *v1alpha1.Applicat
 										Name:  helmReleaseArg,
 										Value: strToStrPtr(base64.StdEncoding.EncodeToString([]byte(hrToYAML(hr)))),
 									},
+									{
+										Name:  timeoutArg,
+										Value: getTimeout(app.Spec.Release.Timeout),
+									},
 								},
 							},
 						},
@@ -528,6 +536,10 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 					{
 						Name:  helmReleaseArg,
 						Value: strToStrPtr(base64.StdEncoding.EncodeToString([]byte(hrToYAML(*hr)))),
+					},
+					{
+						Name:  timeoutArg,
+						Value: getTimeout(app.Spec.Release.Timeout),
 					},
 				},
 			},
@@ -611,6 +623,10 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 					Name:  helmReleaseArg,
 					Value: strToStrPtr(base64.StdEncoding.EncodeToString([]byte(hrToYAML(hr)))),
 				},
+				{
+					Name:  timeoutArg,
+					Value: getTimeout(app.Spec.Release.Timeout),
+				},
 			},
 		},
 		Dependencies: func() (out []string) {
@@ -629,15 +645,19 @@ func updateWorkflowTemplates(wf *v1alpha12.Workflow, tpls ...v1alpha12.Template)
 	wf.Spec.Templates = append(wf.Spec.Templates, tpls...)
 }
 
-func defaultExecutor(timeout time.Duration) v1alpha12.Template {
-	executorArgs := []string{"--spec", "{{inputs.parameters.helmrelease}}", "--timeout", timeout.String()}
+func defaultExecutor() v1alpha12.Template {
+	executorArgs := []string{"--spec", "{{inputs.parameters.helmrelease}}", "--timeout", "{{inputs.parameters.timeout}}"}
 	return v1alpha12.Template{
 		Name:               helmReleaseExecutor,
 		ServiceAccountName: workflowServiceAccountName(),
 		Inputs: v1alpha12.Inputs{
 			Parameters: []v1alpha12.Parameter{
 				{
-					Name: "helmrelease",
+					Name: helmReleaseArg,
+				},
+				{
+					Name:    timeoutArg,
+					Default: &defaultTimeout,
 				},
 			},
 		},
@@ -772,13 +792,10 @@ func workflowServiceAccountName() string {
 	return "orkestra"
 }
 
-func maxInterval(apps []v1alpha1.Application) time.Duration {
-	// set the default to 5m
-	max := 5 * time.Minute
-	for _, app := range apps {
-		if app.Spec.Release.Interval.Seconds() > max.Seconds() {
-			max = app.Spec.Release.Interval.Duration
-		}
+func getTimeout(t *v1.Duration) *string {
+	if t == nil {
+		return &defaultTimeout
 	}
-	return max
+	tm := t.Duration.String()
+	return &tm
 }

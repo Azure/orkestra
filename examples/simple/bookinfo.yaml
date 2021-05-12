@@ -21,6 +21,7 @@ spec:
           #   name: <secret-name>
           #   namespace: <secret-namespace>
         release:
+          timeout: 10m
           upgrade:
             force: true
           targetNamespace: ambassador 
