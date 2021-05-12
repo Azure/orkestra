@@ -288,7 +288,7 @@ func (a *argo) generateReverseWorkflow(ctx context.Context, l logr.Logger, nodes
 					Parameters: []v1alpha12.Parameter{
 						{
 							Name:  HelmReleaseArg,
-							Value: utils.ToStrPtr(utils.HrToYaml(hr)),
+							Value: utils.ToStrPtr(base64.StdEncoding.EncodeToString([]byte(utils.HrToYaml(hr)))),
 						},
 					},
 				},
