@@ -53,7 +53,7 @@ debug:
 # Dependency overlay values
 chartmuseum:
   name: chartmuseum
-  interval: 5m
+  interval: 10s
   env:
     open:
       DISABLE_API: false
