@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io/ioutil"
 	"log"
+	"math/rand"
 
 	orkestrav1alpha1 "github.com/Azure/Orkestra/api/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,7 +19,6 @@ func bookinfo() *orkestrav1alpha1.ApplicationGroup {
 			Name: "bookinfo",
 		},
 	}
-
 	yamlFile, err := ioutil.ReadFile(bookinfoExampleFilePath)
 	if err != nil {
 		log.Fatalf("yamlFile.Get err #%v", err)
@@ -31,4 +31,14 @@ func bookinfo() *orkestrav1alpha1.ApplicationGroup {
 	}
 
 	return g
+}
+
+var letterRunes = []rune("abcdefghijklmnopqrstuvwxyz1234567890")
+
+func randStringRunes(n int) string {
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = letterRunes[rand.Intn(len(letterRunes))]
+	}
+	return string(b)
 }
