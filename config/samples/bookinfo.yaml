@@ -22,12 +22,14 @@ spec:
           #   name: <secret-name>
           #   namespace: <secret-namespace>
         release:
+          interval: 1m
           targetNamespace: ambassador 
           values:
             service:
               type: ClusterIP
     - name: bookinfo 
       dependencies: [ambassador]
+      order: first
       spec:
         chart:
           url: "https://nitishm.github.io/charts"
@@ -43,6 +45,7 @@ spec:
         - name: details
           dependencies: []
         release:
+          interval: 1m
           targetNamespace: bookinfo 
           values:
             productpage:
