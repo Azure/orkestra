@@ -155,12 +155,25 @@ type ApplicationGroupSpec struct {
 	Interval *metav1.Duration `json:"interval,omitempty"`
 }
 
+type ParentChartOrder string
+
+const (
+	Parallel ParentChartOrder = "parallel"
+	First    ParentChartOrder = "first"
+	Last     ParentChartOrder = "last"
+)
+
 // Application spec and dependency on other applications
 type Application struct {
 	// DAG contains the dependency information
 	DAG `json:",inline"`
 	// Spec contains the application spec including the chart info and overlay values
 	Spec ApplicationSpec `json:"spec,omitempty"`
+	// Order specifies the order in which the application
+	// parent chart is deployed in comparison to it's subcharts (if any)
+	// +kubebuilder:default:="parallel"
+	// +optional
+	Order ParentChartOrder `json:"order,omitempty"`
 }
 
 // DAG contains the dependency information

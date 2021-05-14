@@ -131,7 +131,7 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 						scc.Templates = append(scc.Templates, t)
 					}
 				}
-				scc.Files = append(scc.Files, appCh.Files...)
+				// scc.Files = append(scc.Files, appCh.Files...)
 
 				scc.Metadata.Name = pkg.ConvertToDNS1123(pkg.ToInitials(appCh.Metadata.Name) + "-" + scc.Metadata.Name)
 				path, err := registry.SaveChartPackage(scc, stagingDir)
@@ -194,6 +194,8 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 			appCh.Templates = append(appCh.Templates, dummy)
 		}
 
+		appCh.Metadata.Name = pkg.ConvertToDNS1123(appCh.Metadata.Name)
+
 		if err := appCh.Validate(); err != nil {
 			ll.Error(err, "failed to validate application chart for staging registry")
 			err = fmt.Errorf("failed to validate application chart for staging registry : %w", err)
@@ -210,7 +212,7 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 		}
 
 		// Replace existing chart with modified chart
-		path := stagingDir + "/" + application.Spec.Chart.Name + "-" + appCh.Metadata.Version + ".tgz"
+		path := stagingDir + "/" + pkg.ConvertToDNS1123(application.Spec.Chart.Name) + "-" + appCh.Metadata.Version + ".tgz"
 		err = r.RegistryClient.PushChart(ll, r.StagingRepoName, path, appCh)
 		defer func() {
 			if r.CleanupDownloadedCharts {

@@ -62,6 +62,12 @@ spec:
                     name:
                       description: Name of the application
                       type: string
+                    order:
+                      default: parallel
+                      description: Order specifies the order in which the application
+                        parent chart is deployed in comparison to it's subcharts (if
+                        any)
+                      type: string
                     spec:
                       description: Spec contains the application spec including the
                         chart info and overlay values

@@ -432,7 +432,7 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, g *v1alpha1.Applicat
 				Spec: fluxhelmv2beta1.HelmReleaseSpec{
 					Chart: fluxhelmv2beta1.HelmChartTemplate{
 						Spec: fluxhelmv2beta1.HelmChartTemplateSpec{
-							Chart:   app.Spec.Chart.Name,
+							Chart:   pkg.ConvertToDNS1123(app.Spec.Chart.Name),
 							Version: app.Spec.Chart.Version,
 							SourceRef: fluxhelmv2beta1.CrossNamespaceObjectReference{
 								Kind:      "HelmRepository",
@@ -543,7 +543,15 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 					},
 				},
 			},
-			Dependencies: convertSliceToDNS1123(sc.Dependencies),
+			Dependencies: func() (out []string) {
+				out = convertSliceToDNS1123(sc.Dependencies)
+				// If parent chart must be deployed first then add it
+				// as a dependency for every subchart
+				if app.Order == v1alpha1.First {
+					out = append(out, pkg.ConvertToDNS1123(app.Name))
+				}
+				return out
+			}(),
 		}
 
 		tasks = append(tasks, task)
@@ -561,7 +569,7 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 		Spec: fluxhelmv2beta1.HelmReleaseSpec{
 			Chart: fluxhelmv2beta1.HelmChartTemplate{
 				Spec: fluxhelmv2beta1.HelmChartTemplateSpec{
-					Chart:   app.Spec.Chart.Name,
+					Chart:   pkg.ConvertToDNS1123(app.Spec.Chart.Name),
 					Version: app.Spec.Chart.Version,
 					SourceRef: fluxhelmv2beta1.CrossNamespaceObjectReference{
 						Kind:      "HelmRepository",
@@ -630,12 +638,16 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 			},
 		},
 		Dependencies: func() (out []string) {
-			for _, t := range tasks {
-				out = append(out, pkg.ConvertToDNS1123(t.Name))
+			if app.Order == v1alpha1.Last {
+				for _, t := range tasks {
+					out = append(out, pkg.ConvertToDNS1123(t.Name))
+				}
+				return
 			}
-			return out
+			return
 		}(),
 	}
+
 	tasks = append(tasks, task)
 
 	return tasks, nil
