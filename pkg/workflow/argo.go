@@ -19,7 +19,20 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
+const (
+	// The set of executor actions which can be performed on a helmrelease object
+	Install ExecutorAction = "Install"
+	Delete  ExecutorAction = "Delete"
 )
+
+// ExecutorAction defines the set of executor actions which can be performed on a helmrelease object
+type ExecutorAction string
+
+// String returns the ExecutorAction as a string
+func (a ExecutorAction) String() string {
+	return string(a)
+}
 
 type argo struct {
 	scheme *runtime.Scheme
@@ -306,7 +319,7 @@ func (a *argo) generateReverseWorkflow(ctx context.Context, l logr.Logger, nodes
 
 	updateWorkflowTemplates(a.rwf, entry)
 
-	updateWorkflowTemplates(a.rwf, defaultExecutor(HelmReleaseReverseExecutorName, "delete"))
+	updateWorkflowTemplates(a.rwf, defaultExecutor(HelmReleaseReverseExecutorName, Delete))
 
 	return nil
 }
@@ -344,7 +357,7 @@ func (a *argo) generateAppGroupTpls(ctx context.Context, g *v1alpha1.Application
 
 	// TODO: Add the executor template
 	// This should eventually be configurable
-	updateWorkflowTemplates(a.wf, defaultExecutor(HelmReleaseExecutorName, "install"))
+	updateWorkflowTemplates(a.wf, defaultExecutor(HelmReleaseExecutorName, Install))
 
 	return nil
 }
@@ -598,8 +611,8 @@ func updateWorkflowTemplates(wf *v1alpha12.Workflow, tpls ...v1alpha12.Template)
 	wf.Spec.Templates = append(wf.Spec.Templates, tpls...)
 }
 
-func defaultExecutor(tplName, action string) v1alpha12.Template {
-	executorArgs := []string{"--spec", "{{inputs.parameters.helmrelease}}", "--action", action, "--timeout", "{{inputs.parameters.timeout}}", "--interval", "10s"}
+func defaultExecutor(tplName string, action ExecutorAction) v1alpha12.Template {
+	executorArgs := []string{"--spec", "{{inputs.parameters.helmrelease}}", "--action", action.String(), "--timeout", "{{inputs.parameters.timeout}}", "--interval", "10s"}
 	return v1alpha12.Template{
 		Name:               tplName,
 		ServiceAccountName: workflowServiceAccountName(),
