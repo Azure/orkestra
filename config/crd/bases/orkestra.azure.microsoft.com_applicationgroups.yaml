@@ -67,6 +67,8 @@ spec:
                       description: Order specifies the order in which the application
                         parent chart is deployed in comparison to it's subcharts (if
                         any)
+                      enum:
+                      - ParentChartOrder
                       type: string
                     spec:
                       description: Spec contains the application spec including the

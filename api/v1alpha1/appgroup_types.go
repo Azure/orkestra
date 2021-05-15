@@ -171,6 +171,7 @@ type Application struct {
 	Spec ApplicationSpec `json:"spec,omitempty"`
 	// Order specifies the order in which the application
 	// parent chart is deployed in comparison to it's subcharts (if any)
+	// +kubebuilder:validation:Enum:=ParentChartOrder
 	// +kubebuilder:default:="parallel"
 	// +optional
 	Order ParentChartOrder `json:"order,omitempty"`
