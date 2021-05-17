@@ -55,6 +55,7 @@ func main() {
 	var tempChartStoreTargetDir string
 	var disableRemediation bool
 	var cleanupDownloadedCharts bool
+	var runDebug bool
 	var workflowParallelism int64
 	var debugLevel int
 
@@ -67,6 +68,7 @@ func main() {
 	flag.StringVar(&tempChartStoreTargetDir, "chart-store-path", "", "The temporary storage path for the downloaded and staged chart artifacts")
 	flag.BoolVar(&disableRemediation, "disable-remediation", false, "Disable the remediation (delete/rollback) of the workflow on failure (useful if you wish to debug failures in the workflow/executor container")
 	flag.BoolVar(&cleanupDownloadedCharts, "cleanup-downloaded-charts", false, "Enable/disable the cleanup of the charts downloaded to the chart-store-path")
+	flag.BoolVar(&runDebug, "debug", false, "Enable debug mode to run the binary with the port-forwarded chartmuseum repository")
 	flag.Int64Var(&workflowParallelism, "workflow-parallelism", 10, "Specifies the max number of workflow pods that can be executed in parallel")
 	flag.IntVar(&debugLevel, "debug", 0, "Debug log level")
 	flag.Parse()
