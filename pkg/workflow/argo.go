@@ -450,12 +450,12 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, g *v1alpha1.Applicat
 			}
 			if app.Spec.Release.Install != nil {
 				hr.Spec.Install = &fluxhelmv2beta1.Install{
-					DisableWait: app.Spec.Release.Install.DisableWait,
+					DisableWait: app.Spec.Release.DisableWaitForInstall(),
 				}
 			}
 			if app.Spec.Release.Upgrade != nil {
 				hr.Spec.Upgrade = &fluxhelmv2beta1.Upgrade{
-					DisableWait: app.Spec.Release.Upgrade.DisableWait,
+					DisableWait: app.Spec.Release.DisableWaitForUpgrade(),
 					Force:       app.Spec.Release.Upgrade.Force,
 				}
 			}
