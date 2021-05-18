@@ -202,6 +202,8 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 			return err
 		}
 
+		appCh.Metadata.Name = pkg.ConvertToDNS1123(appCh.Metadata.Name)
+
 		_, err = registry.SaveChartPackage(appCh, stagingDir)
 		if err != nil {
 			ll.Error(err, "failed to save modified app chart to filesystem")
