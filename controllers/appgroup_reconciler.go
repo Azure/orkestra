@@ -135,7 +135,6 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 						scc.Templates = append(scc.Templates, t)
 					}
 				}
-				scc.Files = append(scc.Files, appCh.Files...)
 
 				scc.Metadata.Name = pkg.ConvertToDNS1123(pkg.ToInitials(appCh.Metadata.Name) + "-" + scc.Metadata.Name)
 				path, err := registry.SaveChartPackage(scc, stagingDir)
