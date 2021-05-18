@@ -21,8 +21,7 @@ spec:
           #   name: <secret-name>
           #   namespace: <secret-namespace>
         release:
-          upgrade:
-            force: true
+          timeout: 10m
           targetNamespace: ambassador 
           values:
             service:
@@ -44,8 +43,6 @@ spec:
         - name: details
           dependencies: []
         release:
-          upgrade:
-            force: true
           targetNamespace: bookinfo 
           values:
             productpage:

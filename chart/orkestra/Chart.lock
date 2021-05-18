@@ -5,11 +5,8 @@ dependencies:
 - name: argo
   repository: https://argoproj.github.io/argo-helm
   version: 0.16.8
-- name: helm-operator
-  repository: https://charts.fluxcd.io
-  version: 1.2.0
 - name: helm-controller
   repository: https://nitishm.github.io/charts
-  version: 0.1.0
-digest: sha256:dbaa6bb947e68c751aeb07f569cc1b18761922a9dc209b8189980ed36735c00d
-generated: "2021-04-22T10:12:19.315706-07:00"
+  version: 0.1.1
+digest: sha256:7f2f2e1f5efdec11d929472f4779a4ea014355570cf2294d6958b65765463cbb
+generated: "2021-05-14T12:59:31.637787-07:00"

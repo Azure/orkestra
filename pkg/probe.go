@@ -17,7 +17,7 @@ func ProbeHandler(chartmuseumAddress, endpoint string) (*Probe, error) {
 	// Liveness check verifies that the number of goroutines are below threshold
 	health.AddLivenessCheck("goroutine-threshold", healthcheck.GoroutineCountCheck(100))
 	// Readiness check verifies that chartmuseum is up and serving traffic
-	health.AddReadinessCheck("chartmuseum-ready", healthcheck.HTTPGetCheck(chartmuseumAddress+"/"+endpoint, time.Minute))
+	health.AddReadinessCheck("chartmuseum-ready", healthcheck.HTTPGetCheck(chartmuseumAddress+"/"+endpoint, time.Second*5))
 
 	return &Probe{
 		health: health,
