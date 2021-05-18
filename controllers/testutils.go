@@ -1,27 +1,28 @@
 package controllers
 
 import (
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"math/rand"
 	"time"
+
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/Azure/Orkestra/api/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
-	Bookinfo = "bookinfo"
+	Bookinfo   = "bookinfo"
 	Ambassador = "ambassador"
-	Podinfo = "podinfo"
+	Podinfo    = "podinfo"
 
-	AmbassadorChartUrl = "https://www.getambassador.io/helm"
+	AmbassadorChartUrl     = "https://www.getambassador.io/helm"
 	AmbassadorChartVersion = "6.6.0"
 
-	BookinfoChartUrl = "https://nitishm.github.io/charts"
+	BookinfoChartUrl     = "https://nitishm.github.io/charts"
 	BookinfoChartVersion = "v1"
 
-	PodinfoChartUrl = "https://stefanprodan.github.io/podinfo"
+	PodinfoChartUrl     = "https://stefanprodan.github.io/podinfo"
 	PodinfoChartVersion = "5.2.1"
 )
 
@@ -32,8 +33,7 @@ func bookinfo() *v1alpha1.ApplicationGroup {
 		},
 	}
 	g.Spec.Applications = make([]v1alpha1.Application, 0)
-	g.Spec.Applications = append(g.Spec.Applications, bookinfoApplication())
-	g.Spec.Applications = append(g.Spec.Applications, ambassadorApplication())
+	g.Spec.Applications = append(g.Spec.Applications, bookinfoApplication(), ambassadorApplication())
 	return g
 }
 
@@ -49,12 +49,12 @@ func ambassadorApplication() v1alpha1.Application {
 		},
 		Spec: v1alpha1.ApplicationSpec{
 			Chart: &v1alpha1.ChartRef{
-				Url: AmbassadorChartUrl,
-				Name: Ambassador,
+				Url:     AmbassadorChartUrl,
+				Name:    Ambassador,
 				Version: AmbassadorChartVersion,
 			},
 			Release: &v1alpha1.Release{
-				Timeout: &metav1.Duration{Duration: time.Minute * 10},
+				Timeout:         &metav1.Duration{Duration: time.Minute * 10},
 				TargetNamespace: Ambassador,
 				Values: &apiextensionsv1.JSON{
 					Raw: values,
@@ -88,8 +88,8 @@ func bookinfoApplication() v1alpha1.Application {
 		},
 		Spec: v1alpha1.ApplicationSpec{
 			Chart: &v1alpha1.ChartRef{
-				Url: BookinfoChartUrl,
-				Name: Bookinfo,
+				Url:     BookinfoChartUrl,
+				Name:    Bookinfo,
 				Version: BookinfoChartVersion,
 			},
 			Release: &v1alpha1.Release{
@@ -100,19 +100,19 @@ func bookinfoApplication() v1alpha1.Application {
 			},
 			Subcharts: []v1alpha1.DAG{
 				{
-					Name: "productpage",
+					Name:         "productpage",
 					Dependencies: []string{"reviews"},
 				},
 				{
-					Name: "reviews",
+					Name:         "reviews",
 					Dependencies: []string{"details", "ratings"},
 				},
 				{
-					Name: "ratings",
+					Name:         "ratings",
 					Dependencies: []string{},
 				},
 				{
-					Name: "details",
+					Name:         "details",
 					Dependencies: []string{},
 				},
 			},
@@ -130,8 +130,8 @@ func podinfoApplication() v1alpha1.Application {
 		},
 		Spec: v1alpha1.ApplicationSpec{
 			Chart: &v1alpha1.ChartRef{
-				Url: PodinfoChartUrl,
-				Name: Podinfo,
+				Url:     PodinfoChartUrl,
+				Name:    Podinfo,
 				Version: PodinfoChartVersion,
 			},
 			Release: &v1alpha1.Release{
