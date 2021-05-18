@@ -2,6 +2,8 @@ package controllers
 
 import (
 	"context"
+	"time"
+
 	"github.com/Azure/Orkestra/api/v1alpha1"
 	"github.com/Azure/Orkestra/pkg/meta"
 	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
@@ -11,7 +13,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -118,7 +119,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 
 		})
 
-		It("should fail to create and post a failed error state", func(){
+		It("should fail to create and post a failed error state", func() {
 			ctx := context.Background()
 			applicationGroup := bookinfo()
 			applicationGroup.Namespace = DefaultNamesapce
@@ -151,7 +152,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 			}, time.Second*30, time.Second).Should(BeTrue())
 		})
 
-		It("should create the bookinfo spec and then update it", func(){
+		It("should create the bookinfo spec and then update it", func() {
 			ctx := context.Background()
 			applicationGroup := bookinfo()
 			applicationGroup.Namespace = DefaultNamesapce
