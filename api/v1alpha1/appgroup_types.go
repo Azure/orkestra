@@ -357,3 +357,31 @@ type ApplicationGroupList struct {
 func init() {
 	SchemeBuilder.Register(&ApplicationGroup{}, &ApplicationGroupList{})
 }
+
+func (a *Release) DisableWaitForInstall() bool {
+	if a != nil && a.Install != nil {
+		return a.Install.DisableWait
+	}
+	return false
+}
+
+func (a *Release) DisableWaitForUpgrade() bool {
+	if a != nil && a.Upgrade != nil {
+		return a.Upgrade.DisableWait
+	}
+	return false
+}
+
+func (a *Release) DisableWaitForRollback() bool {
+	if a != nil && a.Rollback != nil {
+		return a.Rollback.DisableWait
+	}
+	return false
+}
+
+func (a *Release) ForceForUpgrade() bool {
+	if a != nil && a.Upgrade != nil {
+		return a.Upgrade.Force
+	}
+	return false
+}
