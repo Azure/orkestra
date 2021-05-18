@@ -730,10 +730,10 @@ func generateSubchartHelmRelease(a v1alpha1.Application, appName, scName, versio
 			TargetNamespace: targetNS,
 			Timeout:         a.Spec.Release.Timeout,
 			Install: &fluxhelmv2beta1.Install{
-				DisableWait: false,
+				DisableWait: a.Spec.Release.Install.DisableWait,
 			},
 			Upgrade: &fluxhelmv2beta1.Upgrade{
-				DisableWait: false,
+				DisableWait: a.Spec.Release.Upgrade.DisableWait,
 			},
 		},
 	}
