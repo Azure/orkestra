@@ -646,7 +646,7 @@ func updateWorkflowTemplates(wf *v1alpha12.Workflow, tpls ...v1alpha12.Template)
 }
 
 func defaultExecutor() v1alpha12.Template {
-	executorArgs := []string{"--spec", "{{inputs.parameters.helmrelease}}", "--timeout", "{{inputs.parameters.timeout}}"}
+	executorArgs := []string{"--spec", "{{inputs.parameters.helmrelease}}", "--timeout", "{{inputs.parameters.timeout}}", "--interval", "10s"}
 	return v1alpha12.Template{
 		Name:               helmReleaseExecutor,
 		ServiceAccountName: workflowServiceAccountName(),
@@ -667,7 +667,7 @@ func defaultExecutor() v1alpha12.Template {
 		Outputs: v1alpha12.Outputs{},
 		Container: &corev1.Container{
 			Name:  "executor",
-			Image: "azureorkestra/executor:v0.1.0",
+			Image: "azureorkestra/executor:v0.2.0",
 			Args:  executorArgs,
 		},
 	}
