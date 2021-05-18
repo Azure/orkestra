@@ -1,36 +1,149 @@
 package controllers
 
 import (
-	"bytes"
-	"io/ioutil"
-	"log"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"math/rand"
+	"time"
 
-	orkestrav1alpha1 "github.com/Azure/Orkestra/api/v1alpha1"
+	"github.com/Azure/Orkestra/api/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
 )
 
-var bookinfoExampleFilePath string = "../examples/simple/bookinfo.yaml"
+const (
+	Bookinfo = "bookinfo"
+	Ambassador = "ambassador"
+	Podinfo = "podinfo"
 
-func bookinfo() *orkestrav1alpha1.ApplicationGroup {
-	g := &orkestrav1alpha1.ApplicationGroup{
+	AmbassadorChartUrl = "https://www.getambassador.io/helm"
+	AmbassadorChartVersion = "6.6.0"
+
+	BookinfoChartUrl = "https://nitishm.github.io/charts"
+	BookinfoChartVersion = "v1"
+
+	PodinfoChartUrl = "https://stefanprodan.github.io/podinfo"
+	PodinfoChartVersion = "5.2.1"
+)
+
+func bookinfo() *v1alpha1.ApplicationGroup {
+	g := &v1alpha1.ApplicationGroup{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "bookinfo",
 		},
 	}
-	yamlFile, err := ioutil.ReadFile(bookinfoExampleFilePath)
-	if err != nil {
-		log.Fatalf("yamlFile.Get err #%v", err)
-	}
-
-	decoder := yamlutil.NewYAMLOrJSONDecoder(bytes.NewReader(yamlFile), 100)
-	err = decoder.Decode(g)
-	if err != nil {
-		log.Fatalf("Decode err #%v", err)
-	}
-
+	g.Spec.Applications = make([]v1alpha1.Application, 0)
+	g.Spec.Applications = append(g.Spec.Applications, bookinfoApplication())
+	g.Spec.Applications = append(g.Spec.Applications, ambassadorApplication())
 	return g
+}
+
+func ambassadorApplication() v1alpha1.Application {
+	values := []byte(`{
+	   "service": {
+		  "type": "ClusterIP"
+	   }
+	}`)
+	return v1alpha1.Application{
+		DAG: v1alpha1.DAG{
+			Name: Ambassador,
+		},
+		Spec: v1alpha1.ApplicationSpec{
+			Chart: &v1alpha1.ChartRef{
+				Url: AmbassadorChartUrl,
+				Name: Ambassador,
+				Version: AmbassadorChartVersion,
+			},
+			Release: &v1alpha1.Release{
+				Timeout: &metav1.Duration{Duration: time.Minute * 10},
+				TargetNamespace: Ambassador,
+				Values: &apiextensionsv1.JSON{
+					Raw: values,
+				},
+			},
+		},
+	}
+}
+
+func bookinfoApplication() v1alpha1.Application {
+	values := []byte(`{
+		"productpage": {
+			"replicaCount": 1
+		},
+		"details": {
+			"replicaCount": 1
+		},
+		"reviews": {
+			"replicaCount": 1
+		},
+		"ratings": {
+			"replicaCount": 1
+		}
+	}`)
+	return v1alpha1.Application{
+		DAG: v1alpha1.DAG{
+			Name: Bookinfo,
+			Dependencies: []string{
+				Ambassador,
+			},
+		},
+		Spec: v1alpha1.ApplicationSpec{
+			Chart: &v1alpha1.ChartRef{
+				Url: BookinfoChartUrl,
+				Name: Bookinfo,
+				Version: BookinfoChartVersion,
+			},
+			Release: &v1alpha1.Release{
+				TargetNamespace: Bookinfo,
+				Values: &apiextensionsv1.JSON{
+					Raw: values,
+				},
+			},
+			Subcharts: []v1alpha1.DAG{
+				{
+					Name: "productpage",
+					Dependencies: []string{"reviews"},
+				},
+				{
+					Name: "reviews",
+					Dependencies: []string{"details", "ratings"},
+				},
+				{
+					Name: "ratings",
+					Dependencies: []string{},
+				},
+				{
+					Name: "details",
+					Dependencies: []string{},
+				},
+			},
+		},
+	}
+}
+
+func podinfoApplication() v1alpha1.Application {
+	return v1alpha1.Application{
+		DAG: v1alpha1.DAG{
+			Name: Podinfo,
+			Dependencies: []string{
+				Ambassador,
+			},
+		},
+		Spec: v1alpha1.ApplicationSpec{
+			Chart: &v1alpha1.ChartRef{
+				Url: PodinfoChartUrl,
+				Name: Podinfo,
+				Version: PodinfoChartVersion,
+			},
+			Release: &v1alpha1.Release{
+				TargetNamespace: Podinfo,
+			},
+		},
+	}
+}
+
+func AddApplication(appGroup v1alpha1.ApplicationGroup, app v1alpha1.Application) v1alpha1.ApplicationGroup {
+	appGroup.Spec.Applications = append(appGroup.Spec.Applications, app)
+	return appGroup
 }
 
 var letterRunes = []rune("abcdefghijklmnopqrstuvwxyz1234567890")

@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/Azure/Orkestra/pkg"
 	"github.com/Azure/Orkestra/pkg/meta"
@@ -111,41 +112,13 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// controller-runtime cannot guarantee the order of events
 	// , so it is upto us to determine the type of event
 	if !appGroup.DeletionTimestamp.IsZero() {
-		// If finalizer is found, remove it and requeue
-		if appGroup.Finalizers != nil {
-			// Reverse the entire workflow to remove all the Helm Releases
-			requeue = r.cleanupWorkflow(ctx, logr, appGroup)
-			if requeue {
-				// Change the app group spec into a reversing state
-				appGroup.Reversing()
-				_ = r.Status().Patch(ctx, &appGroup, patch)
-
-				logr.Info("reverse workflow is in progress")
-			} else {
-				logr.Info("cleaning up the applicationgroup resource")
-
-				// unset the last successful spec annotation
-				r.lastSuccessfulApplicationGroup = nil
-				if _, ok := appGroup.Annotations[lastSuccessfulApplicationGroupKey]; ok {
-					appGroup.Annotations[lastSuccessfulApplicationGroupKey] = ""
-				}
-				appGroup.Finalizers = nil
-				_ = r.Patch(ctx, &appGroup, patch)
-			}
-			return r.handleResponseAndEvent(ctx, logr, appGroup, patch, requeue, nil)
-		}
-		// Do nothing
-		return ctrl.Result{}, nil
+		return r.reconcileDelete(ctx, appGroup, patch)
 	}
-
-	// Initialize all the application specs and status fields embedded in the application group
-	initApplications(&appGroup)
 
 	// Add finalizer if it doesnt already exist
 	if appGroup.Finalizers == nil {
-		appGroup.Finalizers = []string{finalizer}
-		err = r.Patch(ctx, &appGroup, patch)
-		if err != nil {
+		controllerutil.AddFinalizer(&appGroup, finalizer)
+		if err := r.Patch(ctx, &appGroup, patch); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
@@ -199,6 +172,7 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		requeue, err = r.reconcile(ctx, logr, &appGroup)
 		if err != nil {
 			logr.Error(err, "failed to reconcile ApplicationGroup instance")
+			appGroup.DeployFailed(err.Error())
 			return r.handleResponseAndEvent(ctx, logr, appGroup, patch, requeue, err)
 		}
 
@@ -345,21 +319,6 @@ func (r *ApplicationGroupReconciler) handleResponseAndEvent(ctx context.Context,
 	return reconcile.Result{}, nil
 }
 
-func initApplications(appGroup *orkestrav1alpha1.ApplicationGroup) {
-	// Initialize the Status fields if not already setup
-	if len(appGroup.Status.Applications) == 0 {
-		appGroup.Status.Applications = make([]orkestrav1alpha1.ApplicationStatus, 0, len(appGroup.Spec.Applications))
-		for _, app := range appGroup.Spec.Applications {
-			status := orkestrav1alpha1.ApplicationStatus{
-				Name:        app.Name,
-				ChartStatus: orkestrav1alpha1.ChartStatus{Version: app.Spec.Chart.Version},
-				Subcharts:   make(map[string]orkestrav1alpha1.ChartStatus),
-			}
-			appGroup.Status.Applications = append(appGroup.Status.Applications, status)
-		}
-	}
-}
-
 func (r *ApplicationGroupReconciler) handleRemediation(ctx context.Context, logr logr.Logger, g orkestrav1alpha1.ApplicationGroup,
 	patch client.Patch, err error) (ctrl.Result, error) {
 	// Rollback to previous successful spec since the annotation was set and this is
@@ -470,6 +429,7 @@ func getAppStatus(
 	chartConditionMap map[string][]metav1.Condition,
 	subChartConditionMap map[string]map[string][]metav1.Condition) []orkestrav1alpha1.ApplicationStatus {
 	// Update each application status using the HelmRelease status
+
 	var v []orkestrav1alpha1.ApplicationStatus
 	for _, app := range appGroup.Status.Applications {
 		app.ChartStatus.Conditions = chartConditionMap[app.Name]
