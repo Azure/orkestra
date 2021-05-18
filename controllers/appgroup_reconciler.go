@@ -205,6 +205,8 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 			return err
 		}
 
+		appCh.Metadata.Name = pkg.ConvertToDNS1123(appCh.Metadata.Name)
+
 		_, err = registry.SaveChartPackage(appCh, stagingDir)
 		if err != nil {
 			ll.Error(err, "failed to save modified app chart to filesystem")
@@ -214,7 +216,7 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 		}
 
 		// Replace existing chart with modified chart
-		path := stagingDir + "/" + application.Spec.Chart.Name + "-" + appCh.Metadata.Version + ".tgz"
+		path := stagingDir + "/" + pkg.ConvertToDNS1123(application.Spec.Chart.Name) + "-" + appCh.Metadata.Version + ".tgz"
 		err = r.RegistryClient.PushChart(ll, r.StagingRepoName, path, appCh)
 		defer func() {
 			if r.CleanupDownloadedCharts {
