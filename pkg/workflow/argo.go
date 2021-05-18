@@ -4,12 +4,12 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"os"
 
 	"github.com/Azure/Orkestra/api/v1alpha1"
-	"github.com/Azure/Orkestra/pkg"
+	"github.com/Azure/Orkestra/pkg/utils"
 	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
 	fluxhelmv2beta1 "github.com/fluxcd/helm-controller/api/v2beta1"
+	fluxsourcev1beta1 "github.com/fluxcd/source-controller/api/v1beta1"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -19,25 +19,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/yaml"
-)
-
-const (
-	argoAPIVersion    = "argoproj.io/v1alpha1"
-	argoKind          = "Workflow"
-	entrypointTplName = "entry"
-
-	helmReleaseArg             = "helmrelease"
-	timeoutArg                 = "timeout"
-	helmReleaseExecutor        = "helmrelease-executor"
-	helmReleaseReverseExecutor = "helmrelease-reverse-executor"
-
-	valuesKeyGlobal = "global"
-	ChartLabelKey   = "chart"
-)
-
-var (
-	defaultTimeout = "5m"
 )
 
 type argo struct {
@@ -66,11 +47,11 @@ func (a *argo) initWorkflowObject() *v1alpha12.Workflow {
 			Labels: map[string]string{HeritageLabel: Project},
 		},
 		TypeMeta: v1.TypeMeta{
-			APIVersion: argoAPIVersion,
-			Kind:       argoKind,
+			APIVersion: v1alpha12.WorkflowSchemaGroupVersionKind.Version,
+			Kind:       v1alpha12.WorkflowSchemaGroupVersionKind.Kind,
 		},
 		Spec: v1alpha12.WorkflowSpec{
-			Entrypoint:  entrypointTplName,
+			Entrypoint:  EntrypointTemplateName,
 			Templates:   make([]v1alpha12.Template, 0),
 			Parallelism: a.parallelism,
 			PodGC: &v1alpha12.PodGC{
@@ -123,10 +104,6 @@ func (a *argo) Submit(ctx context.Context, l logr.Logger, g *v1alpha1.Applicatio
 
 	for _, namespace := range namespaces {
 		ns := corev1.Namespace{
-			TypeMeta: v1.TypeMeta{
-				Kind:       "Namespace",
-				APIVersion: "v1",
-			},
 			ObjectMeta: v1.ObjectMeta{
 				Name: namespace,
 			},
@@ -280,7 +257,7 @@ func (a *argo) generateWorkflow(ctx context.Context, g *v1alpha1.ApplicationGrou
 func getTaskNamesFromHelmReleases(bucket []fluxhelmv2beta1.HelmRelease) []string {
 	out := []string{}
 	for _, hr := range bucket {
-		out = append(out, pkg.ConvertToDNS1123(hr.GetReleaseName()+"-"+(hr.Namespace)))
+		out = append(out, utils.ConvertToDNS1123(hr.GetReleaseName()+"-"+(hr.Namespace)))
 	}
 	return out
 }
@@ -295,7 +272,7 @@ func (a *argo) generateReverseWorkflow(ctx context.Context, l logr.Logger, nodes
 	rev := graph.Reverse()
 
 	entry := v1alpha12.Template{
-		Name: entrypointTplName,
+		Name: EntrypointTemplateName,
 		DAG: &v1alpha12.DAGTemplate{
 			Tasks: make([]v1alpha12.DAGTask, 0),
 		},
@@ -305,12 +282,12 @@ func (a *argo) generateReverseWorkflow(ctx context.Context, l logr.Logger, nodes
 	for _, bucket := range rev {
 		for _, hr := range bucket {
 			task := v1alpha12.DAGTask{
-				Name:     pkg.ConvertToDNS1123(hr.GetReleaseName() + "-" + hr.Namespace),
-				Template: helmReleaseReverseExecutor,
+				Name:     utils.ConvertToDNS1123(hr.GetReleaseName() + "-" + hr.Namespace),
+				Template: HelmReleaseReverseExeutorName,
 				Arguments: v1alpha12.Arguments{
 					Parameters: []v1alpha12.Parameter{
 						{
-							Name:  helmReleaseArg,
+							Name:  HelmReleaseArg,
 							Value: strToStrPtr(hrToYAML(hr)),
 						},
 					},
@@ -344,7 +321,7 @@ func (a *argo) generateAppGroupTpls(ctx context.Context, g *v1alpha1.Application
 	}
 
 	entry := v1alpha12.Template{
-		Name: entrypointTplName,
+		Name: EntrypointTemplateName,
 		DAG: &v1alpha12.DAGTemplate{
 			Tasks: make([]v1alpha12.DAGTask, len(g.Spec.Applications)),
 			// TBD (nitishm): Do we need to failfast?
@@ -383,8 +360,8 @@ func updateAppGroupDAG(g *v1alpha1.ApplicationGroup, entry *v1alpha12.Template, 
 
 	for i, tpl := range tpls {
 		entry.DAG.Tasks[i] = v1alpha12.DAGTask{
-			Name:         pkg.ConvertToDNS1123(tpl.Name),
-			Template:     pkg.ConvertToDNS1123(tpl.Name),
+			Name:         utils.ConvertToDNS1123(tpl.Name),
+			Template:     utils.ConvertToDNS1123(tpl.Name),
 			Dependencies: convertSliceToDNS1123(g.Spec.Applications[i].Dependencies),
 		}
 	}
@@ -404,7 +381,7 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, g *v1alpha1.Applicat
 		if len(app.Spec.Subcharts) > 0 {
 			hasSubcharts = true
 			t := v1alpha12.Template{
-				Name:        pkg.ConvertToDNS1123(app.Name),
+				Name:        utils.ConvertToDNS1123(app.Name),
 				Parallelism: a.parallelism,
 			}
 
@@ -426,7 +403,7 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, g *v1alpha1.Applicat
 					APIVersion: "helm.toolkit.fluxcd.io/v2beta1",
 				},
 				ObjectMeta: v1.ObjectMeta{
-					Name:      pkg.ConvertToDNS1123(app.Name),
+					Name:      utils.ConvertToDNS1123(app.Name),
 					Namespace: app.Spec.Release.TargetNamespace,
 				},
 				Spec: fluxhelmv2beta1.HelmReleaseSpec{
@@ -435,14 +412,14 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, g *v1alpha1.Applicat
 							Chart:   app.Spec.Chart.Name,
 							Version: app.Spec.Chart.Version,
 							SourceRef: fluxhelmv2beta1.CrossNamespaceObjectReference{
-								Kind:      "HelmRepository",
-								Name:      "chartmuseum",
+								Kind:      fluxsourcev1beta1.HelmRepositoryKind,
+								Name:      ChartMuseumName,
 								Namespace: workflowNamespace(),
 							},
 						},
 					},
 					Interval:        app.Spec.Release.Interval,
-					ReleaseName:     pkg.ConvertToDNS1123(app.Name),
+					ReleaseName:     utils.ConvertToDNS1123(app.Name),
 					TargetNamespace: app.Spec.Release.TargetNamespace,
 					Timeout:         app.Spec.Release.Timeout,
 					Values:          app.Spec.Release.Values,
@@ -471,21 +448,21 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, g *v1alpha1.Applicat
 			}
 
 			tApp := v1alpha12.Template{
-				Name:        pkg.ConvertToDNS1123(app.Name),
+				Name:        utils.ConvertToDNS1123(app.Name),
 				Parallelism: a.parallelism,
 				DAG: &v1alpha12.DAGTemplate{
 					Tasks: []v1alpha12.DAGTask{
 						{
-							Name:     pkg.ConvertToDNS1123(app.Name),
-							Template: helmReleaseExecutor,
+							Name:     utils.ConvertToDNS1123(app.Name),
+							Template: HelmReleaseExecutorName,
 							Arguments: v1alpha12.Arguments{
 								Parameters: []v1alpha12.Parameter{
 									{
-										Name:  helmReleaseArg,
+										Name:  HelmReleaseArg,
 										Value: strToStrPtr(base64.StdEncoding.EncodeToString([]byte(hrToYAML(hr)))),
 									},
 									{
-										Name:  timeoutArg,
+										Name:  TimeoutArg,
 										Value: getTimeout(app.Spec.Release.Timeout),
 									},
 								},
@@ -520,7 +497,7 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 			return nil, err
 		}
 		hr.Annotations = map[string]string{
-			"orkestra/parent-chart": app.Name,
+			v1alpha1.ParentChartAnnotation: app.Name,
 		}
 		hr.Labels = map[string]string{
 			ChartLabelKey:  app.Name,
@@ -529,16 +506,16 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 		}
 
 		task := v1alpha12.DAGTask{
-			Name:     pkg.ConvertToDNS1123(scName),
-			Template: helmReleaseExecutor,
+			Name:     utils.ConvertToDNS1123(scName),
+			Template: HelmReleaseExecutorName,
 			Arguments: v1alpha12.Arguments{
 				Parameters: []v1alpha12.Parameter{
 					{
-						Name:  helmReleaseArg,
+						Name:  HelmReleaseArg,
 						Value: strToStrPtr(base64.StdEncoding.EncodeToString([]byte(hrToYAML(*hr)))),
 					},
 					{
-						Name:  timeoutArg,
+						Name:  TimeoutArg,
 						Value: getTimeout(app.Spec.Release.Timeout),
 					},
 				},
@@ -551,11 +528,11 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 
 	hr := fluxhelmv2beta1.HelmRelease{
 		TypeMeta: v1.TypeMeta{
-			Kind:       "HelmRelease",
-			APIVersion: "helm.toolkit.fluxcd.io/v2beta1",
+			Kind:       fluxhelmv2beta1.HelmReleaseKind,
+			APIVersion: fluxhelmv2beta1.GroupVersion.String(),
 		},
 		ObjectMeta: v1.ObjectMeta{
-			Name:      pkg.ConvertToDNS1123(app.Name),
+			Name:      utils.ConvertToDNS1123(app.Name),
 			Namespace: app.Spec.Release.TargetNamespace,
 		},
 		Spec: fluxhelmv2beta1.HelmReleaseSpec{
@@ -564,14 +541,14 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 					Chart:   app.Spec.Chart.Name,
 					Version: app.Spec.Chart.Version,
 					SourceRef: fluxhelmv2beta1.CrossNamespaceObjectReference{
-						Kind:      "HelmRepository",
-						Name:      "chartmuseum",
+						Kind:      fluxsourcev1beta1.HelmRepositoryKind,
+						Name:      ChartMuseumName,
 						Namespace: workflowNamespace(),
 					},
 				},
 			},
 			Interval:        app.Spec.Release.Interval,
-			ReleaseName:     pkg.ConvertToDNS1123(app.Name),
+			ReleaseName:     utils.ConvertToDNS1123(app.Name),
 			TargetNamespace: app.Spec.Release.TargetNamespace,
 			Timeout:         app.Spec.Release.Timeout,
 			Values:          app.Spec.Release.Values,
@@ -615,23 +592,23 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 	}
 
 	task := v1alpha12.DAGTask{
-		Name:     pkg.ConvertToDNS1123(app.Name),
-		Template: helmReleaseExecutor,
+		Name:     utils.ConvertToDNS1123(app.Name),
+		Template: HelmReleaseExecutorName,
 		Arguments: v1alpha12.Arguments{
 			Parameters: []v1alpha12.Parameter{
 				{
-					Name:  helmReleaseArg,
+					Name:  HelmReleaseArg,
 					Value: strToStrPtr(base64.StdEncoding.EncodeToString([]byte(hrToYAML(hr)))),
 				},
 				{
-					Name:  timeoutArg,
+					Name:  TimeoutArg,
 					Value: getTimeout(app.Spec.Release.Timeout),
 				},
 			},
 		},
 		Dependencies: func() (out []string) {
 			for _, t := range tasks {
-				out = append(out, pkg.ConvertToDNS1123(t.Name))
+				out = append(out, utils.ConvertToDNS1123(t.Name))
 			}
 			return out
 		}(),
@@ -648,16 +625,16 @@ func updateWorkflowTemplates(wf *v1alpha12.Workflow, tpls ...v1alpha12.Template)
 func defaultExecutor() v1alpha12.Template {
 	executorArgs := []string{"--spec", "{{inputs.parameters.helmrelease}}", "--timeout", "{{inputs.parameters.timeout}}"}
 	return v1alpha12.Template{
-		Name:               helmReleaseExecutor,
+		Name:               HelmReleaseExecutorName,
 		ServiceAccountName: workflowServiceAccountName(),
 		Inputs: v1alpha12.Inputs{
 			Parameters: []v1alpha12.Parameter{
 				{
-					Name: helmReleaseArg,
+					Name: HelmReleaseArg,
 				},
 				{
-					Name:    timeoutArg,
-					Default: &defaultTimeout,
+					Name:    TimeoutArg,
+					Default: strToStrPtr(DefaultTimeout),
 				},
 			},
 		},
@@ -666,8 +643,8 @@ func defaultExecutor() v1alpha12.Template {
 		},
 		Outputs: v1alpha12.Outputs{},
 		Container: &corev1.Container{
-			Name:  "executor",
-			Image: "azureorkestra/executor:v0.1.0",
+			Name:  ExecutorName,
+			Image: fmt.Sprintf("%s:%s", ExecutorImage, ExecutorImageTag),
 			Args:  executorArgs,
 		},
 	}
@@ -675,7 +652,7 @@ func defaultExecutor() v1alpha12.Template {
 
 func defaultReverseExecutor() v1alpha12.Template {
 	return v1alpha12.Template{
-		Name:               helmReleaseReverseExecutor,
+		Name:               HelmReleaseReverseExeutorName,
 		ServiceAccountName: workflowServiceAccountName(),
 		Inputs: v1alpha12.Inputs{
 			Parameters: []v1alpha12.Parameter{
@@ -695,38 +672,29 @@ func defaultReverseExecutor() v1alpha12.Template {
 	}
 }
 
-func hrToYAML(hr fluxhelmv2beta1.HelmRelease) string {
-	b, err := yaml.Marshal(hr)
-	if err != nil {
-		return ""
-	}
-
-	return string(b)
-}
-
 func generateSubchartHelmRelease(a v1alpha1.Application, appName, scName, version, repo, targetNS string, isStaged bool) (*fluxhelmv2beta1.HelmRelease, error) {
 	hr := &fluxhelmv2beta1.HelmRelease{
 		TypeMeta: v1.TypeMeta{
-			Kind:       "HelmRelease",
-			APIVersion: "helm.toolkit.fluxcd.io/v2beta1",
+			Kind:       fluxhelmv2beta1.HelmReleaseKind,
+			APIVersion: fluxhelmv2beta1.GroupVersion.String(),
 		},
 		ObjectMeta: v1.ObjectMeta{
-			Name:      pkg.ConvertToDNS1123(pkg.ToInitials(appName) + "-" + scName),
+			Name:      utils.ConvertToDNS1123(utils.ToInitials(appName) + "-" + scName),
 			Namespace: targetNS,
 		},
 		Spec: fluxhelmv2beta1.HelmReleaseSpec{
 			Chart: fluxhelmv2beta1.HelmChartTemplate{
 				Spec: fluxhelmv2beta1.HelmChartTemplateSpec{
-					Chart:   pkg.ConvertToDNS1123(pkg.ToInitials(appName) + "-" + scName),
+					Chart:   utils.ConvertToDNS1123(utils.ToInitials(appName) + "-" + scName),
 					Version: version,
 					SourceRef: fluxhelmv2beta1.CrossNamespaceObjectReference{
-						Kind:      "HelmRepository",
-						Name:      "chartmuseum",
+						Kind:      fluxsourcev1beta1.HelmRepositoryKind,
+						Name:      ChartMuseumName,
 						Namespace: workflowNamespace(),
 					},
 				},
 			},
-			ReleaseName:     pkg.ConvertToDNS1123(scName),
+			ReleaseName:     utils.ConvertToDNS1123(scName),
 			TargetNamespace: targetNS,
 			Timeout:         a.Spec.Release.Timeout,
 			Install: &fluxhelmv2beta1.Install{
@@ -757,45 +725,11 @@ func subchartValues(sc string, values map[string]interface{}) (*apiextensionsv1.
 		}
 	}
 
-	if gVals, ok := values[valuesKeyGlobal]; ok {
+	if gVals, ok := values[ValuesKeyGlobal]; ok {
 		if vv, ok := gVals.(map[string]interface{}); ok {
-			data[valuesKeyGlobal] = vv
+			data[ValuesKeyGlobal] = vv
 		}
 	}
 
 	return v1alpha1.GetJSON(data)
-}
-
-func convertSliceToDNS1123(in []string) []string {
-	out := []string{}
-	for _, s := range in {
-		out = append(out, pkg.ConvertToDNS1123(s))
-	}
-	return out
-}
-
-func strToStrPtr(in string) *string {
-	return &in
-}
-
-func workflowNamespace() string {
-	if ns, ok := os.LookupEnv("WORKFLOW_NAMESPACE"); ok {
-		return ns
-	}
-	return "orkestra"
-}
-
-func workflowServiceAccountName() string {
-	if sa, ok := os.LookupEnv("WORKFLOW_SERVICEACCOUNT_NAME"); ok {
-		return sa
-	}
-	return "orkestra"
-}
-
-func getTimeout(t *v1.Duration) *string {
-	if t == nil {
-		return &defaultTimeout
-	}
-	tm := t.Duration.String()
-	return &tm
 }

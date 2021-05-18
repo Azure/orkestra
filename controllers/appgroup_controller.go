@@ -26,13 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	orkestrav1alpha1 "github.com/Azure/Orkestra/api/v1alpha1"
-)
-
-const (
-	appgroupNameKey                   = "appgroup"
-	finalizer                         = "application-group-finalizer"
-	lastSuccessfulApplicationGroupKey = "orkestra/last-successful-applicationgroup"
+	"github.com/Azure/Orkestra/api/v1alpha1"
 )
 
 var (
@@ -72,7 +66,7 @@ type ApplicationGroupReconciler struct {
 	// lastSuccessfulApplicationGroup holds the applicationgroup spec body from the last
 	// successful reconciliation of the ApplicationGroup. This is set after every successful
 	// reconciliation.
-	lastSuccessfulApplicationGroup *orkestrav1alpha1.ApplicationGroup
+	lastSuccessfulApplicationGroup *v1alpha1.ApplicationGroup
 }
 
 // +kubebuilder:rbac:groups=orkestra.azure.microsoft.com,resources=applicationgroups,verbs=get;list;watch;create;update;patch;delete
@@ -81,9 +75,9 @@ type ApplicationGroupReconciler struct {
 func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	var requeue bool
 	var err error
-	var appGroup orkestrav1alpha1.ApplicationGroup
+	var appGroup v1alpha1.ApplicationGroup
 
-	logr := r.Log.WithValues(appgroupNameKey, req.NamespacedName.Name)
+	logr := r.Log.WithValues(v1alpha1.AppGroupNameKey, req.NamespacedName.Name)
 
 	if err := r.Get(ctx, req.NamespacedName, &appGroup); err != nil {
 		if kerrors.IsNotFound(err) {
@@ -100,8 +94,8 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// in which case unmarshal the last successful spec into a
 	// variable
 	if appGroup.GetAnnotations() != nil {
-		last := &orkestrav1alpha1.ApplicationGroup{}
-		if s, ok := appGroup.Annotations[lastSuccessfulApplicationGroupKey]; ok {
+		last := &v1alpha1.ApplicationGroup{}
+		if s, ok := appGroup.Annotations[v1alpha1.LastSuccessfulAnnotation]; ok {
 			_ = json.Unmarshal([]byte(s), last)
 			r.lastSuccessfulApplicationGroup = last
 		}
@@ -126,8 +120,8 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 				// unset the last successful spec annotation
 				r.lastSuccessfulApplicationGroup = nil
-				if _, ok := appGroup.Annotations[lastSuccessfulApplicationGroupKey]; ok {
-					appGroup.Annotations[lastSuccessfulApplicationGroupKey] = ""
+				if _, ok := appGroup.Annotations[v1alpha1.LastSuccessfulAnnotation]; ok {
+					appGroup.Annotations[v1alpha1.LastSuccessfulAnnotation] = ""
 				}
 				appGroup.Finalizers = nil
 				_ = r.Patch(ctx, &appGroup, patch)
@@ -143,7 +137,7 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	// Add finalizer if it doesnt already exist
 	if appGroup.Finalizers == nil {
-		appGroup.Finalizers = []string{finalizer}
+		appGroup.Finalizers = []string{v1alpha1.AppGroupFinalizer}
 		err = r.Patch(ctx, &appGroup, patch)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -296,12 +290,12 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 func (r *ApplicationGroupReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	pred := predicate.GenerationChangedPredicate{}
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&orkestrav1alpha1.ApplicationGroup{}).
+		For(&v1alpha1.ApplicationGroup{}).
 		WithEventFilter(pred).
 		Complete(r)
 }
 
-func (r *ApplicationGroupReconciler) handleResponseAndEvent(ctx context.Context, logr logr.Logger, grp orkestrav1alpha1.ApplicationGroup,
+func (r *ApplicationGroupReconciler) handleResponseAndEvent(ctx context.Context, logr logr.Logger, grp v1alpha1.ApplicationGroup,
 	patch client.Patch, requeue bool, err error) (ctrl.Result, error) {
 	var errStr string
 	if err != nil {
@@ -315,7 +309,7 @@ func (r *ApplicationGroupReconciler) handleResponseAndEvent(ctx context.Context,
 	if err2 == nil && grp.GetReadyCondition() == meta.SucceededReason {
 		// Annotate the resource with the last successful ApplicationGroup spec
 		b, _ := json.Marshal(&grp)
-		grp.SetAnnotations(map[string]string{lastSuccessfulApplicationGroupKey: string(b)})
+		grp.SetAnnotations(map[string]string{v1alpha1.LastSuccessfulAnnotation: string(b)})
 		r.lastSuccessfulApplicationGroup = grp.DeepCopy()
 		_ = r.Patch(ctx, &grp, patch)
 
@@ -334,33 +328,33 @@ func (r *ApplicationGroupReconciler) handleResponseAndEvent(ctx context.Context,
 
 	if requeue {
 		if grp.GetReadyCondition() != meta.ProgressingReason && grp.GetReadyCondition() != meta.ReversingReason {
-			logr.WithValues("requeueTime", orkestrav1alpha1.GetInterval(&grp).String())
+			logr.WithValues("requeueTime", v1alpha1.GetInterval(&grp).String())
 			logr.V(1).Info("workflow has succeeded")
-			return reconcile.Result{RequeueAfter: orkestrav1alpha1.GetInterval(&grp)}, err
+			return reconcile.Result{RequeueAfter: v1alpha1.GetInterval(&grp)}, err
 		}
-		logr.WithValues("requeueTime", orkestrav1alpha1.DefaultProgressingRequeue.String())
+		logr.WithValues("requeueTime", v1alpha1.DefaultProgressingRequeue.String())
 		logr.V(1).Info("workflow is still progressing")
-		return reconcile.Result{RequeueAfter: orkestrav1alpha1.DefaultProgressingRequeue}, err
+		return reconcile.Result{RequeueAfter: v1alpha1.DefaultProgressingRequeue}, err
 	}
 	return reconcile.Result{}, nil
 }
 
-func initApplications(appGroup *orkestrav1alpha1.ApplicationGroup) {
+func initApplications(appGroup *v1alpha1.ApplicationGroup) {
 	// Initialize the Status fields if not already setup
 	if len(appGroup.Status.Applications) == 0 {
-		appGroup.Status.Applications = make([]orkestrav1alpha1.ApplicationStatus, 0, len(appGroup.Spec.Applications))
+		appGroup.Status.Applications = make([]v1alpha1.ApplicationStatus, 0, len(appGroup.Spec.Applications))
 		for _, app := range appGroup.Spec.Applications {
-			status := orkestrav1alpha1.ApplicationStatus{
+			status := v1alpha1.ApplicationStatus{
 				Name:        app.Name,
-				ChartStatus: orkestrav1alpha1.ChartStatus{Version: app.Spec.Chart.Version},
-				Subcharts:   make(map[string]orkestrav1alpha1.ChartStatus),
+				ChartStatus: v1alpha1.ChartStatus{Version: app.Spec.Chart.Version},
+				Subcharts:   make(map[string]v1alpha1.ChartStatus),
 			}
 			appGroup.Status.Applications = append(appGroup.Status.Applications, status)
 		}
 	}
 }
 
-func (r *ApplicationGroupReconciler) handleRemediation(ctx context.Context, logr logr.Logger, g orkestrav1alpha1.ApplicationGroup,
+func (r *ApplicationGroupReconciler) handleRemediation(ctx context.Context, logr logr.Logger, g v1alpha1.ApplicationGroup,
 	patch client.Patch, err error) (ctrl.Result, error) {
 	// Rollback to previous successful spec since the annotation was set and this is
 	// an UPDATE event
@@ -401,9 +395,9 @@ func (r *ApplicationGroupReconciler) handleRemediation(ctx context.Context, logr
 		// using the last successful spec
 		g.RollingBack()
 		_ = r.Status().Patch(ctx, &g, patch)
-		logr.WithValues("requeueTime", orkestrav1alpha1.DefaultProgressingRequeue.String())
+		logr.WithValues("requeueTime", v1alpha1.DefaultProgressingRequeue.String())
 		logr.V(1).Info("initiating rollback")
-		return reconcile.Result{RequeueAfter: orkestrav1alpha1.DefaultProgressingRequeue}, nil
+		return reconcile.Result{RequeueAfter: v1alpha1.DefaultProgressingRequeue}, nil
 	}
 	// Reverse and cleanup the workflow and associated helmreleases
 	g.RollingBack()
@@ -421,7 +415,7 @@ func (r *ApplicationGroupReconciler) handleRemediation(ctx context.Context, logr
 // marshallChartStatus lists all of the HelmRelease objects that were deployed and assigns
 // their status to the appropriate maps corresponding to their chart of subchart.
 // These statuses are used to update the application status above
-func (r *ApplicationGroupReconciler) marshallChartStatus(ctx context.Context, appGroup orkestrav1alpha1.ApplicationGroup) (
+func (r *ApplicationGroupReconciler) marshallChartStatus(ctx context.Context, appGroup v1alpha1.ApplicationGroup) (
 	chartConditionMap map[string][]metav1.Condition,
 	subChartConditionMap map[string]map[string][]metav1.Condition,
 	err error) {
@@ -466,11 +460,12 @@ func (r *ApplicationGroupReconciler) marshallChartStatus(ctx context.Context, ap
 }
 
 func getAppStatus(
-	appGroup *orkestrav1alpha1.ApplicationGroup,
+	appGroup *v1alpha1.ApplicationGroup,
 	chartConditionMap map[string][]metav1.Condition,
-	subChartConditionMap map[string]map[string][]metav1.Condition) []orkestrav1alpha1.ApplicationStatus {
+	subChartConditionMap map[string]map[string][]metav1.Condition) []v1alpha1.ApplicationStatus {
 	// Update each application status using the HelmRelease status
-	var v []orkestrav1alpha1.ApplicationStatus
+
+	var v []v1alpha1.ApplicationStatus
 	for _, app := range appGroup.Status.Applications {
 		app.ChartStatus.Conditions = chartConditionMap[app.Name]
 		for subchartName, subchartStatus := range app.Subcharts {
@@ -496,7 +491,7 @@ func (r *ApplicationGroupReconciler) rollbackFailedHelmReleases(ctx context.Cont
 	return nil
 }
 
-func (r *ApplicationGroupReconciler) cleanupWorkflow(ctx context.Context, logr logr.Logger, g orkestrav1alpha1.ApplicationGroup) bool {
+func (r *ApplicationGroupReconciler) cleanupWorkflow(ctx context.Context, logr logr.Logger, g v1alpha1.ApplicationGroup) bool {
 	nodes := make(map[string]v1alpha12.NodeStatus)
 	wfs := v1alpha12.WorkflowList{}
 	listOption := client.MatchingLabels{

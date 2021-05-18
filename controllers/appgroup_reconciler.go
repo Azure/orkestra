@@ -5,10 +5,11 @@ import (
 	"os"
 	"strings"
 
+	"github.com/Azure/Orkestra/pkg/utils"
+
 	"fmt"
 
-	orkestrav1alpha1 "github.com/Azure/Orkestra/api/v1alpha1"
-	"github.com/Azure/Orkestra/pkg"
+	"github.com/Azure/Orkestra/api/v1alpha1"
 	"github.com/Azure/Orkestra/pkg/registry"
 	"github.com/go-logr/logr"
 	"github.com/jinzhu/copier"
@@ -32,8 +33,8 @@ data:
 	dummyConfigmapYAMLName = "templates/dummy-configmap.yaml"
 )
 
-func (r *ApplicationGroupReconciler) reconcile(ctx context.Context, l logr.Logger, appGroup *orkestrav1alpha1.ApplicationGroup) (bool, error) {
-	l = l.WithValues(appgroupNameKey, appGroup.Name)
+func (r *ApplicationGroupReconciler) reconcile(ctx context.Context, l logr.Logger, appGroup *v1alpha1.ApplicationGroup) (bool, error) {
+	l = l.WithValues(v1alpha1.AppGroupNameKey, appGroup.Name)
 	l.V(3).Info("Reconciling ApplicationGroup object")
 
 	if len(appGroup.Spec.Applications) == 0 {
@@ -53,7 +54,7 @@ func (r *ApplicationGroupReconciler) reconcile(ctx context.Context, l logr.Logge
 	return r.generateWorkflow(ctx, l, appGroup)
 }
 
-func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGroup *orkestrav1alpha1.ApplicationGroup) error {
+func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGroup *v1alpha1.ApplicationGroup) error {
 	stagingDir := r.TargetDir + "/" + r.StagingRepoName
 	// Pull and conditionally stage application & dependency charts
 	for i, application := range appGroup.Spec.Applications {
@@ -75,7 +76,7 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 		}
 
 		if appGroup.Status.Applications[i].Subcharts == nil {
-			appGroup.Status.Applications[i].Subcharts = make(map[string]orkestrav1alpha1.ChartStatus)
+			appGroup.Status.Applications[i].Subcharts = make(map[string]v1alpha1.ChartStatus)
 		}
 
 		name := application.Spec.Chart.Name
@@ -96,7 +97,7 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 
 		if appCh.Dependencies() != nil {
 			for _, sc := range appCh.Dependencies() {
-				cs := orkestrav1alpha1.ChartStatus{
+				cs := v1alpha1.ChartStatus{
 					Version: sc.Metadata.Version,
 				}
 				appGroup.Status.Applications[i].Subcharts[sc.Name()] = cs
@@ -106,7 +107,7 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 			// If Dependencies - extract subchart and push each to staging registry
 			// if isDependenciesEmbedded(appCh) {
 			for _, sc := range appCh.Dependencies() {
-				cs := orkestrav1alpha1.ChartStatus{
+				cs := v1alpha1.ChartStatus{
 					Version: sc.Metadata.Version,
 				}
 
@@ -133,7 +134,7 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 				}
 				scc.Files = append(scc.Files, appCh.Files...)
 
-				scc.Metadata.Name = pkg.ConvertToDNS1123(pkg.ToInitials(appCh.Metadata.Name) + "-" + scc.Metadata.Name)
+				scc.Metadata.Name = utils.ConvertToDNS1123(utils.ToInitials(appCh.Metadata.Name) + "-" + scc.Metadata.Name)
 				path, err := registry.SaveChartPackage(scc, stagingDir)
 				if err != nil {
 					ll.Error(err, "failed to save subchart package as tgz")
@@ -229,7 +230,7 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 	return nil
 }
 
-func (r *ApplicationGroupReconciler) generateWorkflow(ctx context.Context, logr logr.Logger, g *orkestrav1alpha1.ApplicationGroup) (requeue bool, err error) {
+func (r *ApplicationGroupReconciler) generateWorkflow(ctx context.Context, logr logr.Logger, g *v1alpha1.ApplicationGroup) (requeue bool, err error) {
 	err = r.Engine.Generate(ctx, logr, g)
 	if err != nil {
 		logr.Error(err, "engine failed to generate workflow")
