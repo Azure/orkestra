@@ -432,7 +432,7 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, g *v1alpha1.Applicat
 				Spec: fluxhelmv2beta1.HelmReleaseSpec{
 					Chart: fluxhelmv2beta1.HelmChartTemplate{
 						Spec: fluxhelmv2beta1.HelmChartTemplateSpec{
-							Chart:   app.Spec.Chart.Name,
+							Chart:   pkg.ConvertToDNS1123(app.Spec.Chart.Name),
 							Version: app.Spec.Chart.Version,
 							SourceRef: fluxhelmv2beta1.CrossNamespaceObjectReference{
 								Kind:      "HelmRepository",
@@ -561,7 +561,7 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 		Spec: fluxhelmv2beta1.HelmReleaseSpec{
 			Chart: fluxhelmv2beta1.HelmChartTemplate{
 				Spec: fluxhelmv2beta1.HelmChartTemplateSpec{
-					Chart:   app.Spec.Chart.Name,
+					Chart:   pkg.ConvertToDNS1123(app.Spec.Chart.Name),
 					Version: app.Spec.Chart.Version,
 					SourceRef: fluxhelmv2beta1.CrossNamespaceObjectReference{
 						Kind:      "HelmRepository",
