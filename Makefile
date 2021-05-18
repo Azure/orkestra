@@ -13,9 +13,6 @@ endif
 
 all: manager
 
-local:
-	go run main.go --debug
-
 # Run tests
 test:
 	go test -v ./... -coverprofile coverage.txt
