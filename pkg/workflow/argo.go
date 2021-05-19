@@ -409,7 +409,7 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, g *v1alpha1.Applicat
 				Spec: fluxhelmv2beta1.HelmReleaseSpec{
 					Chart: fluxhelmv2beta1.HelmChartTemplate{
 						Spec: fluxhelmv2beta1.HelmChartTemplateSpec{
-							Chart:   app.Spec.Chart.Name,
+							Chart:   utils.ConvertToDNS1123(app.Spec.Chart.Name),
 							Version: app.Spec.Chart.Version,
 							SourceRef: fluxhelmv2beta1.CrossNamespaceObjectReference{
 								Kind:      fluxsourcev1beta1.HelmRepositoryKind,
@@ -538,7 +538,7 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 		Spec: fluxhelmv2beta1.HelmReleaseSpec{
 			Chart: fluxhelmv2beta1.HelmChartTemplate{
 				Spec: fluxhelmv2beta1.HelmChartTemplateSpec{
-					Chart:   app.Spec.Chart.Name,
+					Chart:   utils.ConvertToDNS1123(app.Spec.Chart.Name),
 					Version: app.Spec.Chart.Version,
 					SourceRef: fluxhelmv2beta1.CrossNamespaceObjectReference{
 						Kind:      fluxsourcev1beta1.HelmRepositoryKind,
@@ -623,7 +623,7 @@ func updateWorkflowTemplates(wf *v1alpha12.Workflow, tpls ...v1alpha12.Template)
 }
 
 func defaultExecutor() v1alpha12.Template {
-	executorArgs := []string{"--spec", "{{inputs.parameters.helmrelease}}", "--timeout", "{{inputs.parameters.timeout}}"}
+	executorArgs := []string{"--spec", "{{inputs.parameters.helmrelease}}", "--timeout", "{{inputs.parameters.timeout}}", "--interval", "10s"}
 	return v1alpha12.Template{
 		Name:               HelmReleaseExecutorName,
 		ServiceAccountName: workflowServiceAccountName(),

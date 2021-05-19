@@ -6,6 +6,9 @@ import (
 	"strings"
 
 	"github.com/Azure/Orkestra/pkg/utils"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"fmt"
 
@@ -56,6 +59,10 @@ func (r *ApplicationGroupReconciler) reconcile(ctx context.Context, l logr.Logge
 
 func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGroup *v1alpha1.ApplicationGroup) error {
 	stagingDir := r.TargetDir + "/" + r.StagingRepoName
+
+	// Init the application status every time we re-reconcile the applications
+	initAppStatus(appGroup)
+
 	// Pull and conditionally stage application & dependency charts
 	for i, application := range appGroup.Spec.Applications {
 		ll := l.WithValues("application", application.Name)
@@ -73,10 +80,6 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 			err = fmt.Errorf("failed to add helm repo at URL %s: %w", application.Spec.Chart.Url, err)
 			ll.Error(err, "failed to add helm repo ")
 			return err
-		}
-
-		if appGroup.Status.Applications[i].Subcharts == nil {
-			appGroup.Status.Applications[i].Subcharts = make(map[string]v1alpha1.ChartStatus)
 		}
 
 		name := application.Spec.Chart.Name
@@ -132,7 +135,6 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 						scc.Templates = append(scc.Templates, t)
 					}
 				}
-				scc.Files = append(scc.Files, appCh.Files...)
 
 				scc.Metadata.Name = utils.ConvertToDNS1123(utils.ToInitials(appCh.Metadata.Name) + "-" + scc.Metadata.Name)
 				path, err := registry.SaveChartPackage(scc, stagingDir)
@@ -202,6 +204,8 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 			return err
 		}
 
+		appCh.Metadata.Name = utils.ConvertToDNS1123(appCh.Metadata.Name)
+
 		_, err = registry.SaveChartPackage(appCh, stagingDir)
 		if err != nil {
 			ll.Error(err, "failed to save modified app chart to filesystem")
@@ -211,7 +215,7 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 		}
 
 		// Replace existing chart with modified chart
-		path := stagingDir + "/" + application.Spec.Chart.Name + "-" + appCh.Metadata.Version + ".tgz"
+		path := stagingDir + "/" + utils.ConvertToDNS1123(application.Spec.Chart.Name) + "-" + appCh.Metadata.Version + ".tgz"
 		err = r.RegistryClient.PushChart(ll, r.StagingRepoName, path, appCh)
 		defer func() {
 			if r.CleanupDownloadedCharts {
@@ -228,6 +232,41 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 		appGroup.Status.Applications[i].ChartStatus.Staged = true
 	}
 	return nil
+}
+
+func (r *ApplicationGroupReconciler) reconcileDelete(ctx context.Context, appGroup v1alpha1.ApplicationGroup, patch client.Patch) (ctrl.Result, error) {
+	requeue := r.cleanupWorkflow(ctx, r.Log, appGroup)
+	if requeue {
+		// Change the app group spec into a reversing state
+		appGroup.Reversing()
+		_ = r.Status().Patch(ctx, &appGroup, patch)
+
+		r.Log.Info("reverse workflow is in progress")
+	} else {
+		r.Log.Info("cleaning up the applicationgroup resource")
+
+		// unset the last successful spec annotation
+		r.lastSuccessfulApplicationGroup = nil
+		if _, ok := appGroup.Annotations[v1alpha1.LastSuccessfulAnnotation]; ok {
+			appGroup.Annotations[v1alpha1.LastSuccessfulAnnotation] = ""
+		}
+		controllerutil.RemoveFinalizer(&appGroup, v1alpha1.AppGroupFinalizer)
+		_ = r.Patch(ctx, &appGroup, patch)
+	}
+	return r.handleResponseAndEvent(ctx, r.Log, appGroup, patch, requeue, nil)
+}
+
+func initAppStatus(appGroup *v1alpha1.ApplicationGroup) {
+	// Initialize the Status fields if not already setup
+	appGroup.Status.Applications = make([]v1alpha1.ApplicationStatus, 0, len(appGroup.Spec.Applications))
+	for _, app := range appGroup.Spec.Applications {
+		status := v1alpha1.ApplicationStatus{
+			Name:        app.Name,
+			ChartStatus: v1alpha1.ChartStatus{Version: app.Spec.Chart.Version},
+			Subcharts:   make(map[string]v1alpha1.ChartStatus),
+		}
+		appGroup.Status.Applications = append(appGroup.Status.Applications, status)
+	}
 }
 
 func (r *ApplicationGroupReconciler) generateWorkflow(ctx context.Context, logr logr.Logger, g *v1alpha1.ApplicationGroup) (requeue bool, err error) {
