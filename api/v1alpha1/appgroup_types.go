@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Azure/Orkestra/pkg/meta"
+	fluxhelmv2beta1 "github.com/fluxcd/helm-controller/api/v2beta1"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -67,40 +68,19 @@ type Release struct {
 
 	// Install holds the configuration for Helm install actions for this HelmRelease.
 	// +optional
-	Install *ReleaseInstallSpec `json:"install,omitempty"`
+	Install *fluxhelmv2beta1.Install `json:"install,omitempty"`
 
 	// Upgrade holds the configuration for Helm upgrade actions for this HelmRelease.
 	// +optional
-	Upgrade *ReleaseUpgradeSpec `json:"upgrade,omitempty"`
+	Upgrade *fluxhelmv2beta1.Upgrade `json:"upgrade,omitempty"`
 
 	// Rollback holds the configuration for Helm rollback actions for this HelmRelease.
 	// +optional
-	Rollback *ReleaseRollbackSpec `json:"rollback,omitempty"`
-}
+	Rollback *fluxhelmv2beta1.Rollback `json:"rollback,omitempty"`
 
-type ReleaseInstallSpec struct {
-	// DisableWait disables the waiting for resources to be ready after a Helm
-	// install has been performed.
+	// Rollback holds the configuration for Helm uninstall actions for this HelmRelease.
 	// +optional
-	DisableWait bool `json:"disableWait,omitempty"`
-}
-
-type ReleaseUpgradeSpec struct {
-	// DisableWait disables the waiting for resources to be ready after a Helm
-	// upgrade has been performed.
-	// +optional
-	DisableWait bool `json:"disableWait,omitempty"`
-
-	// Force forces resource updates through a replacement strategy.
-	// +optional
-	Force bool `json:"force,omitempty"`
-}
-
-type ReleaseRollbackSpec struct {
-	// DisableWait disables the waiting for resources to be ready after a Helm
-	// rollback has been performed.
-	// +optional
-	DisableWait bool `json:"disableWait,omitempty"`
+	Uninstall *fluxhelmv2beta1.Uninstall `json:"uninstall,omitempty"`
 }
 
 type ChartRef struct {

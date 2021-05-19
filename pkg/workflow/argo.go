@@ -446,23 +446,11 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, g *v1alpha1.Applicat
 					TargetNamespace: app.Spec.Release.TargetNamespace,
 					Timeout:         app.Spec.Release.Timeout,
 					Values:          app.Spec.Release.Values,
+					Install:         app.Spec.Release.Install,
+					Upgrade:         app.Spec.Release.Upgrade,
+					Rollback:        app.Spec.Release.Rollback,
+					Uninstall:       app.Spec.Release.Uninstall,
 				},
-			}
-			if app.Spec.Release.Install != nil {
-				hr.Spec.Install = &fluxhelmv2beta1.Install{
-					DisableWait: app.Spec.Release.Install.DisableWait,
-				}
-			}
-			if app.Spec.Release.Upgrade != nil {
-				hr.Spec.Upgrade = &fluxhelmv2beta1.Upgrade{
-					DisableWait: app.Spec.Release.Upgrade.DisableWait,
-					Force:       app.Spec.Release.Upgrade.Force,
-				}
-			}
-			if app.Spec.Release.Rollback != nil {
-				hr.Spec.Rollback = &fluxhelmv2beta1.Rollback{
-					DisableWait: app.Spec.Release.Rollback.DisableWait,
-				}
 			}
 			hr.Labels = map[string]string{
 				ChartLabelKey:  app.Name,
@@ -583,23 +571,11 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 			TargetNamespace: app.Spec.Release.TargetNamespace,
 			Timeout:         app.Spec.Release.Timeout,
 			Values:          app.Spec.Release.Values,
+			Install:         app.Spec.Release.Install,
+			Upgrade:         app.Spec.Release.Upgrade,
+			Rollback:        app.Spec.Release.Rollback,
+			Uninstall:       app.Spec.Release.Uninstall,
 		},
-	}
-	if app.Spec.Release.Install != nil {
-		hr.Spec.Install = &fluxhelmv2beta1.Install{
-			DisableWait: app.Spec.Release.Install.DisableWait,
-		}
-	}
-	if app.Spec.Release.Upgrade != nil {
-		hr.Spec.Upgrade = &fluxhelmv2beta1.Upgrade{
-			DisableWait: app.Spec.Release.Upgrade.DisableWait,
-			Force:       app.Spec.Release.Upgrade.Force,
-		}
-	}
-	if app.Spec.Release.Rollback != nil {
-		hr.Spec.Rollback = &fluxhelmv2beta1.Rollback{
-			DisableWait: app.Spec.Release.Rollback.DisableWait,
-		}
 	}
 	hr.Labels = map[string]string{
 		ChartLabelKey:  app.Name,
@@ -658,7 +634,7 @@ func updateWorkflowTemplates(wf *v1alpha12.Workflow, tpls ...v1alpha12.Template)
 }
 
 func defaultExecutor() v1alpha12.Template {
-	executorArgs := []string{"--spec", "{{inputs.parameters.helmrelease}}", "--timeout", "{{inputs.parameters.timeout}}"}
+	executorArgs := []string{"--spec", "{{inputs.parameters.helmrelease}}", "--timeout", "{{inputs.parameters.timeout}}", "--interval", "10s"}
 	return v1alpha12.Template{
 		Name:               helmReleaseExecutor,
 		ServiceAccountName: workflowServiceAccountName(),
@@ -679,7 +655,7 @@ func defaultExecutor() v1alpha12.Template {
 		Outputs: v1alpha12.Outputs{},
 		Container: &corev1.Container{
 			Name:  "executor",
-			Image: "azureorkestra/executor:v0.1.0",
+			Image: "azureorkestra/executor:v0.2.0",
 			Args:  executorArgs,
 		},
 	}
@@ -741,12 +717,10 @@ func generateSubchartHelmRelease(a v1alpha1.Application, appName, scName, versio
 			ReleaseName:     pkg.ConvertToDNS1123(scName),
 			TargetNamespace: targetNS,
 			Timeout:         a.Spec.Release.Timeout,
-			Install: &fluxhelmv2beta1.Install{
-				DisableWait: false,
-			},
-			Upgrade: &fluxhelmv2beta1.Upgrade{
-				DisableWait: false,
-			},
+			Install:         a.Spec.Release.Install,
+			Upgrade:         a.Spec.Release.Upgrade,
+			Rollback:        a.Spec.Release.Rollback,
+			Uninstall:       a.Spec.Release.Uninstall,
 		},
 	}
 

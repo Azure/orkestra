@@ -5,6 +5,10 @@ import (
 	"os"
 	"strings"
 
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
 	"fmt"
 
 	orkestrav1alpha1 "github.com/Azure/Orkestra/api/v1alpha1"
@@ -55,6 +59,10 @@ func (r *ApplicationGroupReconciler) reconcile(ctx context.Context, l logr.Logge
 
 func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGroup *orkestrav1alpha1.ApplicationGroup) error {
 	stagingDir := r.TargetDir + "/" + r.StagingRepoName
+
+	// Init the application status every time we re-reconcile the applications
+	initAppStatus(appGroup)
+
 	// Pull and conditionally stage application & dependency charts
 	for i, application := range appGroup.Spec.Applications {
 		ll := l.WithValues("application", application.Name)
@@ -72,10 +80,6 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 			err = fmt.Errorf("failed to add helm repo at URL %s: %w", application.Spec.Chart.Url, err)
 			ll.Error(err, "failed to add helm repo ")
 			return err
-		}
-
-		if appGroup.Status.Applications[i].Subcharts == nil {
-			appGroup.Status.Applications[i].Subcharts = make(map[string]orkestrav1alpha1.ChartStatus)
 		}
 
 		name := application.Spec.Chart.Name
@@ -202,6 +206,8 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 			return err
 		}
 
+		appCh.Metadata.Name = pkg.ConvertToDNS1123(appCh.Metadata.Name)
+
 		_, err = registry.SaveChartPackage(appCh, stagingDir)
 		if err != nil {
 			ll.Error(err, "failed to save modified app chart to filesystem")
@@ -228,6 +234,41 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 		appGroup.Status.Applications[i].ChartStatus.Staged = true
 	}
 	return nil
+}
+
+func (r *ApplicationGroupReconciler) reconcileDelete(ctx context.Context, appGroup orkestrav1alpha1.ApplicationGroup, patch client.Patch) (ctrl.Result, error) {
+	requeue := r.cleanupWorkflow(ctx, r.Log, appGroup)
+	if requeue {
+		// Change the app group spec into a reversing state
+		appGroup.Reversing()
+		_ = r.Status().Patch(ctx, &appGroup, patch)
+
+		r.Log.Info("reverse workflow is in progress")
+	} else {
+		r.Log.Info("cleaning up the applicationgroup resource")
+
+		// unset the last successful spec annotation
+		r.lastSuccessfulApplicationGroup = nil
+		if _, ok := appGroup.Annotations[lastSuccessfulApplicationGroupKey]; ok {
+			appGroup.Annotations[lastSuccessfulApplicationGroupKey] = ""
+		}
+		controllerutil.RemoveFinalizer(&appGroup, finalizer)
+		_ = r.Patch(ctx, &appGroup, patch)
+	}
+	return r.handleResponseAndEvent(ctx, r.Log, appGroup, patch, requeue, nil)
+}
+
+func initAppStatus(appGroup *orkestrav1alpha1.ApplicationGroup) {
+	// Initialize the Status fields if not already setup
+	appGroup.Status.Applications = make([]orkestrav1alpha1.ApplicationStatus, 0, len(appGroup.Spec.Applications))
+	for _, app := range appGroup.Spec.Applications {
+		status := orkestrav1alpha1.ApplicationStatus{
+			Name:        app.Name,
+			ChartStatus: orkestrav1alpha1.ChartStatus{Version: app.Spec.Chart.Version},
+			Subcharts:   make(map[string]orkestrav1alpha1.ChartStatus),
+		}
+		appGroup.Status.Applications = append(appGroup.Status.Applications, status)
+	}
 }
 
 func (r *ApplicationGroupReconciler) generateWorkflow(ctx context.Context, logr logr.Logger, g *orkestrav1alpha1.ApplicationGroup) (requeue bool, err error) {
