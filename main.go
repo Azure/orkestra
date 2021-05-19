@@ -7,6 +7,8 @@ import (
 	"context"
 	"flag"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/Azure/Orkestra/pkg"
@@ -55,6 +57,7 @@ func main() {
 	var tempChartStoreTargetDir string
 	var disableRemediation bool
 	var cleanupDownloadedCharts bool
+	var mode string
 	var workflowParallelism int64
 	var debugLevel int
 
@@ -67,6 +70,7 @@ func main() {
 	flag.StringVar(&tempChartStoreTargetDir, "chart-store-path", "", "The temporary storage path for the downloaded and staged chart artifacts")
 	flag.BoolVar(&disableRemediation, "disable-remediation", false, "Disable the remediation (delete/rollback) of the workflow on failure (useful if you wish to debug failures in the workflow/executor container")
 	flag.BoolVar(&cleanupDownloadedCharts, "cleanup-downloaded-charts", false, "Enable/disable the cleanup of the charts downloaded to the chart-store-path")
+	flag.StringVar(&mode, "mode", "", "Enable debug mode for the appgroup controller")
 	flag.Int64Var(&workflowParallelism, "workflow-parallelism", 10, "Specifies the max number of workflow pods that can be executed in parallel")
 	flag.IntVar(&debugLevel, "debug", 0, "Debug log level")
 	flag.Parse()
@@ -100,9 +104,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	if stagingRepoURL == "" {
+	// Grabbing the values based on the passed helm flags, these values change if we run in debug mode
+	stagingHelmURL, workflowHelmURL, tempChartStoreTargetDir := getValues(stagingRepoURL, tempChartStoreTargetDir, mode)
+
+	if stagingHelmURL == "" {
 		if s := os.Getenv(stagingRepoURLEnv); s != "" {
-			stagingRepoURL = s
+			stagingHelmURL = s
 		} else {
 			setupLog.Error(err, "staging repo URL must be set")
 			os.Exit(1)
@@ -126,7 +133,7 @@ func main() {
 		for {
 			err = rc.AddRepo(&registry.Config{
 				Name: "staging",
-				URL:  stagingRepoURL,
+				URL:  stagingHelmURL,
 			})
 			if err != nil {
 				setupLog.Info("failed to add staging helm repo, retrying...")
@@ -155,7 +162,7 @@ func main() {
 		Scheme:                  mgr.GetScheme(),
 		RegistryClient:          rc,
 		StagingRepoName:         "staging",
-		Engine:                  workflow.Argo(scheme, mgr.GetClient(), stagingRepoURL, workflowParallelism),
+		Engine:                  workflow.Argo(scheme, mgr.GetClient(), workflowHelmURL, workflowParallelism),
 		TargetDir:               tempChartStoreTargetDir,
 		Recorder:                mgr.GetEventRecorderFor("appgroup-controller"),
 		DisableRemediation:      disableRemediation,
@@ -171,4 +178,27 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+// getValues returns the stagingRepoUrl unless the appGroup controller
+// is run in a debug mode, then it returns the port forwarded url
+func getValues(stagingHelmURL, tempChartDir, mode string) (string, string, string) {
+	switch mode {
+	case "debug":
+		return "http://127.0.0.1:8080", "http://orkestra-chartmuseum.orkestra:8080", getLocalTempChartDir()
+	default:
+		return stagingHelmURL, stagingHelmURL, tempChartDir
+	}
+}
+
+func getLocalTempChartDir() string {
+	folder, err := os.Getwd()
+	if err != nil {
+		setupLog.Error(err, "failed to get the current working directory")
+		os.Exit(1)
+	}
+	folder = strings.TrimSuffix(folder, string(os.PathSeparator))
+	index := strings.Index(folder, "orkestra")
+
+	return filepath.Join(folder[:index], "orkestra", "tmp")
 }

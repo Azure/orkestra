@@ -32,7 +32,7 @@ func (c *Client) PullChart(l logr.Logger, repoKey, chartName, version string) (s
 
 	filePath := fmt.Sprintf("%s/%s-%s.tgz", strings.TrimSuffix(c.TargetDir, "/"), chartName, version)
 
-	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+	if _, err = os.Stat(filePath); os.IsNotExist(err) {
 		l.V(3).Info("chart artifact not found in target directory - downloading")
 		_, err = c.cfg.pull.Run(chartURL(rCfg.URL, chartName, version))
 		if err != nil {
