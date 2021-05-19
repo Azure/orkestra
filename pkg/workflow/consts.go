@@ -6,7 +6,7 @@ const (
 	HelmReleaseArg                = "helmrelease"
 	TimeoutArg                    = "timeout"
 	HelmReleaseExecutorName       = "helmrelease-executor"
-	HelmReleaseReverseExeutorName = "helmrelease-reverse-executor"
+	HelmReleaseReverseExecutorName = "helmrelease-reverse-executor"
 
 	ValuesKeyGlobal = "global"
 	ChartLabelKey   = "chart"

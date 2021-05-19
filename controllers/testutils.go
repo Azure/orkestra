@@ -26,6 +26,10 @@ const (
 	PodinfoChartVersion = "5.2.1"
 )
 
+var (
+	DefaultDuration = metav1.Duration{Duration: time.Minute * 5}
+)
+
 func bookinfo() *v1alpha1.ApplicationGroup {
 	g := &v1alpha1.ApplicationGroup{
 		ObjectMeta: v1.ObjectMeta{
@@ -59,6 +63,7 @@ func ambassadorApplication() v1alpha1.Application {
 				Values: &apiextensionsv1.JSON{
 					Raw: values,
 				},
+				Interval: DefaultDuration,
 			},
 		},
 	}
@@ -97,6 +102,7 @@ func bookinfoApplication() v1alpha1.Application {
 				Values: &apiextensionsv1.JSON{
 					Raw: values,
 				},
+				Interval: DefaultDuration,
 			},
 			Subcharts: []v1alpha1.DAG{
 				{
@@ -136,6 +142,7 @@ func podinfoApplication() v1alpha1.Application {
 			},
 			Release: &v1alpha1.Release{
 				TargetNamespace: Podinfo,
+				Interval:        DefaultDuration,
 			},
 		},
 	}

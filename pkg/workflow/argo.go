@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-
 	"github.com/Azure/Orkestra/api/v1alpha1"
 	"github.com/Azure/Orkestra/pkg/utils"
 	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
@@ -47,7 +46,7 @@ func (a *argo) initWorkflowObject() *v1alpha12.Workflow {
 			Labels: map[string]string{HeritageLabel: Project},
 		},
 		TypeMeta: v1.TypeMeta{
-			APIVersion: v1alpha12.WorkflowSchemaGroupVersionKind.Version,
+			APIVersion: v1alpha12.WorkflowSchemaGroupVersionKind.GroupVersion().String(),
 			Kind:       v1alpha12.WorkflowSchemaGroupVersionKind.Kind,
 		},
 		Spec: v1alpha12.WorkflowSpec{
@@ -283,16 +282,16 @@ func (a *argo) generateReverseWorkflow(ctx context.Context, l logr.Logger, nodes
 		for _, hr := range bucket {
 			task := v1alpha12.DAGTask{
 				Name:     utils.ConvertToDNS1123(hr.GetReleaseName() + "-" + hr.Namespace),
-				Template: HelmReleaseReverseExeutorName,
+				Template: HelmReleaseReverseExecutorName,
 				Arguments: v1alpha12.Arguments{
 					Parameters: []v1alpha12.Parameter{
 						{
 							Name:  HelmReleaseArg,
-							Value: strToStrPtr(hrToYAML(hr)),
+							Value: utils.ToStrPtr(utils.HrToYaml(hr)),
 						},
 					},
 				},
-				Dependencies: convertSliceToDNS1123(getTaskNamesFromHelmReleases(prevbucket)),
+				Dependencies: utils.ConvertSliceToDNS1123(getTaskNamesFromHelmReleases(prevbucket)),
 			}
 
 			entry.DAG.Tasks = append(entry.DAG.Tasks, task)
@@ -362,7 +361,7 @@ func updateAppGroupDAG(g *v1alpha1.ApplicationGroup, entry *v1alpha12.Template, 
 		entry.DAG.Tasks[i] = v1alpha12.DAGTask{
 			Name:         utils.ConvertToDNS1123(tpl.Name),
 			Template:     utils.ConvertToDNS1123(tpl.Name),
-			Dependencies: convertSliceToDNS1123(g.Spec.Applications[i].Dependencies),
+			Dependencies: utils.ConvertSliceToDNS1123(g.Spec.Applications[i].Dependencies),
 		}
 	}
 
@@ -399,8 +398,8 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, g *v1alpha1.Applicat
 		if !hasSubcharts {
 			hr := fluxhelmv2beta1.HelmRelease{
 				TypeMeta: v1.TypeMeta{
-					Kind:       "HelmRelease",
-					APIVersion: "helm.toolkit.fluxcd.io/v2beta1",
+					Kind:       fluxhelmv2beta1.HelmReleaseKind,
+					APIVersion: fluxhelmv2beta1.GroupVersion.String(),
 				},
 				ObjectMeta: v1.ObjectMeta{
 					Name:      utils.ConvertToDNS1123(app.Name),
@@ -447,7 +446,7 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, g *v1alpha1.Applicat
 								Parameters: []v1alpha12.Parameter{
 									{
 										Name:  HelmReleaseArg,
-										Value: strToStrPtr(base64.StdEncoding.EncodeToString([]byte(hrToYAML(hr)))),
+										Value: utils.ToStrPtr(base64.StdEncoding.EncodeToString([]byte(utils.HrToYaml(hr)))),
 									},
 									{
 										Name:  TimeoutArg,
@@ -500,7 +499,7 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 				Parameters: []v1alpha12.Parameter{
 					{
 						Name:  HelmReleaseArg,
-						Value: strToStrPtr(base64.StdEncoding.EncodeToString([]byte(hrToYAML(*hr)))),
+						Value: utils.ToStrPtr(base64.StdEncoding.EncodeToString([]byte(utils.HrToYaml(*hr)))),
 					},
 					{
 						Name:  TimeoutArg,
@@ -508,7 +507,7 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 					},
 				},
 			},
-			Dependencies: convertSliceToDNS1123(sc.Dependencies),
+			Dependencies: utils.ConvertSliceToDNS1123(sc.Dependencies),
 		}
 
 		tasks = append(tasks, task)
@@ -574,7 +573,7 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 			Parameters: []v1alpha12.Parameter{
 				{
 					Name:  HelmReleaseArg,
-					Value: strToStrPtr(base64.StdEncoding.EncodeToString([]byte(hrToYAML(hr)))),
+					Value: utils.ToStrPtr(base64.StdEncoding.EncodeToString([]byte(utils.HrToYaml(hr)))),
 				},
 				{
 					Name:  TimeoutArg,
@@ -610,7 +609,7 @@ func defaultExecutor() v1alpha12.Template {
 				},
 				{
 					Name:    TimeoutArg,
-					Default: strToStrPtr(DefaultTimeout),
+					Default: utils.ToStrPtr(DefaultTimeout),
 				},
 			},
 		},
@@ -628,7 +627,7 @@ func defaultExecutor() v1alpha12.Template {
 
 func defaultReverseExecutor() v1alpha12.Template {
 	return v1alpha12.Template{
-		Name:               HelmReleaseReverseExeutorName,
+		Name:               HelmReleaseReverseExecutorName,
 		ServiceAccountName: workflowServiceAccountName(),
 		Inputs: v1alpha12.Inputs{
 			Parameters: []v1alpha12.Parameter{
