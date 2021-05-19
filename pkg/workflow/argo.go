@@ -446,23 +446,11 @@ func (a *argo) generateAppDAGTemplates(ctx context.Context, g *v1alpha1.Applicat
 					TargetNamespace: app.Spec.Release.TargetNamespace,
 					Timeout:         app.Spec.Release.Timeout,
 					Values:          app.Spec.Release.Values,
+					Install:         app.Spec.Release.Install,
+					Upgrade:         app.Spec.Release.Upgrade,
+					Rollback:        app.Spec.Release.Rollback,
+					Uninstall:       app.Spec.Release.Uninstall,
 				},
-			}
-			if app.Spec.Release.Install != nil {
-				hr.Spec.Install = &fluxhelmv2beta1.Install{
-					DisableWait: app.Spec.Release.DisableWaitForInstall(),
-				}
-			}
-			if app.Spec.Release.Upgrade != nil {
-				hr.Spec.Upgrade = &fluxhelmv2beta1.Upgrade{
-					DisableWait: app.Spec.Release.DisableWaitForUpgrade(),
-					Force:       app.Spec.Release.ForceForUpgrade(),
-				}
-			}
-			if app.Spec.Release.Rollback != nil {
-				hr.Spec.Rollback = &fluxhelmv2beta1.Rollback{
-					DisableWait: app.Spec.Release.DisableWaitForRollback(),
-				}
 			}
 			hr.Labels = map[string]string{
 				ChartLabelKey:  app.Name,
@@ -583,23 +571,11 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 			TargetNamespace: app.Spec.Release.TargetNamespace,
 			Timeout:         app.Spec.Release.Timeout,
 			Values:          app.Spec.Release.Values,
+			Install:         app.Spec.Release.Install,
+			Upgrade:         app.Spec.Release.Upgrade,
+			Rollback:        app.Spec.Release.Rollback,
+			Uninstall:       app.Spec.Release.Uninstall,
 		},
-	}
-	if app.Spec.Release.Install != nil {
-		hr.Spec.Install = &fluxhelmv2beta1.Install{
-			DisableWait: app.Spec.Release.DisableWaitForInstall(),
-		}
-	}
-	if app.Spec.Release.Upgrade != nil {
-		hr.Spec.Upgrade = &fluxhelmv2beta1.Upgrade{
-			DisableWait: app.Spec.Release.DisableWaitForUpgrade(),
-			Force:       app.Spec.Release.ForceForUpgrade(),
-		}
-	}
-	if app.Spec.Release.Rollback != nil {
-		hr.Spec.Rollback = &fluxhelmv2beta1.Rollback{
-			DisableWait: app.Spec.Release.DisableWaitForRollback(),
-		}
 	}
 	hr.Labels = map[string]string{
 		ChartLabelKey:  app.Name,
@@ -741,12 +717,10 @@ func generateSubchartHelmRelease(a v1alpha1.Application, appName, scName, versio
 			ReleaseName:     pkg.ConvertToDNS1123(scName),
 			TargetNamespace: targetNS,
 			Timeout:         a.Spec.Release.Timeout,
-			Install: &fluxhelmv2beta1.Install{
-				DisableWait: a.Spec.Release.DisableWaitForInstall(),
-			},
-			Upgrade: &fluxhelmv2beta1.Upgrade{
-				DisableWait: a.Spec.Release.DisableWaitForUpgrade(),
-			},
+			Install:         a.Spec.Release.Install,
+			Upgrade:         a.Spec.Release.Upgrade,
+			Rollback:        a.Spec.Release.Rollback,
+			Uninstall:       a.Spec.Release.Uninstall,
 		},
 	}
 
