@@ -3,9 +3,9 @@ package workflow
 const (
 	EntrypointTemplateName = "entry"
 
-	HelmReleaseArg                = "helmrelease"
-	TimeoutArg                    = "timeout"
-	HelmReleaseExecutorName       = "helmrelease-executor"
+	HelmReleaseArg                 = "helmrelease"
+	TimeoutArg                     = "timeout"
+	HelmReleaseExecutorName        = "helmrelease-executor"
 	HelmReleaseReverseExecutorName = "helmrelease-reverse-executor"
 
 	ValuesKeyGlobal = "global"

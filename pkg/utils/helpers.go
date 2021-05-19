@@ -2,7 +2,7 @@ package utils
 
 import (
 	fluxhelmv2beta1 "github.com/fluxcd/helm-controller/api/v2beta1"
-	"gopkg.in/yaml.v2"
+	"sigs.k8s.io/yaml"
 	"strings"
 )
 
