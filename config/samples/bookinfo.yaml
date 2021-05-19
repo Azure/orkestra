@@ -29,7 +29,7 @@ spec:
               type: ClusterIP
     - name: bookinfo 
       dependencies: [ambassador]
-      order: first
+      order: last 
       spec:
         chart:
           url: "https://nitishm.github.io/charts"
