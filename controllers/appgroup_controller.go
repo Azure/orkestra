@@ -8,10 +8,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Azure/Orkestra/pkg/utils"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	"github.com/Azure/Orkestra/pkg"
 	"github.com/Azure/Orkestra/pkg/meta"
 	"github.com/Azure/Orkestra/pkg/registry"
 	"github.com/Azure/Orkestra/pkg/workflow"
@@ -439,7 +439,7 @@ func getAppStatus(
 
 func (r *ApplicationGroupReconciler) rollbackFailedHelmReleases(ctx context.Context, hrs []fluxhelmv2beta1.HelmRelease) error {
 	for _, hr := range hrs {
-		err := pkg.HelmRollback(hr.Spec.ReleaseName, hr.Spec.TargetNamespace)
+		err := utils.HelmRollback(hr.Spec.ReleaseName, hr.Spec.TargetNamespace)
 		if err != nil {
 			return err
 		}

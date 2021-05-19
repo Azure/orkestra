@@ -51,7 +51,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 			_ = k8sClient.DeleteAllOf(ctx, &fluxhelmv2beta1.HelmRelease{})
 		})
 
-		FIt("Should create Bookinfo spec successfully", func() {
+		It("Should create Bookinfo spec successfully", func() {
 			ctx := context.Background()
 			applicationGroup := bookinfo()
 			applicationGroup.Namespace = DefaultNamesapce
