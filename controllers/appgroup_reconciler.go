@@ -99,7 +99,22 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 		}
 
 		if appCh.Dependencies() != nil {
+			isImplicitSubchartsList := false
+			// Update the application spec with a list of subcharts with no inter-dependence
+			if len(application.Spec.Subcharts) == 0 {
+				isImplicitSubchartsList = true
+			}
+
 			for _, sc := range appCh.Dependencies() {
+				// if the subcharts are implicitly defined then update the ApplicationSpec with the subcharts
+				// with no dependencies
+				if isImplicitSubchartsList {
+					appGroup.Spec.Applications[i].Spec.Subcharts = append(appGroup.Spec.Applications[i].Spec.Subcharts, orkestrav1alpha1.DAG{
+						Name:         sc.Name(),
+						Dependencies: []string{},
+					})
+				}
+
 				cs := orkestrav1alpha1.ChartStatus{
 					Version: sc.Metadata.Version,
 				}
