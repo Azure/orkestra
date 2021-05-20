@@ -12,25 +12,25 @@ import (
 )
 
 const (
-	Bookinfo   = "bookinfo"
-	Ambassador = "ambassador"
-	Podinfo    = "podinfo"
+	bookinfo   = "bookinfo"
+	ambassador = "ambassador"
+	podinfo    = "podinfo"
 
-	AmbassadorChartURL     = "https://www.getambassador.io/helm"
-	AmbassadorChartVersion = "6.6.0"
+	ambassadorChartUrl     = "https://www.getambassador.io/helm"
+	ambassadorChartVersion = "6.6.0"
 
-	BookinfoChartURL     = "https://nitishm.github.io/charts"
-	BookinfoChartVersion = "v1"
+	bookinfoChartUrl     = "https://nitishm.github.io/charts"
+	bookinfoChartVersion = "v1"
 
-	PodinfoChartURL     = "https://stefanprodan.github.io/podinfo"
-	PodinfoChartVersion = "5.2.1"
+	podinfoChartUrl     = "https://stefanprodan.github.io/podinfo"
+	podinfoChartVersion = "5.2.1"
 )
 
 var (
-	DefaultDuration = metav1.Duration{Duration: time.Minute * 5}
+	defaultDuration = metav1.Duration{Duration: time.Minute * 5}
 )
 
-func bookinfo() *v1alpha1.ApplicationGroup {
+func defaultAppGroup() *v1alpha1.ApplicationGroup {
 	g := &v1alpha1.ApplicationGroup{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "bookinfo",
@@ -49,21 +49,21 @@ func ambassadorApplication() v1alpha1.Application {
 	}`)
 	return v1alpha1.Application{
 		DAG: v1alpha1.DAG{
-			Name: Ambassador,
+			Name: ambassador,
 		},
 		Spec: v1alpha1.ApplicationSpec{
 			Chart: &v1alpha1.ChartRef{
-				Url:     AmbassadorChartURL,
-				Name:    Ambassador,
-				Version: AmbassadorChartVersion,
+				Url:     ambassadorChartUrl,
+				Name:    ambassador,
+				Version: ambassadorChartVersion,
 			},
 			Release: &v1alpha1.Release{
 				Timeout:         &metav1.Duration{Duration: time.Minute * 10},
-				TargetNamespace: Ambassador,
+				TargetNamespace: ambassador,
 				Values: &apiextensionsv1.JSON{
 					Raw: values,
 				},
-				Interval: DefaultDuration,
+				Interval: defaultDuration,
 			},
 		},
 	}
@@ -86,23 +86,23 @@ func bookinfoApplication() v1alpha1.Application {
 	}`)
 	return v1alpha1.Application{
 		DAG: v1alpha1.DAG{
-			Name: Bookinfo,
+			Name: bookinfo,
 			Dependencies: []string{
-				Ambassador,
+				ambassador,
 			},
 		},
 		Spec: v1alpha1.ApplicationSpec{
 			Chart: &v1alpha1.ChartRef{
-				Url:     BookinfoChartURL,
-				Name:    Bookinfo,
-				Version: BookinfoChartVersion,
+				Url:     bookinfoChartUrl,
+				Name:    bookinfo,
+				Version: bookinfoChartVersion,
 			},
 			Release: &v1alpha1.Release{
-				TargetNamespace: Bookinfo,
+				TargetNamespace: bookinfo,
 				Values: &apiextensionsv1.JSON{
 					Raw: values,
 				},
-				Interval: DefaultDuration,
+				Interval: defaultDuration,
 			},
 			Subcharts: []v1alpha1.DAG{
 				{
@@ -129,20 +129,20 @@ func bookinfoApplication() v1alpha1.Application {
 func podinfoApplication() v1alpha1.Application {
 	return v1alpha1.Application{
 		DAG: v1alpha1.DAG{
-			Name: Podinfo,
+			Name: podinfo,
 			Dependencies: []string{
-				Ambassador,
+				ambassador,
 			},
 		},
 		Spec: v1alpha1.ApplicationSpec{
 			Chart: &v1alpha1.ChartRef{
-				Url:     PodinfoChartURL,
-				Name:    Podinfo,
-				Version: PodinfoChartVersion,
+				Url:     podinfoChartUrl,
+				Name:    podinfo,
+				Version: podinfoChartVersion,
 			},
 			Release: &v1alpha1.Release{
-				TargetNamespace: Podinfo,
-				Interval:        DefaultDuration,
+				TargetNamespace: podinfo,
+				Interval:        defaultDuration,
 			},
 		},
 	}
