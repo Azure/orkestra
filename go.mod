@@ -6,7 +6,6 @@ require (
 	github.com/argoproj/argo v2.5.2+incompatible
 	github.com/chartmuseum/helm-push v0.9.0
 	github.com/fluxcd/helm-controller/api v0.9.0
-	github.com/fluxcd/pkg/apis/meta v0.9.0
 	github.com/fluxcd/source-controller/api v0.12.2
 	github.com/go-logr/logr v0.4.0
 	github.com/go-openapi/spec v0.19.5 // indirect
