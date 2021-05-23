@@ -14,22 +14,16 @@ endif
 
 all: manager
 
-dev-up:
-	-kind create cluster --config .kind-cluster.yaml --name orkestra
-
-dev-down: dev-stop
-	-kind delete cluster --name orkestra 2>&1
-
-dev-run: dev-up
+dev:
+	kind create cluster --config .kind-cluster.yaml --name orkestra
 	helm upgrade --install orkestra chart/orkestra --wait --atomic -n orkestra --create-namespace --values ${CI_VALUES}
 
-dev-stop:
-	-helm delete orkestra -n orkestra 2>&1
-
-debug: dev-up dev-run
+debug: dev
 	go run main.go --debug --log-level 1
 
-clean: dev-stop dev-down
+clean:
+	helm delete orkestra -n orkestra 2>&1
+	kind delete cluster --name orkestra 2>&1
 
 # Run tests
 test:
