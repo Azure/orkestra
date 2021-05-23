@@ -6,10 +6,10 @@ package main
 import (
 	"context"
 	"flag"
+	"github.com/Azure/Orkestra/pkg/utils"
 	"os"
 	"time"
 
-	"github.com/Azure/Orkestra/pkg"
 	"github.com/Azure/Orkestra/pkg/registry"
 	"github.com/Azure/Orkestra/pkg/workflow"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -80,7 +80,7 @@ func main() {
 	}
 
 	// Start the probe at the very beginning
-	probe, err := pkg.ProbeHandler(stagingRepoURL, "health")
+	probe, err := utils.ProbeHandler(stagingRepoURL, "health")
 	if err != nil {
 		setupLog.Error(err, "unable to start readiness/liveness probes", "controller", "ApplicationGroup")
 		os.Exit(1)
