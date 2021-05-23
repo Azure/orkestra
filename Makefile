@@ -27,7 +27,7 @@ dev-stop:
 	-helm delete orkestra -n orkestra 2>&1
 
 debug: dev-up dev-run
-	go run main.go --mode debug
+	go run main.go --debug --log-level 1
 
 clean: dev-stop dev-down
 
