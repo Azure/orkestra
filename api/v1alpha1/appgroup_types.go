@@ -17,6 +17,12 @@ import (
 const (
 	DefaultProgressingRequeue = 5 * time.Second
 	DefaultSucceededRequeue   = 5 * time.Minute
+
+	AppGroupNameKey   = "appgroup"
+	AppGroupFinalizer = "application-group-finalizer"
+
+	LastSuccessfulAnnotation = "orkestra/last-successful-applicationgroup"
+	ParentChartAnnotation    = "orkestra/parent-chart"
 )
 
 // GetInterval returns the interval if specified in the application group
