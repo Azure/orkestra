@@ -92,7 +92,7 @@ type Release struct {
 type ChartRef struct {
 	// The Helm repository URL, a valid URL contains at least a protocol and host.
 	// +required
-	Url string `json:"url"` //nolint: golint
+	URL string `json:"url"`
 
 	// The name or path the Helm chart is available at in the SourceRef.
 	// +required
@@ -145,6 +145,7 @@ type ApplicationGroupSpec struct {
 type Application struct {
 	// DAG contains the dependency information
 	DAG `json:",inline"`
+
 	// Spec contains the application spec including the chart info and overlay values
 	Spec ApplicationSpec `json:"spec,omitempty"`
 }
@@ -174,17 +175,6 @@ type ApplicationStatus struct {
 	// +optional
 	Subcharts map[string]ChartStatus `json:"subcharts,omitempty"`
 }
-
-// ReconciliationPhase is an enum
-type ReconciliationPhase string
-
-const (
-	Init      ReconciliationPhase = "Init"
-	Running   ReconciliationPhase = "Running"
-	Succeeded ReconciliationPhase = "Succeeded"
-	Error     ReconciliationPhase = "Error"
-	Rollback  ReconciliationPhase = "Rollback"
-)
 
 // ApplicationGroupStatus defines the observed state of ApplicationGroup
 type ApplicationGroupStatus struct {
@@ -258,25 +248,25 @@ func (in *ApplicationGroup) Reversing() {
 	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionFalse, meta.ReversingReason, "workflow reversing because of helmreleases during install...")
 }
 
-// Succeeded sets the meta.ReadyCondition to 'True', with the given
+// ReadySucceeded sets the meta.ReadyCondition to 'True', with the given
 // meta.Succeeded reason and message
 func (in *ApplicationGroup) ReadySucceeded() {
 	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionTrue, meta.SucceededReason, "workflow and reconciliation succeeded")
 }
 
-// Failed sets the meta.ReadyCondition to 'True' and
+// ReadyFailed sets the meta.ReadyCondition to 'True' and
 // meta.FailedReason reason and message
 func (in *ApplicationGroup) ReadyFailed(message string) {
 	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionTrue, meta.FailedReason, message)
 }
 
-// Succeeded sets the meta.DeployCondition to 'True', with the given
+// DeploySucceeded sets the meta.DeployCondition to 'True', with the given
 // meta.Succeeded reason and message
 func (in *ApplicationGroup) DeploySucceeded() {
 	meta.SetResourceCondition(in, meta.DeployCondition, metav1.ConditionTrue, meta.SucceededReason, "application group reconciliation succeeded")
 }
 
-// Failed sets the meta.DeployCondition to 'True' and
+// DeployFailed sets the meta.DeployCondition to 'True' and
 // meta.FailedReason reason and message
 func (in *ApplicationGroup) DeployFailed(message string) {
 	meta.SetResourceCondition(in, meta.DeployCondition, metav1.ConditionTrue, meta.FailedReason, message)
@@ -315,7 +305,7 @@ func (in *ChartStatus) GetStatusConditions() *[]metav1.Condition {
 }
 
 // +kubebuilder:object:root=true
-// +kubebuilder:resource:path=applicationgroups,scope=Cluster
+// +kubebuilder:resource:path=applicationgroups,scope=Cluster,shortName=ag
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Deploy",type="string",JSONPath=".status.conditions[?(@.type==\"Deploy\")].reason"
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].reason"

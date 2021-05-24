@@ -53,7 +53,7 @@ func ambassadorApplication() v1alpha1.Application {
 		},
 		Spec: v1alpha1.ApplicationSpec{
 			Chart: &v1alpha1.ChartRef{
-				Url:     ambassadorChartURL,
+				URL:     ambassadorChartURL,
 				Name:    ambassador,
 				Version: ambassadorChartVersion,
 			},
@@ -93,7 +93,7 @@ func bookinfoApplication() v1alpha1.Application {
 		},
 		Spec: v1alpha1.ApplicationSpec{
 			Chart: &v1alpha1.ChartRef{
-				Url:     bookinfoChartURL,
+				URL:     bookinfoChartURL,
 				Name:    bookinfo,
 				Version: bookinfoChartVersion,
 			},
@@ -136,7 +136,7 @@ func podinfoApplication() v1alpha1.Application {
 		},
 		Spec: v1alpha1.ApplicationSpec{
 			Chart: &v1alpha1.ChartRef{
-				Url:     podinfoChartURL,
+				URL:     podinfoChartURL,
 				Name:    podinfo,
 				Version: podinfoChartVersion,
 			},

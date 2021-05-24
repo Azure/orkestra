@@ -52,7 +52,6 @@ var _ = Describe("ApplicationGroup Controller", func() {
 		})
 
 		It("Should create Bookinfo spec successfully", func() {
-			ctx := context.Background()
 			applicationGroup := defaultAppGroup()
 			applicationGroup.Namespace = DefaultNamesapce
 			key := client.ObjectKeyFromObject(applicationGroup)
@@ -120,7 +119,6 @@ var _ = Describe("ApplicationGroup Controller", func() {
 		})
 
 		It("should fail to create and post a failed error state", func() {
-			ctx := context.Background()
 			applicationGroup := defaultAppGroup()
 			applicationGroup.Namespace = DefaultNamesapce
 
@@ -153,7 +151,6 @@ var _ = Describe("ApplicationGroup Controller", func() {
 		})
 
 		It("should create the bookinfo spec and then update it", func() {
-			ctx := context.Background()
 			applicationGroup := defaultAppGroup()
 			applicationGroup.Namespace = DefaultNamesapce
 			key := client.ObjectKeyFromObject(applicationGroup)
@@ -194,6 +191,52 @@ var _ = Describe("ApplicationGroup Controller", func() {
 				return applicationGroup.GetReadyCondition() == meta.SucceededReason &&
 					applicationGroup.Generation == applicationGroup.Status.ObservedGeneration
 			}, time.Minute*2, time.Second).Should(BeTrue())
+		})
+
+		It("should fail to install, then get updated and pass getting installed", func() {
+			applicationGroup := defaultAppGroup()
+			applicationGroup.Namespace = DefaultNamesapce
+
+			applicationGroup.Spec.Applications[0].Spec.Chart.Version = "fake-version"
+
+			By("Applying the bookinfo object to the cluster")
+			err := k8sClient.Create(ctx, applicationGroup)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Defer the cleanup so that we delete the appGroup after creation
+			defer func() {
+				By("Deleting the bookinfo object from the cluster")
+				patch := client.MergeFrom(applicationGroup.DeepCopy())
+				controllerutil.RemoveFinalizer(applicationGroup, "application-group-finalizer")
+				_ = k8sClient.Patch(ctx, applicationGroup, patch)
+				_ = k8sClient.Delete(ctx, applicationGroup)
+			}()
+
+			By("Waiting for the bookinfo object to go into a failed state")
+			Eventually(func() bool {
+				if err := k8sClient.Get(ctx, client.ObjectKeyFromObject(applicationGroup), applicationGroup); err != nil {
+					return false
+				}
+				readyCondition := meta.GetResourceCondition(applicationGroup, meta.ReadyCondition)
+				deployCondition := meta.GetResourceCondition(applicationGroup, meta.DeployCondition)
+				if readyCondition == nil || deployCondition == nil {
+					return false
+				}
+				return readyCondition.Reason == meta.FailedReason && deployCondition.Reason == meta.FailedReason
+			}, time.Second*30, time.Second).Should(BeTrue())
+
+			applicationGroup.Spec.Applications[0].Spec.Chart.Version = bookinfoChartVersion
+			err = k8sClient.Update(ctx, applicationGroup)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Waiting for the bookinfo object to reach a succeeded deploy condition and ")
+			Eventually(func() bool {
+				if err := k8sClient.Get(ctx, client.ObjectKeyFromObject(applicationGroup), applicationGroup); err != nil {
+					return false
+				}
+				return applicationGroup.GetDeployCondition() == meta.SucceededReason &&
+					applicationGroup.GetReadyCondition() == meta.ProgressingReason
+			}, time.Minute, time.Second).Should(BeTrue())
 		})
 	})
 })

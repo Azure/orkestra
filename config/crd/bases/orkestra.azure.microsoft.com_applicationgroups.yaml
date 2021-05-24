@@ -13,6 +13,8 @@ spec:
     kind: ApplicationGroup
     listKind: ApplicationGroupList
     plural: applicationgroups
+    shortNames:
+    - ag
     singular: applicationgroup
   scope: Cluster
   versions:
