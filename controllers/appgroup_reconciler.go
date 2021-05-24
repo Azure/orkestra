@@ -5,14 +5,14 @@ import (
 	"os"
 	"strings"
 
+	"github.com/Azure/Orkestra/pkg/utils"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"fmt"
 
-	orkestrav1alpha1 "github.com/Azure/Orkestra/api/v1alpha1"
-	"github.com/Azure/Orkestra/pkg"
+	"github.com/Azure/Orkestra/api/v1alpha1"
 	"github.com/Azure/Orkestra/pkg/registry"
 	"github.com/go-logr/logr"
 	"github.com/jinzhu/copier"
@@ -36,8 +36,8 @@ data:
 	dummyConfigmapYAMLName = "templates/dummy-configmap.yaml"
 )
 
-func (r *ApplicationGroupReconciler) reconcile(ctx context.Context, l logr.Logger, appGroup *orkestrav1alpha1.ApplicationGroup) (bool, error) {
-	l = l.WithValues(appgroupNameKey, appGroup.Name)
+func (r *ApplicationGroupReconciler) reconcile(ctx context.Context, l logr.Logger, appGroup *v1alpha1.ApplicationGroup) (bool, error) {
+	l = l.WithValues(v1alpha1.AppGroupNameKey, appGroup.Name)
 	l.V(3).Info("Reconciling ApplicationGroup object")
 
 	if len(appGroup.Spec.Applications) == 0 {
@@ -57,7 +57,7 @@ func (r *ApplicationGroupReconciler) reconcile(ctx context.Context, l logr.Logge
 	return r.generateWorkflow(ctx, l, appGroup)
 }
 
-func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGroup *orkestrav1alpha1.ApplicationGroup) error {
+func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGroup *v1alpha1.ApplicationGroup) error {
 	stagingDir := r.TargetDir + "/" + r.StagingRepoName
 
 	// Init the application status every time we re-reconcile the applications
@@ -109,13 +109,13 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 				// if the subcharts are implicitly defined then update the ApplicationSpec with the subcharts
 				// with no dependencies
 				if isImplicitSubchartsList {
-					appGroup.Spec.Applications[i].Spec.Subcharts = append(appGroup.Spec.Applications[i].Spec.Subcharts, orkestrav1alpha1.DAG{
+					appGroup.Spec.Applications[i].Spec.Subcharts = append(appGroup.Spec.Applications[i].Spec.Subcharts, v1alpha1.DAG{
 						Name:         sc.Name(),
 						Dependencies: []string{},
 					})
 				}
 
-				cs := orkestrav1alpha1.ChartStatus{
+				cs := v1alpha1.ChartStatus{
 					Version: sc.Metadata.Version,
 				}
 				appGroup.Status.Applications[i].Subcharts[sc.Name()] = cs
@@ -125,7 +125,7 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 			// If Dependencies - extract subchart and push each to staging registry
 			// if isDependenciesEmbedded(appCh) {
 			for _, sc := range appCh.Dependencies() {
-				cs := orkestrav1alpha1.ChartStatus{
+				cs := v1alpha1.ChartStatus{
 					Version: sc.Metadata.Version,
 				}
 
@@ -151,7 +151,7 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 					}
 				}
 
-				scc.Metadata.Name = pkg.ConvertToDNS1123(pkg.ToInitials(appCh.Metadata.Name) + "-" + scc.Metadata.Name)
+				scc.Metadata.Name = utils.ConvertToDNS1123(utils.ToInitials(appCh.Metadata.Name) + "-" + scc.Metadata.Name)
 				path, err := registry.SaveChartPackage(scc, stagingDir)
 				if err != nil {
 					ll.Error(err, "failed to save subchart package as tgz")
@@ -219,7 +219,7 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 			return err
 		}
 
-		appCh.Metadata.Name = pkg.ConvertToDNS1123(appCh.Metadata.Name)
+		appCh.Metadata.Name = utils.ConvertToDNS1123(appCh.Metadata.Name)
 
 		_, err = registry.SaveChartPackage(appCh, stagingDir)
 		if err != nil {
@@ -230,7 +230,7 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 		}
 
 		// Replace existing chart with modified chart
-		path := stagingDir + "/" + pkg.ConvertToDNS1123(application.Spec.Chart.Name) + "-" + appCh.Metadata.Version + ".tgz"
+		path := stagingDir + "/" + utils.ConvertToDNS1123(application.Spec.Chart.Name) + "-" + appCh.Metadata.Version + ".tgz"
 		err = r.RegistryClient.PushChart(ll, r.StagingRepoName, path, appCh)
 		defer func() {
 			if r.CleanupDownloadedCharts {
@@ -249,7 +249,7 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 	return nil
 }
 
-func (r *ApplicationGroupReconciler) reconcileDelete(ctx context.Context, appGroup orkestrav1alpha1.ApplicationGroup, patch client.Patch) (ctrl.Result, error) {
+func (r *ApplicationGroupReconciler) reconcileDelete(ctx context.Context, appGroup v1alpha1.ApplicationGroup, patch client.Patch) (ctrl.Result, error) {
 	requeue := r.cleanupWorkflow(ctx, r.Log, appGroup)
 	if requeue {
 		// Change the app group spec into a reversing state
@@ -262,29 +262,29 @@ func (r *ApplicationGroupReconciler) reconcileDelete(ctx context.Context, appGro
 
 		// unset the last successful spec annotation
 		r.lastSuccessfulApplicationGroup = nil
-		if _, ok := appGroup.Annotations[lastSuccessfulApplicationGroupKey]; ok {
-			appGroup.Annotations[lastSuccessfulApplicationGroupKey] = ""
+		if _, ok := appGroup.Annotations[v1alpha1.LastSuccessfulAnnotation]; ok {
+			appGroup.Annotations[v1alpha1.LastSuccessfulAnnotation] = ""
 		}
-		controllerutil.RemoveFinalizer(&appGroup, finalizer)
+		controllerutil.RemoveFinalizer(&appGroup, v1alpha1.AppGroupFinalizer)
 		_ = r.Patch(ctx, &appGroup, patch)
 	}
 	return r.handleResponseAndEvent(ctx, r.Log, appGroup, patch, requeue, nil)
 }
 
-func initAppStatus(appGroup *orkestrav1alpha1.ApplicationGroup) {
+func initAppStatus(appGroup *v1alpha1.ApplicationGroup) {
 	// Initialize the Status fields if not already setup
-	appGroup.Status.Applications = make([]orkestrav1alpha1.ApplicationStatus, 0, len(appGroup.Spec.Applications))
+	appGroup.Status.Applications = make([]v1alpha1.ApplicationStatus, 0, len(appGroup.Spec.Applications))
 	for _, app := range appGroup.Spec.Applications {
-		status := orkestrav1alpha1.ApplicationStatus{
+		status := v1alpha1.ApplicationStatus{
 			Name:        app.Name,
-			ChartStatus: orkestrav1alpha1.ChartStatus{Version: app.Spec.Chart.Version},
-			Subcharts:   make(map[string]orkestrav1alpha1.ChartStatus),
+			ChartStatus: v1alpha1.ChartStatus{Version: app.Spec.Chart.Version},
+			Subcharts:   make(map[string]v1alpha1.ChartStatus),
 		}
 		appGroup.Status.Applications = append(appGroup.Status.Applications, status)
 	}
 }
 
-func (r *ApplicationGroupReconciler) generateWorkflow(ctx context.Context, logr logr.Logger, g *orkestrav1alpha1.ApplicationGroup) (requeue bool, err error) {
+func (r *ApplicationGroupReconciler) generateWorkflow(ctx context.Context, logr logr.Logger, g *v1alpha1.ApplicationGroup) (requeue bool, err error) {
 	err = r.Engine.Generate(ctx, logr, g)
 	if err != nil {
 		logr.Error(err, "engine failed to generate workflow")

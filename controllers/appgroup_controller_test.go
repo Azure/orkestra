@@ -53,7 +53,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 
 		It("Should create Bookinfo spec successfully", func() {
 			ctx := context.Background()
-			applicationGroup := bookinfo()
+			applicationGroup := defaultAppGroup()
 			applicationGroup.Namespace = DefaultNamesapce
 			key := client.ObjectKeyFromObject(applicationGroup)
 
@@ -121,7 +121,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 
 		It("should fail to create and post a failed error state", func() {
 			ctx := context.Background()
-			applicationGroup := bookinfo()
+			applicationGroup := defaultAppGroup()
 			applicationGroup.Namespace = DefaultNamesapce
 
 			applicationGroup.Spec.Applications[0].Spec.Chart.Version = "fake-version"
@@ -154,7 +154,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 
 		It("should create the bookinfo spec and then update it", func() {
 			ctx := context.Background()
-			applicationGroup := bookinfo()
+			applicationGroup := defaultAppGroup()
 			applicationGroup.Namespace = DefaultNamesapce
 			key := client.ObjectKeyFromObject(applicationGroup)
 
