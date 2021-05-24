@@ -55,8 +55,9 @@ func main() {
 	var tempChartStoreTargetDir string
 	var disableRemediation bool
 	var cleanupDownloadedCharts bool
+	var debug bool
 	var workflowParallelism int64
-	var debugLevel int
+	var logLevel int
 
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8081", "The address the metric endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
@@ -67,11 +68,12 @@ func main() {
 	flag.StringVar(&tempChartStoreTargetDir, "chart-store-path", "", "The temporary storage path for the downloaded and staged chart artifacts")
 	flag.BoolVar(&disableRemediation, "disable-remediation", false, "Disable the remediation (delete/rollback) of the workflow on failure (useful if you wish to debug failures in the workflow/executor container")
 	flag.BoolVar(&cleanupDownloadedCharts, "cleanup-downloaded-charts", false, "Enable/disable the cleanup of the charts downloaded to the chart-store-path")
+	flag.BoolVar(&debug, "debug", false, "Enable debug run of the appgroup controller")
 	flag.Int64Var(&workflowParallelism, "workflow-parallelism", 10, "Specifies the max number of workflow pods that can be executed in parallel")
-	flag.IntVar(&debugLevel, "debug", 0, "Debug log level")
+	flag.IntVar(&logLevel, "log-level", 0, "Log Level")
 	flag.Parse()
 
-	if debugLevel > 0 {
+	if logLevel > 0 {
 		ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
 	} else {
 		ctrl.SetLogger(zap.New(zap.UseDevMode(false)))
@@ -86,7 +88,7 @@ func main() {
 
 	probe.Start("8086")
 
-	ctrl.Log.V(debugLevel)
+	ctrl.Log.V(logLevel)
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:             scheme,
@@ -100,9 +102,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	if stagingRepoURL == "" {
+	// Grabbing the values based on the passed helm flags, these values change if we run in debug mode
+	stagingHelmURL, workflowHelmURL, tempChartStoreTargetDir := getValues(stagingRepoURL, tempChartStoreTargetDir, debug)
+
+	if stagingHelmURL == "" {
 		if s := os.Getenv(stagingRepoURLEnv); s != "" {
-			stagingRepoURL = s
+			stagingHelmURL = s
 		} else {
 			setupLog.Error(err, "staging repo URL must be set")
 			os.Exit(1)
@@ -126,7 +131,7 @@ func main() {
 		for {
 			err = rc.AddRepo(&registry.Config{
 				Name: "staging",
-				URL:  stagingRepoURL,
+				URL:  stagingHelmURL,
 			})
 			if err != nil {
 				setupLog.Info("failed to add staging helm repo, retrying...")
@@ -155,7 +160,7 @@ func main() {
 		Scheme:                  mgr.GetScheme(),
 		RegistryClient:          rc,
 		StagingRepoName:         "staging",
-		Engine:                  workflow.Argo(scheme, mgr.GetClient(), stagingRepoURL, workflowParallelism),
+		Engine:                  workflow.Argo(scheme, mgr.GetClient(), workflowHelmURL, workflowParallelism),
 		TargetDir:               tempChartStoreTargetDir,
 		Recorder:                mgr.GetEventRecorderFor("appgroup-controller"),
 		DisableRemediation:      disableRemediation,
@@ -171,4 +176,13 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+// getValues returns the stagingRepoUrl unless the appGroup controller
+// is run in a debug mode, then it returns the port forwarded url
+func getValues(stagingHelmURL, tempChartStoreTargetDir string, debug bool) (string, string, string) {
+	if debug {
+		return "http://127.0.0.1:8080", "http://orkestra-chartmuseum.orkestra:8080", os.TempDir()
+	}
+	return stagingHelmURL, stagingHelmURL, tempChartStoreTargetDir
 }
