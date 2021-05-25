@@ -23,17 +23,12 @@ import (
 
 const (
 	// The set of executor actions which can be performed on a helmrelease object
-	Install ExecutorAction = "Install"
-	Delete  ExecutorAction = "Delete"
+	Install ExecutorAction = "install"
+	Delete  ExecutorAction = "delete"
 )
 
 // ExecutorAction defines the set of executor actions which can be performed on a helmrelease object
 type ExecutorAction string
-
-// String returns the ExecutorAction as a string
-func (a ExecutorAction) String() string {
-	return string(a)
-}
 
 type argo struct {
 	scheme *runtime.Scheme
@@ -613,7 +608,7 @@ func updateWorkflowTemplates(wf *v1alpha12.Workflow, tpls ...v1alpha12.Template)
 }
 
 func defaultExecutor(tplName string, action ExecutorAction) v1alpha12.Template {
-	executorArgs := []string{"--spec", "{{inputs.parameters.helmrelease}}", "--action", action.String(), "--timeout", "{{inputs.parameters.timeout}}", "--interval", "10s"}
+	executorArgs := []string{"--spec", "{{inputs.parameters.helmrelease}}", "--action", string(action), "--timeout", "{{inputs.parameters.timeout}}", "--interval", "10s"}
 	return v1alpha12.Template{
 		Name:               tplName,
 		ServiceAccountName: workflowServiceAccountName(),
