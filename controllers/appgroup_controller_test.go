@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"time"
 
 	"github.com/Azure/Orkestra/api/v1alpha1"
@@ -48,7 +49,9 @@ var _ = Describe("ApplicationGroup Controller", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			// Call delete on the HelmReleases for cleanup
-			_ = k8sClient.DeleteAllOf(ctx, &fluxhelmv2beta1.HelmRelease{})
+			for _, ns := range []string{bookinfo, ambassador, podinfo} {
+				_ = k8sClient.DeleteAllOf(ctx, &fluxhelmv2beta1.HelmRelease{}, client.InNamespace(ns))
+			}
 		})
 
 		It("Should create Bookinfo spec successfully", func() {
@@ -229,7 +232,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 			err = k8sClient.Update(ctx, applicationGroup)
 			Expect(err).ToNot(HaveOccurred())
 
-			By("Waiting for the bookinfo object to reach a succeeded deploy condition and ")
+			By("Waiting for the bookinfo object to reach a succeeded deploy condition")
 			Eventually(func() bool {
 				if err := k8sClient.Get(ctx, client.ObjectKeyFromObject(applicationGroup), applicationGroup); err != nil {
 					return false
@@ -237,6 +240,73 @@ var _ = Describe("ApplicationGroup Controller", func() {
 				return applicationGroup.GetDeployCondition() == meta.SucceededReason &&
 					applicationGroup.GetReadyCondition() == meta.ProgressingReason
 			}, time.Minute, time.Second).Should(BeTrue())
+		})
+
+		It("should succeed to rollback the release after a failed upgrade", func() {
+			applicationGroup := defaultAppGroup()
+			applicationGroup.Namespace = DefaultNamesapce
+			key := client.ObjectKeyFromObject(applicationGroup)
+
+			By("Applying the bookinfo object to the cluster")
+			err := k8sClient.Create(ctx, applicationGroup)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Defer the cleanup so that we delete the appGroup after creation
+			defer func() {
+				By("Deleting the bookinfo object from the cluster")
+				patch := client.MergeFrom(applicationGroup.DeepCopy())
+				controllerutil.RemoveFinalizer(applicationGroup, "application-group-finalizer")
+				_ = k8sClient.Patch(ctx, applicationGroup, patch)
+				_ = k8sClient.Delete(ctx, applicationGroup)
+			}()
+
+			By("Waiting for the bookinfo object to reach a succeeded reason")
+			Eventually(func() bool {
+				applicationGroup = &v1alpha1.ApplicationGroup{}
+				if err := k8sClient.Get(ctx, key, applicationGroup); err != nil {
+					return false
+				}
+				return applicationGroup.GetReadyCondition() == meta.SucceededReason
+			}, time.Minute*4, time.Second).Should(BeTrue())
+
+			By("intentionally timing out one of the DAG steps")
+			applicationGroup.Spec.Applications[1].Dependencies = []string{podinfo}
+			applicationGroup.Spec.Applications = append(applicationGroup.Spec.Applications, podinfoApplication())
+			err = k8sClient.Update(ctx, applicationGroup)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("waiting for the application group to start its upgrade")
+			Eventually(func() bool {
+				applicationGroup = &v1alpha1.ApplicationGroup{}
+				if err := k8sClient.Get(ctx, key, applicationGroup); err != nil {
+					return false
+				}
+				return applicationGroup.GetReadyCondition() == meta.ProgressingReason && applicationGroup.Generation > 1
+			}, time.Second*30, time.Second).Should(BeTrue())
+
+			By("waiting for the podinfo helmrelease to be deployed")
+			Eventually(func() error {
+				podinfoHelmRelease := &fluxhelmv2beta1.HelmRelease{}
+				return k8sClient.Get(ctx, types.NamespacedName{Name: podinfo, Namespace: podinfo}, podinfoHelmRelease)
+			}, time.Minute*3, time.Second).Should(BeNil())
+
+			By("expecting the bookinfo application group start rollback")
+			Eventually(func() bool {
+				applicationGroup = &v1alpha1.ApplicationGroup{}
+				if err := k8sClient.Get(ctx, key, applicationGroup); err != nil {
+					return false
+				}
+				return applicationGroup.GetReadyCondition() == meta.RollingBackReason
+			}, time.Minute * 2, time.Second).Should(BeTrue())
+
+			By("expecting the bookinfo application to remove the podinfo application after rollback")
+			Eventually(func() bool {
+				podinfoHelmRelease := &fluxhelmv2beta1.HelmRelease{}
+				err = k8sClient.Get(ctx, types.NamespacedName{Name: "podinfo", Namespace: "podinfo"}, podinfoHelmRelease)
+				return errors.IsNotFound(err)
+			}, time.Minute*3, time.Second).Should(BeTrue())
+
+
 		})
 	})
 })
