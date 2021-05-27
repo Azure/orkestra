@@ -45,7 +45,10 @@ spec:
           {{- if .Values.cleanup.enabled }}
           - --cleanup-downloaded-charts
           {{- end }}
-          - --debug={{ .Values.debug.level }}
+          {{ if .Values.debug.enabled }}
+          - --debug
+          {{- end }}
+          - --log-level={{ .Values.logLevel | default 0 }}
           env:
           - name: WORKFLOW_NAMESPACE 
             value: {{ .Release.Namespace }} 
