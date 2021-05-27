@@ -110,7 +110,7 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 				delete(embeddedSubcharts, d.Name)
 			}
 
-			// Use the remaining set of dependencies that are not explicitily declared and
+			// Use the remaining set of dependencies that are not explicitly declared and
 			// add them to the groups application spec's subcharts list
 			for name := range embeddedSubcharts {
 				appGroup.Spec.Applications[i].Spec.Subcharts = append(appGroup.Spec.Applications[i].Spec.Subcharts, v1alpha1.DAG{Name: name})
