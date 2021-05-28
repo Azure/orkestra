@@ -47,7 +47,9 @@ cleanup:
 
 # set to dev mode until MVP
 debug:
-  level: 5
+  enabled: true
+
+logLevel: 5
 
 
 # Dependency overlay values
