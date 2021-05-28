@@ -99,30 +99,41 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 		}
 
 		if appCh.Dependencies() != nil {
-			for _, sc := range appCh.Dependencies() {
-				cs := v1alpha1.ChartStatus{
-					Version: sc.Metadata.Version,
-				}
-				appGroup.Status.Applications[i].Subcharts[sc.Name()] = cs
+			// take account of all embedded subcharts found in the application chart
+			embeddedSubcharts := make(map[string]bool)
+			for _, d := range appCh.Dependencies() {
+				embeddedSubcharts[d.Name()] = true
+			}
+
+			// Remove all explicit subchart entries from tracking map
+			for _, d := range appGroup.Spec.Applications[i].Spec.Subcharts {
+				delete(embeddedSubcharts, d.Name)
+			}
+
+			// Use the remaining set of dependencies that are not explicitly declared and
+			// add them to the groups application spec's subcharts list
+			for name := range embeddedSubcharts {
+				appGroup.Spec.Applications[i].Spec.Subcharts = append(appGroup.Spec.Applications[i].Spec.Subcharts, v1alpha1.DAG{Name: name})
 			}
 
 			stagingRepoName := r.StagingRepoName
-			// If Dependencies - extract subchart and push each to staging registry
-			// if isDependenciesEmbedded(appCh) {
+			// Package and push all application subcharts staging registry
 			for _, sc := range appCh.Dependencies() {
-				cs := v1alpha1.ChartStatus{
+				chartStatus := v1alpha1.ChartStatus{
 					Version: sc.Metadata.Version,
+					Staged:  false,
+					Error:   "",
 				}
 
-				// copy sc
+				// copy the subchart
 				scc := &chart.Chart{}
 				_ = copier.Copy(scc, sc)
 
 				if err := scc.Validate(); err != nil {
 					ll.Error(err, "failed to validate application subchart for staging registry")
 					err = fmt.Errorf("failed to validate application subchart for staging registry : %w", err)
-					cs.Error = err.Error()
-					appGroup.Status.Applications[i].Subcharts[sc.Name()] = cs
+					chartStatus.Error = err.Error()
+					appGroup.Status.Applications[i].Subcharts[sc.Name()] = chartStatus
 					return err
 				}
 
@@ -141,8 +152,8 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 				if err != nil {
 					ll.Error(err, "failed to save subchart package as tgz")
 					err = fmt.Errorf("failed to save subchart package as tgz at location %s : %w", path, err)
-					cs.Error = err.Error()
-					appGroup.Status.Applications[i].Subcharts[sc.Name()] = cs
+					chartStatus.Error = err.Error()
+					appGroup.Status.Applications[i].Subcharts[sc.Name()] = chartStatus
 					return err
 				}
 
@@ -150,16 +161,14 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 				if err != nil {
 					ll.Error(err, "failed to push application subchart to staging registry")
 					err = fmt.Errorf("failed to push application subchart to staging registry : %w", err)
-					cs.Error = err.Error()
-					appGroup.Status.Applications[i].Subcharts[sc.Name()] = cs
+					chartStatus.Error = err.Error()
+					appGroup.Status.Applications[i].Subcharts[sc.Name()] = chartStatus
 					return err
 				}
 
-				cs.Staged = true
-				cs.Version = sc.Metadata.Version
-				cs.Error = ""
+				chartStatus.Staged = true
 
-				appGroup.Status.Applications[i].Subcharts[sc.Name()] = cs
+				appGroup.Status.Applications[i].Subcharts[sc.Name()] = chartStatus
 			}
 		}
 
