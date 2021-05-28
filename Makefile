@@ -27,7 +27,7 @@ clean:
 
 # Run tests
 test:
-	go test -v ./... -coverprofile coverage.txt
+	go test -v ./... -coverprofile coverage.txt -timeout 25m
 
 # Build manager binary
 manager: generate fmt vet
