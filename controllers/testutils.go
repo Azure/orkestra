@@ -16,14 +16,16 @@ const (
 	ambassador = "ambassador"
 	podinfo    = "podinfo"
 
-	ambassadorChartURL     = "https://www.getambassador.io/helm"
-	ambassadorChartVersion = "6.6.0"
+	ambassadorChartURL        = "https://www.getambassador.io/helm"
+	ambassadorOldChartVersion = "6.6.0"
+	ambassadorChartVersion    = "6.7.9"
 
 	bookinfoChartURL     = "https://nitishm.github.io/charts"
 	bookinfoChartVersion = "v1"
 
-	podinfoChartURL     = "https://stefanprodan.github.io/podinfo"
-	podinfoChartVersion = "5.2.1"
+	podinfoChartURL        = "https://stefanprodan.github.io/podinfo"
+	podinfoOldChartVersion = "5.0.0"
+	podinfoChartVersion    = "5.2.1"
 )
 
 var (
@@ -38,6 +40,19 @@ func defaultAppGroup() *v1alpha1.ApplicationGroup {
 	}
 	g.Spec.Applications = make([]v1alpha1.Application, 0)
 	g.Spec.Applications = append(g.Spec.Applications, bookinfoApplication(), ambassadorApplication())
+	return g
+}
+
+func defaultAppGroupWithPodinfo() *v1alpha1.ApplicationGroup {
+	g := &v1alpha1.ApplicationGroup{
+		ObjectMeta: v1.ObjectMeta{
+			Name: "bookinfo",
+		},
+	}
+	g.Spec.Applications = make([]v1alpha1.Application, 0)
+	g.Spec.Applications = append(g.Spec.Applications, bookinfoApplication(), ambassadorApplication(), podinfoApplication())
+	g.Spec.Applications[0].Dependencies = append(g.Spec.Applications[0].Dependencies, podinfo)
+	g.Spec.Applications[1].Dependencies = append(g.Spec.Applications[1].Dependencies, podinfo)
 	return g
 }
 
@@ -129,10 +144,8 @@ func bookinfoApplication() v1alpha1.Application {
 func podinfoApplication() v1alpha1.Application {
 	return v1alpha1.Application{
 		DAG: v1alpha1.DAG{
-			Name: podinfo,
-			Dependencies: []string{
-				ambassador,
-			},
+			Name:         podinfo,
+			Dependencies: []string{},
 		},
 		Spec: v1alpha1.ApplicationSpec{
 			Chart: &v1alpha1.ChartRef{
