@@ -2,11 +2,10 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"os"
-	"strings"
 
 	"github.com/Azure/Orkestra/pkg/utils"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -36,32 +35,60 @@ data:
 	dummyConfigmapYAMLName = "templates/dummy-configmap.yaml"
 )
 
-func (r *ApplicationGroupReconciler) reconcile(ctx context.Context, l logr.Logger, appGroup *v1alpha1.ApplicationGroup) (bool, error) {
-	l = l.WithValues(v1alpha1.AppGroupNameKey, appGroup.Name)
-	l.V(3).Info("Reconciling ApplicationGroup object")
+func (r *ApplicationGroupReconciler) reconcileCreateOrUpdate(ctx context.Context, instance *v1alpha1.ApplicationGroup, patch client.Patch) (requeue bool, err error) {
+	instance.Progressing()
+	if err := r.Status().Patch(ctx, instance, patch); err != nil {
+		return false, err
+	}
 
-	if len(appGroup.Spec.Applications) == 0 {
-		l.Error(ErrInvalidSpec, "ApplicationGroup must list atleast one Application")
+	r.Log = r.Log.WithValues(v1alpha1.AppGroupNameKey, instance.Name)
+	r.Log.V(3).Info("Reconciling ApplicationGroup object")
+
+	if len(instance.Spec.Applications) == 0 {
+		r.Log.Error(ErrInvalidSpec, "ApplicationGroup must list atleast one Application")
 		err := fmt.Errorf("application group must list atleast one Application : %w", ErrInvalidSpec)
 		return false, err
 	}
 
-	err := r.reconcileApplications(l, appGroup)
-	if err != nil {
-		l.Error(err, "failed to reconcile the applications")
+	if err := r.reconcileApplications(r.Log, instance); err != nil {
+		r.Log.Error(err, "failed to reconcile the applications")
 		err = fmt.Errorf("failed to reconcile the applications : %w", err)
 		return false, err
 	}
-
 	// Generate the Workflow object to submit to Argo
-	return r.generateWorkflow(ctx, l, appGroup)
+	requeue, err = r.generateWorkflow(ctx, r.Log, instance)
+	if err != nil {
+		r.Log.Error(err, "failed to reconcile ApplicationGroup instance")
+		return false, err
+	}
+	instance.Status.ObservedGeneration = instance.Generation
+	return requeue, nil
+}
+
+func (r *ApplicationGroupReconciler) reconcileRollback(ctx context.Context, instance *v1alpha1.ApplicationGroup, patch client.Patch) error {
+	if r.lastSuccessfulApplicationGroup == nil {
+		err := errors.New("failed to rollback ApplicationGroup instance due to missing last successful applicationgroup annotation")
+		r.Log.Error(err, "")
+		return err
+	}
+	r.Log.Info("Rolling back to last successful application group spec")
+	instance.Spec = r.lastSuccessfulApplicationGroup.DeepCopy().Spec
+	if err := r.Patch(ctx, instance, patch); err != nil {
+		r.Log.Error(err, "failed to update ApplicationGroup instance while rolling back")
+		return err
+	}
+	instance.Progressing()
+	if err := r.Status().Patch(ctx, instance, patch); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGroup *v1alpha1.ApplicationGroup) error {
 	stagingDir := r.TargetDir + "/" + r.StagingRepoName
 
 	// Init the application status every time we re-reconcile the applications
-	initAppStatus(appGroup)
+	InitAppStatus(appGroup)
 
 	// Pull and conditionally stage application & dependency charts
 	for i, application := range appGroup.Spec.Applications {
@@ -139,10 +166,10 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 
 				// Copy over all non yaml files from parent chart templates to subchart templates
 				for _, f := range appCh.Templates {
-					if !isFileYAML(f.Name) {
+					if !utils.IsFileYaml(f.Name) {
 						t := &chart.File{}
 						_ = copier.Copy(t, f)
-						t.Name = addAppChartNameToFile(t.Name, appCh.Name())
+						t.Name = utils.AddAppChartNameToFile(t.Name, appCh.Name())
 						scc.Templates = append(scc.Templates, t)
 					}
 				}
@@ -186,7 +213,7 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 			}
 		}
 
-		templateHasYAML, err := templatesContainsYAML(appCh)
+		templateHasYAML, err := utils.TemplateContainsYaml(appCh)
 		if err != nil {
 			ll.Error(err, "chart templates directory yaml check failed")
 			err = fmt.Errorf("chart templates directory yaml check failed : %w", err)
@@ -243,13 +270,14 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 	return nil
 }
 
-func (r *ApplicationGroupReconciler) reconcileDelete(ctx context.Context, appGroup v1alpha1.ApplicationGroup, patch client.Patch) (ctrl.Result, error) {
+func (r *ApplicationGroupReconciler) reconcileDelete(ctx context.Context, appGroup *v1alpha1.ApplicationGroup, patch client.Patch) error {
 	requeue := r.cleanupWorkflow(ctx, r.Log, appGroup)
 	if requeue {
 		// Change the app group spec into a reversing state
 		appGroup.Reversing()
-		_ = r.Status().Patch(ctx, &appGroup, patch)
-
+		if err := r.Status().Patch(ctx, appGroup, patch); err != nil {
+			return err
+		}
 		r.Log.Info("reverse workflow is in progress")
 	} else {
 		r.Log.Info("cleaning up the applicationgroup resource")
@@ -259,64 +287,10 @@ func (r *ApplicationGroupReconciler) reconcileDelete(ctx context.Context, appGro
 		if _, ok := appGroup.Annotations[v1alpha1.LastSuccessfulAnnotation]; ok {
 			appGroup.Annotations[v1alpha1.LastSuccessfulAnnotation] = ""
 		}
-		controllerutil.RemoveFinalizer(&appGroup, v1alpha1.AppGroupFinalizer)
-		_ = r.Patch(ctx, &appGroup, patch)
-	}
-	return r.handleResponseAndEvent(ctx, r.Log, appGroup, patch, requeue, nil)
-}
-
-func initAppStatus(appGroup *v1alpha1.ApplicationGroup) {
-	// Initialize the Status fields if not already setup
-	appGroup.Status.Applications = make([]v1alpha1.ApplicationStatus, 0, len(appGroup.Spec.Applications))
-	for _, app := range appGroup.Spec.Applications {
-		status := v1alpha1.ApplicationStatus{
-			Name:        app.Name,
-			ChartStatus: v1alpha1.ChartStatus{Version: app.Spec.Chart.Version},
-			Subcharts:   make(map[string]v1alpha1.ChartStatus),
-		}
-		appGroup.Status.Applications = append(appGroup.Status.Applications, status)
-	}
-}
-
-func (r *ApplicationGroupReconciler) generateWorkflow(ctx context.Context, logr logr.Logger, g *v1alpha1.ApplicationGroup) (requeue bool, err error) {
-	err = r.Engine.Generate(ctx, logr, g)
-	if err != nil {
-		logr.Error(err, "engine failed to generate workflow")
-		return false, fmt.Errorf("failed to generate workflow : %w", err)
-	}
-
-	err = r.Engine.Submit(ctx, logr, g)
-	if err != nil {
-		logr.Error(err, "engine failed to submit workflow")
-		return false, err
-	}
-	return true, nil
-}
-
-func templatesContainsYAML(ch *chart.Chart) (bool, error) {
-	if ch == nil {
-		return false, fmt.Errorf("chart cannot be nil")
-	}
-
-	for _, f := range ch.Templates {
-		if isFileYAML(f.Name) {
-			return true, nil
+		controllerutil.RemoveFinalizer(appGroup, v1alpha1.AppGroupFinalizer)
+		if err := r.Patch(ctx, appGroup, patch); err != nil {
+			return err
 		}
 	}
-	return false, nil
-}
-
-func isFileYAML(f string) bool {
-	f = strings.ToLower(f)
-	if strings.HasSuffix(f, "yml") || strings.HasSuffix(f, "yaml") {
-		return true
-	}
-	return false
-}
-
-func addAppChartNameToFile(name, a string) string {
-	prefix := "templates/"
-	name = strings.TrimPrefix(name, prefix)
-	name = a + "_" + name
-	return prefix + name
+	return nil
 }

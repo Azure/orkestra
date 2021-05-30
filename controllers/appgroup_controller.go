@@ -16,13 +16,10 @@ import (
 	"github.com/Azure/Orkestra/pkg/meta"
 	"github.com/Azure/Orkestra/pkg/registry"
 	"github.com/Azure/Orkestra/pkg/workflow"
-	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
 	fluxhelmv2beta1 "github.com/fluxcd/helm-controller/api/v2beta1"
 	"github.com/go-logr/logr"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -104,7 +101,10 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 	}
 	if !appGroup.DeletionTimestamp.IsZero() {
-		return r.reconcileDelete(ctx, *appGroup, patch)
+		if err := r.reconcileDelete(ctx, appGroup, patch); err != nil {
+			return r.Failed(ctx, appGroup, patch, err)
+		}
+		return ctrl.Result{Requeue: true}, nil
 	}
 	// Add finalizer if it doesnt already exist
 	if appGroup.Finalizers == nil {
@@ -145,96 +145,6 @@ func (r *ApplicationGroupReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&v1alpha1.ApplicationGroup{}).
 		WithEventFilter(pred).
 		Complete(r)
-}
-
-func (r *ApplicationGroupReconciler) reconcileCreateOrUpdate(ctx context.Context, instance *v1alpha1.ApplicationGroup, patch client.Patch) (requeue bool, err error) {
-	instance.Progressing()
-	if err := r.Status().Patch(ctx, instance, patch); err != nil {
-		return false, err
-	}
-	requeue, err = r.reconcile(ctx, r.Log, instance)
-	if err != nil {
-		r.Log.Error(err, "failed to reconcile ApplicationGroup instance")
-		return false, err
-	}
-	instance.Status.ObservedGeneration = instance.Generation
-	return requeue, nil
-}
-
-func (r *ApplicationGroupReconciler) reconcileRollback(ctx context.Context, instance *v1alpha1.ApplicationGroup, patch client.Patch) error {
-	if r.lastSuccessfulApplicationGroup == nil {
-		err := errors.New("failed to rollback ApplicationGroup instance due to missing last successful applicationgroup annotation")
-		r.Log.Error(err, "")
-		return err
-	}
-	r.Log.Info("Rolling back to last successful application group spec")
-	instance.Spec = r.lastSuccessfulApplicationGroup.DeepCopy().Spec
-	if err := r.Patch(ctx, instance, patch); err != nil {
-		r.Log.Error(err, "failed to update ApplicationGroup instance while rolling back")
-		return err
-	}
-	instance.Progressing()
-	if err := r.Status().Patch(ctx, instance, patch); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (r *ApplicationGroupReconciler) Remediate(ctx context.Context, instance *v1alpha1.ApplicationGroup, patch client.Patch, err error) (ctrl.Result, error) {
-	if _, err := r.Failed(ctx, instance, patch, err); err != nil {
-		return ctrl.Result{}, err
-	}
-	if !r.DisableRemediation {
-		return r.handleRemediation(ctx, r.Log, instance, patch, err)
-	}
-	return ctrl.Result{}, nil
-}
-
-func (r *ApplicationGroupReconciler) Failed(ctx context.Context, instance *v1alpha1.ApplicationGroup, patch client.Patch, err error) (ctrl.Result, error) {
-	instance.ReadyFailed(err.Error())
-	instance.DeployFailed(err.Error())
-	if err := r.Status().Patch(ctx, instance, patch); err != nil {
-		r.Log.V(1).Error(err, "failed to patch the application group status")
-		return ctrl.Result{}, err
-	}
-	r.Recorder.Event(instance, "Warning", "ReconcileError", fmt.Sprintf("Failed to reconcile ApplicationGroup %v with Error : %v", instance.Name, err))
-	return ctrl.Result{}, nil
-}
-
-func (r *ApplicationGroupReconciler) UpdateStatus(ctx context.Context, instance *v1alpha1.ApplicationGroup, patch client.Patch, requeue bool) (ctrl.Result, error) {
-	if err := r.getWorkflowStatus(ctx, instance); err != nil {
-		return r.Failed(ctx, instance, patch, err)
-	}
-	chartConditionMap, subChartConditionMap, err := r.marshallChartStatus(ctx, instance)
-	if err != nil {
-		return r.Failed(ctx, instance, patch, err)
-	}
-	instance.Status.Applications = getAppStatus(instance, chartConditionMap, subChartConditionMap)
-	instance.DeploySucceeded()
-
-	if err := r.Status().Patch(ctx, instance, patch); err != nil {
-		r.Log.V(1).Error(err, "failed to patch the application group status")
-		return ctrl.Result{}, err
-	}
-	if instance.GetReadyCondition() == meta.SucceededReason {
-		r.Recorder.Event(instance, "Normal", "ReconcileSuccess", fmt.Sprintf("Successfully reconciled ApplicationGroup %s", instance.Name))
-		instance.SetLastSuccessfulAnnotation()
-		if err := r.Patch(ctx, instance, patch); err != nil {
-			r.Log.V(1).Error(err, "failed to patch the application group annotations")
-			return ctrl.Result{}, err
-		}
-	}
-	if requeue {
-		if instance.GetReadyCondition() != meta.ProgressingReason && instance.GetReadyCondition() != meta.ReversingReason {
-			r.Log.WithValues("requeueTime", v1alpha1.GetInterval(instance).String())
-			r.Log.V(1).Info("workflow has succeeded")
-			return ctrl.Result{RequeueAfter: v1alpha1.GetInterval(instance)}, nil
-		}
-		r.Log.WithValues("requeueTime", v1alpha1.DefaultProgressingRequeue.String())
-		r.Log.V(1).Info("workflow is still progressing")
-		return ctrl.Result{RequeueAfter: v1alpha1.DefaultProgressingRequeue}, nil
-	}
-	return ctrl.Result{}, nil
 }
 
 func (r *ApplicationGroupReconciler) handleRemediation(ctx context.Context, logr logr.Logger, g *v1alpha1.ApplicationGroup,
@@ -295,97 +205,6 @@ func (r *ApplicationGroupReconciler) handleRemediation(ctx context.Context, logr
 	return reconcile.Result{}, nil
 }
 
-// marshallChartStatus lists all of the HelmRelease objects that were deployed and assigns
-// their status to the appropriate maps corresponding to their chart of subchart.
-// These statuses are used to update the application status above
-func (r *ApplicationGroupReconciler) marshallChartStatus(ctx context.Context, appGroup *v1alpha1.ApplicationGroup) (
-	chartConditionMap map[string][]metav1.Condition,
-	subChartConditionMap map[string]map[string][]metav1.Condition,
-	err error) {
-	listOption := client.MatchingLabels{
-		workflow.OwnershipLabel: appGroup.Name,
-		workflow.HeritageLabel:  workflow.Project,
-	}
-
-	// Init the mappings
-	chartConditionMap = make(map[string][]metav1.Condition)
-	subChartConditionMap = make(map[string]map[string][]metav1.Condition)
-
-	// XXX (nitishm) Not sure why this happens ???
-	// Lookup all associated HelmReleases for status as well since the Workflow will not always reflect the status of the HelmRelease
-	// Lookup Workflow by ownership and heritage labels
-	helmReleases := fluxhelmv2beta1.HelmReleaseList{}
-	err = r.List(ctx, &helmReleases, listOption)
-	if err != nil {
-		r.Log.Error(err, "failed to find generated HelmRelease instance")
-		return nil, nil, err
-	}
-
-	for _, hr := range helmReleases.Items {
-		parent := hr.Name
-		if v, ok := hr.GetAnnotations()["orkestra/parent-chart"]; ok {
-			// Use the parent charts name
-			parent = v
-		}
-
-		// Add the associated conditions for that helm chart to the helm chart condition
-		// If the helm chart is a subchart, then add that to the subchart condition
-		if parent == hr.Name {
-			chartConditionMap[parent] = append(chartConditionMap[parent], hr.Status.Conditions...)
-		} else {
-			if _, ok := subChartConditionMap[parent]; !ok {
-				subChartConditionMap[parent] = make(map[string][]metav1.Condition)
-			}
-			subChartConditionMap[parent][hr.Spec.ReleaseName] = append(subChartConditionMap[parent][hr.Spec.ReleaseName], hr.Status.Conditions...)
-		}
-	}
-	return chartConditionMap, subChartConditionMap, nil
-}
-
-func (r *ApplicationGroupReconciler) getWorkflowStatus(ctx context.Context, instance *v1alpha1.ApplicationGroup) error {
-	wfs := v1alpha12.WorkflowList{}
-	listOption := client.MatchingLabels{
-		workflow.OwnershipLabel: instance.Name,
-		workflow.HeritageLabel:  workflow.Project,
-	}
-	err := r.List(ctx, &wfs, listOption)
-	if err != nil {
-		r.Log.Error(err, "failed to find generated workflow instance")
-		return err
-	}
-	if wfs.Items.Len() == 0 {
-		err = fmt.Errorf("no associated workflow found")
-		r.Log.Error(err, "no associated workflow found")
-		return err
-	}
-	wfStatus := wfs.Items[0].Status.Phase
-	switch wfStatus {
-	case v1alpha12.NodeError, v1alpha12.NodeFailed:
-		instance.ReadyFailed(string(wfStatus))
-	case v1alpha12.NodeSucceeded:
-		instance.ReadySucceeded()
-	}
-	return nil
-}
-
-func getAppStatus(
-	appGroup *v1alpha1.ApplicationGroup,
-	chartConditionMap map[string][]metav1.Condition,
-	subChartConditionMap map[string]map[string][]metav1.Condition) []v1alpha1.ApplicationStatus {
-	// Update each application status using the HelmRelease status
-
-	var v []v1alpha1.ApplicationStatus
-	for _, app := range appGroup.Status.Applications {
-		app.ChartStatus.Conditions = chartConditionMap[app.Name]
-		for subchartName, subchartStatus := range app.Subcharts {
-			subchartStatus.Conditions = subChartConditionMap[app.Name][subchartName]
-			app.Subcharts[subchartName] = subchartStatus
-		}
-		v = append(v, app)
-	}
-	return v
-}
-
 func (r *ApplicationGroupReconciler) rollbackFailedHelmReleases(ctx context.Context, hrs []fluxhelmv2beta1.HelmRelease) error {
 	for _, hr := range hrs {
 		err := utils.HelmRollback(hr.Spec.ReleaseName, hr.Spec.TargetNamespace)
@@ -396,80 +215,6 @@ func (r *ApplicationGroupReconciler) rollbackFailedHelmReleases(ctx context.Cont
 		if err != nil {
 			return err
 		}
-	}
-	return nil
-}
-
-func (r *ApplicationGroupReconciler) cleanupWorkflow(ctx context.Context, logr logr.Logger, g *v1alpha1.ApplicationGroup) bool {
-	nodes := make(map[string]v1alpha12.NodeStatus)
-	wfs := v1alpha12.WorkflowList{}
-	listOption := client.MatchingLabels{
-		workflow.OwnershipLabel: g.Name,
-		workflow.HeritageLabel:  workflow.Project,
-	}
-	_ = r.List(ctx, &wfs, listOption)
-
-	if wfs.Items.Len() != 0 {
-		wf := wfs.Items[0]
-		for _, node := range wf.Status.Nodes {
-			nodes[node.ID] = node
-		}
-		rwf := &v1alpha12.Workflow{}
-
-		rwfName := fmt.Sprintf("%s-reverse", wf.Name)
-		rwfNamespace := wf.Namespace
-		err := r.Client.Get(ctx, types.NamespacedName{Namespace: rwfNamespace, Name: rwfName}, rwf)
-		if err != nil {
-			if kerrors.IsNotFound(err) {
-				logr.Info("Reversing the workflow")
-
-				err = r.generateReverseWorkflow(ctx, logr, nodes, &wf)
-				if err != nil {
-					logr.Error(err, "failed to generate reverse workflow")
-					// if generation of reverse workflow failed, delete the forward workflow and return
-					err = r.Client.Delete(ctx, &wf)
-					if err != nil {
-						logr.Error(err, "failed to delete workflow CRO")
-						return false
-					}
-					return false
-				}
-
-				// reverse workflow started - requeue
-				return true
-			}
-			logr.Error(err, "failed to GET workflow object with an unrecoverable error")
-		} else {
-			// check the completion of the reverse workflow
-			if !rwf.Status.FinishedAt.IsZero() {
-				logr.Info("reverse workflow is finished")
-
-				err = r.Client.Delete(ctx, &wf)
-				if err != nil {
-					logr.Error(err, "failed to delete workflow CRO - continuing with cleanup")
-					return false
-				}
-
-				return false
-			}
-			// reverse workflow is not finished - requeue
-			return true
-		}
-	}
-	return false
-}
-
-func (r *ApplicationGroupReconciler) generateReverseWorkflow(ctx context.Context, logr logr.Logger, nodes map[string]v1alpha12.NodeStatus, wf *v1alpha12.Workflow) (err error) {
-	err = r.Engine.GenerateReverse(ctx, logr, nodes, wf)
-	if err != nil {
-		logr.Error(err, "engine failed to generate reverse workflow")
-		return fmt.Errorf("failed to generate reverse workflow : %w", err)
-	}
-
-	err = r.Engine.SubmitReverse(ctx, logr, wf)
-	if err != nil {
-		logr.Error(err, "engine failed to submit reverse workflow")
-		return err
 	}
 	return nil
 }
