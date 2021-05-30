@@ -359,16 +359,11 @@ func (r *ApplicationGroupReconciler) handleRemediation(ctx context.Context, logr
 		logr.V(1).Info("initiating rollback")
 		return reconcile.Result{RequeueAfter: v1alpha1.DefaultProgressingRequeue}, nil
 	}
-	// Reverse and cleanup the workflow and associated helmreleases
-	g.RollingBack()
-	_ = r.Status().Patch(ctx, &g, patch)
-
 	requeue := r.cleanupWorkflow(ctx, logr, g)
 	if requeue {
 		logr.Info("reverse workflow is in progress")
 		return reconcile.Result{Requeue: true}, nil
 	}
-
 	return reconcile.Result{}, nil
 }
 
