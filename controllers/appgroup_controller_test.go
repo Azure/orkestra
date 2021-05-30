@@ -27,7 +27,8 @@ var _ = Describe("ApplicationGroup Controller", func() {
 		)
 
 		const (
-			DefaultNamesapce = "orkestra"
+			DefaultNamesapce     = "orkestra"
+			DefaultCreateTimeout = time.Minute * 5
 		)
 
 		BeforeEach(func() {
@@ -66,7 +67,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 			defer func() {
 				By("Deleting the bookinfo object from the cluster")
 				patch := client.MergeFrom(applicationGroup.DeepCopy())
-				controllerutil.RemoveFinalizer(applicationGroup, "application-group-finalizer")
+				controllerutil.RemoveFinalizer(applicationGroup, v1alpha1.AppGroupFinalizer)
 				_ = k8sClient.Patch(ctx, applicationGroup, patch)
 				_ = k8sClient.Delete(ctx, applicationGroup)
 			}()
@@ -91,7 +92,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 					return false
 				}
 				return applicationGroup.GetReadyCondition() == meta.SucceededReason
-			}, time.Minute*4, time.Second).Should(BeTrue())
+			}, DefaultCreateTimeout, time.Second).Should(BeTrue())
 
 			By("checking that the all the HelmReleases have come up and are in a ready state")
 			err = k8sClient.List(ctx, helmReleaseList)
@@ -125,6 +126,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 			applicationGroup.Namespace = DefaultNamesapce
 
 			applicationGroup.Spec.Applications[0].Spec.Chart.Version = "fake-version"
+			key := client.ObjectKeyFromObject(applicationGroup)
 
 			By("Applying the bookinfo object to the cluster")
 			err := k8sClient.Create(ctx, applicationGroup)
@@ -134,13 +136,13 @@ var _ = Describe("ApplicationGroup Controller", func() {
 			defer func() {
 				By("Deleting the bookinfo object from the cluster")
 				patch := client.MergeFrom(applicationGroup.DeepCopy())
-				controllerutil.RemoveFinalizer(applicationGroup, "application-group-finalizer")
+				controllerutil.RemoveFinalizer(applicationGroup, v1alpha1.AppGroupFinalizer)
 				_ = k8sClient.Patch(ctx, applicationGroup, patch)
 				_ = k8sClient.Delete(ctx, applicationGroup)
 			}()
 
 			Eventually(func() bool {
-				if err := k8sClient.Get(ctx, client.ObjectKeyFromObject(applicationGroup), applicationGroup); err != nil {
+				if err := k8sClient.Get(ctx, key, applicationGroup); err != nil {
 					return false
 				}
 				readyCondition := meta.GetResourceCondition(applicationGroup, meta.ReadyCondition)
@@ -165,7 +167,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 			defer func() {
 				By("Deleting the bookinfo object from the cluster")
 				patch := client.MergeFrom(applicationGroup.DeepCopy())
-				controllerutil.RemoveFinalizer(applicationGroup, "application-group-finalizer")
+				controllerutil.RemoveFinalizer(applicationGroup, v1alpha1.AppGroupFinalizer)
 				_ = k8sClient.Patch(ctx, applicationGroup, patch)
 				_ = k8sClient.Delete(ctx, applicationGroup)
 			}()
@@ -177,7 +179,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 					return false
 				}
 				return applicationGroup.GetReadyCondition() == meta.SucceededReason
-			}, time.Minute*4, time.Second).Should(BeTrue())
+			}, DefaultCreateTimeout, time.Second).Should(BeTrue())
 
 			By("Adding an Application to the ApplicationGroup Spec after the ApplicationGroup has fully reconciled")
 			newAppGroup := AddApplication(*applicationGroup, podinfoApplication())
@@ -209,7 +211,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 			defer func() {
 				By("Deleting the bookinfo object from the cluster")
 				patch := client.MergeFrom(applicationGroup.DeepCopy())
-				controllerutil.RemoveFinalizer(applicationGroup, "application-group-finalizer")
+				controllerutil.RemoveFinalizer(applicationGroup, v1alpha1.AppGroupFinalizer)
 				_ = k8sClient.Patch(ctx, applicationGroup, patch)
 				_ = k8sClient.Delete(ctx, applicationGroup)
 			}()
@@ -238,7 +240,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 				}
 				return applicationGroup.GetDeployCondition() == meta.SucceededReason &&
 					applicationGroup.GetReadyCondition() == meta.ProgressingReason
-			}, time.Minute, time.Second).Should(BeTrue())
+			}, time.Minute*2, time.Second).Should(BeTrue())
 		})
 
 		It("should succeed to upgrade the versions of helm releases to newer versions", func() {
@@ -256,7 +258,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 			defer func() {
 				By("Deleting the bookinfo object from the cluster")
 				patch := client.MergeFrom(applicationGroup.DeepCopy())
-				controllerutil.RemoveFinalizer(applicationGroup, "application-group-finalizer")
+				controllerutil.RemoveFinalizer(applicationGroup, v1alpha1.AppGroupFinalizer)
 				_ = k8sClient.Patch(ctx, applicationGroup, patch)
 				_ = k8sClient.Delete(ctx, applicationGroup)
 			}()
@@ -268,7 +270,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 					return false
 				}
 				return applicationGroup.GetReadyCondition() == meta.SucceededReason
-			}, time.Minute*4, time.Second).Should(BeTrue())
+			}, DefaultCreateTimeout, time.Second).Should(BeTrue())
 
 			By("upgrading the charts to a newer version")
 			applicationGroup.Spec.Applications[1].Spec.Chart.Version = ambassadorChartVersion
@@ -299,7 +301,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 			}, time.Minute*3, time.Second).Should(BeTrue())
 		})
 
-		It("should succeed to rollback helm chart versions on failure", func() {
+		FIt("should succeed to rollback helm chart versions on failure", func() {
 			applicationGroup := defaultAppGroupWithPodinfo()
 			applicationGroup.Spec.Applications[1].Spec.Chart.Version = ambassadorOldChartVersion
 			applicationGroup.Spec.Applications[2].Spec.Chart.Version = podinfoOldChartVersion
@@ -313,7 +315,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 			defer func() {
 				By("Deleting the bookinfo object from the cluster")
 				patch := client.MergeFrom(applicationGroup.DeepCopy())
-				controllerutil.RemoveFinalizer(applicationGroup, "application-group-finalizer")
+				controllerutil.RemoveFinalizer(applicationGroup, v1alpha1.AppGroupFinalizer)
 				_ = k8sClient.Patch(ctx, applicationGroup, patch)
 				_ = k8sClient.Delete(ctx, applicationGroup)
 			}()
@@ -325,7 +327,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 					return false
 				}
 				return applicationGroup.GetReadyCondition() == meta.SucceededReason
-			}, time.Minute*4, time.Second).Should(BeTrue())
+			}, DefaultCreateTimeout, time.Second).Should(BeTrue())
 
 			By("upgrading the ambassador chart to a newer version while intentionally timing out the last DAG step")
 			applicationGroup.Spec.Applications[1].Spec.Chart.Version = ambassadorChartVersion
