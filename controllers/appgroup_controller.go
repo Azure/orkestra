@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
 	"github.com/Azure/Orkestra/pkg/utils"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -77,11 +78,11 @@ type ApplicationGroupReconciler struct {
 func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	var requeue bool
 	var err error
-	var appGroup v1alpha1.ApplicationGroup
+	appGroup := &v1alpha1.ApplicationGroup{}
 
 	logr := r.Log.WithValues(v1alpha1.AppGroupNameKey, req.NamespacedName.Name)
 
-	if err := r.Get(ctx, req.NamespacedName, &appGroup); err != nil {
+	if err := r.Get(ctx, req.NamespacedName, appGroup); err != nil {
 		if kerrors.IsNotFound(err) {
 			logr.V(3).Info("skip reconciliation since AppGroup instance not found on the cluster")
 			return ctrl.Result{}, nil
@@ -102,19 +103,14 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			r.lastSuccessfulApplicationGroup = last
 		}
 	}
-
-	// handle deletes if deletion timestamp is non-zero.
-	// controller-runtime cannot guarantee the order of events
-	// , so it is upto us to determine the type of event
 	if !appGroup.DeletionTimestamp.IsZero() {
-		return r.reconcileDelete(ctx, appGroup, patch)
+		return r.reconcileDelete(ctx, *appGroup, patch)
 	}
-
 	// Add finalizer if it doesnt already exist
 	if appGroup.Finalizers == nil {
-		controllerutil.AddFinalizer(&appGroup, v1alpha1.AppGroupFinalizer)
-		if err := r.Patch(ctx, &appGroup, patch); err != nil {
-			return ctrl.Result{}, err
+		controllerutil.AddFinalizer(appGroup, v1alpha1.AppGroupFinalizer)
+		if err := r.Patch(ctx, appGroup, patch); err != nil {
+			return r.Failed(ctx, appGroup, patch, err)
 		}
 	}
 
@@ -122,144 +118,25 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// we must rollback the application group to the last successful spec.
 	// This should only happen on updates and not during installs.
 	if appGroup.GetDeployCondition() == meta.RollingBackReason {
-		if r.lastSuccessfulApplicationGroup != nil {
-			logr.Info("Rolling back to last successful application group spec")
-			appGroup.Spec = r.lastSuccessfulApplicationGroup.DeepCopy().Spec
-			err = r.Patch(ctx, &appGroup, patch)
-			if err != nil {
-				appGroup.DeployFailed(err.Error())
-				logr.Error(err, "failed to update ApplicationGroup instance while rolling back")
-				return r.handleResponseAndEvent(ctx, logr, appGroup, patch, requeue, err)
-			}
-
-			// If we are able to update to the previous spec
-			// Change the app group spec into a progressing state
-			appGroup.Progressing()
-			_ = r.Status().Patch(ctx, &appGroup, patch)
-
-			requeue = true
-			err = nil
-			return r.handleResponseAndEvent(ctx, logr, appGroup, patch, requeue, err)
+		if err := r.reconcileRollback(ctx, appGroup, patch); err != nil {
+			return r.Failed(ctx, appGroup, patch, err)
 		}
-
-		requeue = false
-		err := errors.New("failed to rollback ApplicationGroup instance due to missing last successful applicationgroup annotation")
-
-		appGroup.DeployFailed(err.Error())
-		_ = r.Status().Patch(ctx, &appGroup, patch)
-
-		logr.Error(err, "")
-		return r.handleResponseAndEvent(ctx, logr, appGroup, patch, requeue, err)
+		return ctrl.Result{Requeue: true}, nil
 	}
 
-	// Create/Update scenario
-	// Compares the current generation to the generation that was last
-	// seen and updated by the reconciler
 	if appGroup.Generation != appGroup.Status.ObservedGeneration {
-		// Update scenario if observed generation isn't past the initial 0 generation
-		if appGroup.Status.ObservedGeneration != 0 {
-			appGroup.Status.Update = true
-		}
 		// Change the app group spec into a progressing state
-		appGroup.Progressing()
-		_ = r.Status().Patch(ctx, &appGroup, patch)
-
-		requeue, err = r.reconcile(ctx, logr, &appGroup)
+		requeue, err = r.reconcileCreateOrUpdate(ctx, appGroup, patch)
 		if err != nil {
-			logr.Error(err, "failed to reconcile ApplicationGroup instance")
-			appGroup.DeployFailed(err.Error())
-			return r.handleResponseAndEvent(ctx, logr, appGroup, patch, requeue, err)
+			return r.Failed(ctx, appGroup, patch, err)
 		}
-
-		switch appGroup.GetReadyCondition() {
-		case meta.ProgressingReason:
-			logr.V(1).Info("workflow in init/running state. requeue and reconcile after a short period")
-			requeue = true
-			err = nil
-		case meta.SucceededReason:
-			logr.V(1).Info("workflow ran to completion and succeeded")
-			requeue = true
-			err = nil
-		case meta.FailedReason:
-			requeue = false
-			err = fmt.Errorf("workflow in failure/error condition")
-			logr.Error(err, "workflow in failure/error condition")
-		default:
-			requeue = false
-			err = nil
-		}
-
-		if err == nil {
-			// Only update the observed generation when the reconciliation succeeds
-			// This only updates on changes to spec
-			appGroup.Status.ObservedGeneration = appGroup.Generation
-			appGroup.DeploySucceeded()
-		}
-
-		return r.handleResponseAndEvent(ctx, logr, appGroup, patch, requeue, err)
 	}
-
-	// Calculate the cumulative status of the generated Workflow
-	// and the generated HelmRelease objects
-
-	// Lookup Workflow by ownership and heritage labels
-	// We are expecting to find at most one workflow in
-	// the returned list that is associated with this
-	// ApplicationGroup object.
-	wfs := v1alpha12.WorkflowList{}
-	listOption := client.MatchingLabels{
-		workflow.OwnershipLabel: appGroup.Name,
-		workflow.HeritageLabel:  workflow.Project,
+	if appGroup.GetReadyCondition() == meta.FailedReason {
+		err = fmt.Errorf("workflow in failure/error condition")
+		logr.Error(err, "workflow in failure/error condition")
+		return r.Remediate(ctx, appGroup, patch, err)
 	}
-	err = r.List(ctx, &wfs, listOption)
-	if err != nil {
-		logr.Error(err, "failed to find generated workflow instance")
-		requeue = false
-		return r.handleResponseAndEvent(ctx, logr, appGroup, patch, requeue, err)
-	}
-
-	if wfs.Items.Len() == 0 {
-		err = fmt.Errorf("no associated workflow found")
-		logr.Error(err, "no associated workflow found")
-		requeue = false
-		return r.handleResponseAndEvent(ctx, logr, appGroup, patch, requeue, err)
-	}
-
-	wfStatus := wfs.Items[0].Status.Phase
-	switch wfStatus {
-	case v1alpha12.NodeError, v1alpha12.NodeFailed:
-		appGroup.ReadyFailed(string(wfStatus))
-	case v1alpha12.NodeSucceeded:
-		appGroup.ReadySucceeded()
-	}
-
-	chartConditionMap, subChartConditionMap, err := r.marshallChartStatus(ctx, appGroup)
-	if err != nil {
-		return r.handleResponseAndEvent(ctx, logr, appGroup, patch, false, err)
-	}
-
-	appGroup.Status.Applications = getAppStatus(&appGroup, chartConditionMap, subChartConditionMap)
-
-	// This is the cumulative status from the workflow phase and the helmrelease object statuses
-	switch appGroup.GetReadyCondition() {
-	case meta.ProgressingReason:
-		logr.V(1).Info("workflow in init/running state")
-		requeue = true
-		err = nil
-	case meta.SucceededReason:
-		logr.V(1).Info("workflow ran to completion and succeeded")
-		requeue = true
-		err = nil
-	case meta.FailedReason:
-		requeue = false
-		err = fmt.Errorf("workflow in failure/error condition : %w", err)
-		logr.Error(err, "")
-	default:
-		requeue = false
-		err = nil
-	}
-
-	return r.handleResponseAndEvent(ctx, logr, appGroup, patch, requeue, err)
+	return r.UpdateStatus(ctx, appGroup, patch, requeue)
 }
 
 func (r *ApplicationGroupReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -270,51 +147,97 @@ func (r *ApplicationGroupReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *ApplicationGroupReconciler) handleResponseAndEvent(ctx context.Context, logr logr.Logger, grp v1alpha1.ApplicationGroup,
-	patch client.Patch, requeue bool, err error) (ctrl.Result, error) {
-	var errStr string
+func (r *ApplicationGroupReconciler) reconcileCreateOrUpdate(ctx context.Context, instance *v1alpha1.ApplicationGroup, patch client.Patch) (requeue bool, err error) {
+	instance.Progressing()
+	if err := r.Status().Patch(ctx, instance, patch); err != nil {
+		return false, err
+	}
+	requeue, err = r.reconcile(ctx, r.Log, instance)
 	if err != nil {
-		errStr = err.Error()
-		grp.ReadyFailed(errStr)
-	} else {
-		grp.DeploySucceeded()
+		r.Log.Error(err, "failed to reconcile ApplicationGroup instance")
+		return false, err
 	}
-
-	err2 := r.Status().Patch(ctx, &grp, patch)
-	if err2 == nil && grp.GetReadyCondition() == meta.SucceededReason {
-		// Annotate the resource with the last successful ApplicationGroup spec
-		b, _ := json.Marshal(&grp)
-		grp.SetAnnotations(map[string]string{v1alpha1.LastSuccessfulAnnotation: string(b)})
-		r.lastSuccessfulApplicationGroup = grp.DeepCopy()
-		_ = r.Patch(ctx, &grp, patch)
-
-		r.Recorder.Event(&grp, "Normal", "ReconcileSuccess", fmt.Sprintf("Successfully reconciled ApplicationGroup %s", grp.Name))
-	}
-
-	if errStr != "" {
-		r.Recorder.Event(&grp, "Warning", "ReconcileError", fmt.Sprintf("Failed to reconcile ApplicationGroup %s with Error : %s", grp.Name, errStr))
-	}
-
-	if err != nil {
-		if !r.DisableRemediation {
-			return r.handleRemediation(ctx, logr, grp, patch, err)
-		}
-	}
-
-	if requeue {
-		if grp.GetReadyCondition() != meta.ProgressingReason && grp.GetReadyCondition() != meta.ReversingReason {
-			logr.WithValues("requeueTime", v1alpha1.GetInterval(&grp).String())
-			logr.V(1).Info("workflow has succeeded")
-			return reconcile.Result{RequeueAfter: v1alpha1.GetInterval(&grp)}, err
-		}
-		logr.WithValues("requeueTime", v1alpha1.DefaultProgressingRequeue.String())
-		logr.V(1).Info("workflow is still progressing")
-		return reconcile.Result{RequeueAfter: v1alpha1.DefaultProgressingRequeue}, err
-	}
-	return reconcile.Result{}, nil
+	instance.Status.ObservedGeneration = instance.Generation
+	return requeue, nil
 }
 
-func (r *ApplicationGroupReconciler) handleRemediation(ctx context.Context, logr logr.Logger, g v1alpha1.ApplicationGroup,
+func (r *ApplicationGroupReconciler) reconcileRollback(ctx context.Context, instance *v1alpha1.ApplicationGroup, patch client.Patch) error {
+	if r.lastSuccessfulApplicationGroup == nil {
+		err := errors.New("failed to rollback ApplicationGroup instance due to missing last successful applicationgroup annotation")
+		r.Log.Error(err, "")
+		return err
+	}
+	r.Log.Info("Rolling back to last successful application group spec")
+	instance.Spec = r.lastSuccessfulApplicationGroup.DeepCopy().Spec
+	if err := r.Patch(ctx, instance, patch); err != nil {
+		r.Log.Error(err, "failed to update ApplicationGroup instance while rolling back")
+		return err
+	}
+	instance.Progressing()
+	if err := r.Status().Patch(ctx, instance, patch); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *ApplicationGroupReconciler) Remediate(ctx context.Context, instance *v1alpha1.ApplicationGroup, patch client.Patch, err error) (ctrl.Result, error) {
+	if _, err := r.Failed(ctx, instance, patch, err); err != nil {
+		return ctrl.Result{}, err
+	}
+	if !r.DisableRemediation {
+		return r.handleRemediation(ctx, r.Log, instance, patch, err)
+	}
+	return ctrl.Result{}, nil
+}
+
+func (r *ApplicationGroupReconciler) Failed(ctx context.Context, instance *v1alpha1.ApplicationGroup, patch client.Patch, err error) (ctrl.Result, error) {
+	instance.ReadyFailed(err.Error())
+	instance.DeployFailed(err.Error())
+	if err := r.Status().Patch(ctx, instance, patch); err != nil {
+		r.Log.V(1).Error(err, "failed to patch the application group status")
+		return ctrl.Result{}, err
+	}
+	r.Recorder.Event(instance, "Warning", "ReconcileError", fmt.Sprintf("Failed to reconcile ApplicationGroup %v with Error : %v", instance.Name, err))
+	return ctrl.Result{}, nil
+}
+
+func (r *ApplicationGroupReconciler) UpdateStatus(ctx context.Context, instance *v1alpha1.ApplicationGroup, patch client.Patch, requeue bool) (ctrl.Result, error) {
+	if err := r.getWorkflowStatus(ctx, instance); err != nil {
+		return r.Failed(ctx, instance, patch, err)
+	}
+	chartConditionMap, subChartConditionMap, err := r.marshallChartStatus(ctx, instance)
+	if err != nil {
+		return r.Failed(ctx, instance, patch, err)
+	}
+	instance.Status.Applications = getAppStatus(instance, chartConditionMap, subChartConditionMap)
+	instance.DeploySucceeded()
+
+	if err := r.Status().Patch(ctx, instance, patch); err != nil {
+		r.Log.V(1).Error(err, "failed to patch the application group status")
+		return ctrl.Result{}, err
+	}
+	if instance.GetReadyCondition() == meta.SucceededReason {
+		r.Recorder.Event(instance, "Normal", "ReconcileSuccess", fmt.Sprintf("Successfully reconciled ApplicationGroup %s", instance.Name))
+		instance.SetLastSuccessfulAnnotation()
+		if err := r.Patch(ctx, instance, patch); err != nil {
+			r.Log.V(1).Error(err, "failed to patch the application group annotations")
+			return ctrl.Result{}, err
+		}
+	}
+	if requeue {
+		if instance.GetReadyCondition() != meta.ProgressingReason && instance.GetReadyCondition() != meta.ReversingReason {
+			r.Log.WithValues("requeueTime", v1alpha1.GetInterval(instance).String())
+			r.Log.V(1).Info("workflow has succeeded")
+			return ctrl.Result{RequeueAfter: v1alpha1.GetInterval(instance)}, nil
+		}
+		r.Log.WithValues("requeueTime", v1alpha1.DefaultProgressingRequeue.String())
+		r.Log.V(1).Info("workflow is still progressing")
+		return ctrl.Result{RequeueAfter: v1alpha1.DefaultProgressingRequeue}, nil
+	}
+	return ctrl.Result{}, nil
+}
+
+func (r *ApplicationGroupReconciler) handleRemediation(ctx context.Context, logr logr.Logger, g *v1alpha1.ApplicationGroup,
 	patch client.Patch, err error) (ctrl.Result, error) {
 	// Rollback to previous successful spec since the annotation was set and this is
 	// an UPDATE event
@@ -354,14 +277,14 @@ func (r *ApplicationGroupReconciler) handleRemediation(ctx context.Context, logr
 		// to the previous versions of all the applications in the ApplicationGroup
 		// using the last successful spec
 		g.RollingBack()
-		_ = r.Status().Patch(ctx, &g, patch)
+		_ = r.Status().Patch(ctx, g, patch)
 		logr.WithValues("requeueTime", v1alpha1.DefaultProgressingRequeue.String())
 		logr.V(1).Info("initiating rollback")
 		return reconcile.Result{RequeueAfter: v1alpha1.DefaultProgressingRequeue}, nil
 	}
 	// Reverse and cleanup the workflow and associated helmreleases
 	g.RollingBack()
-	_ = r.Status().Patch(ctx, &g, patch)
+	_ = r.Status().Patch(ctx, g, patch)
 
 	requeue := r.cleanupWorkflow(ctx, logr, g)
 	if requeue {
@@ -375,7 +298,7 @@ func (r *ApplicationGroupReconciler) handleRemediation(ctx context.Context, logr
 // marshallChartStatus lists all of the HelmRelease objects that were deployed and assigns
 // their status to the appropriate maps corresponding to their chart of subchart.
 // These statuses are used to update the application status above
-func (r *ApplicationGroupReconciler) marshallChartStatus(ctx context.Context, appGroup v1alpha1.ApplicationGroup) (
+func (r *ApplicationGroupReconciler) marshallChartStatus(ctx context.Context, appGroup *v1alpha1.ApplicationGroup) (
 	chartConditionMap map[string][]metav1.Condition,
 	subChartConditionMap map[string]map[string][]metav1.Condition,
 	err error) {
@@ -419,6 +342,32 @@ func (r *ApplicationGroupReconciler) marshallChartStatus(ctx context.Context, ap
 	return chartConditionMap, subChartConditionMap, nil
 }
 
+func (r *ApplicationGroupReconciler) getWorkflowStatus(ctx context.Context, instance *v1alpha1.ApplicationGroup) error {
+	wfs := v1alpha12.WorkflowList{}
+	listOption := client.MatchingLabels{
+		workflow.OwnershipLabel: instance.Name,
+		workflow.HeritageLabel:  workflow.Project,
+	}
+	err := r.List(ctx, &wfs, listOption)
+	if err != nil {
+		r.Log.Error(err, "failed to find generated workflow instance")
+		return err
+	}
+	if wfs.Items.Len() == 0 {
+		err = fmt.Errorf("no associated workflow found")
+		r.Log.Error(err, "no associated workflow found")
+		return err
+	}
+	wfStatus := wfs.Items[0].Status.Phase
+	switch wfStatus {
+	case v1alpha12.NodeError, v1alpha12.NodeFailed:
+		instance.ReadyFailed(string(wfStatus))
+	case v1alpha12.NodeSucceeded:
+		instance.ReadySucceeded()
+	}
+	return nil
+}
+
 func getAppStatus(
 	appGroup *v1alpha1.ApplicationGroup,
 	chartConditionMap map[string][]metav1.Condition,
@@ -451,7 +400,7 @@ func (r *ApplicationGroupReconciler) rollbackFailedHelmReleases(ctx context.Cont
 	return nil
 }
 
-func (r *ApplicationGroupReconciler) cleanupWorkflow(ctx context.Context, logr logr.Logger, g v1alpha1.ApplicationGroup) bool {
+func (r *ApplicationGroupReconciler) cleanupWorkflow(ctx context.Context, logr logr.Logger, g *v1alpha1.ApplicationGroup) bool {
 	nodes := make(map[string]v1alpha12.NodeStatus)
 	wfs := v1alpha12.WorkflowList{}
 	listOption := client.MatchingLabels{

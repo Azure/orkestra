@@ -111,6 +111,7 @@ func (a *argo) Submit(ctx context.Context, l logr.Logger, g *v1alpha1.Applicatio
 		namespaces = append(namespaces, app.Spec.Release.TargetNamespace)
 	}
 
+	// Create all the namespaces of the HelmReleases
 	for _, namespace := range namespaces {
 		ns := corev1.Namespace{
 			ObjectMeta: v1.ObjectMeta{
@@ -135,61 +136,34 @@ func (a *argo) Submit(ctx context.Context, l logr.Logger, g *v1alpha1.Applicatio
 		}
 	}
 
-	err := a.cli.Get(ctx, types.NamespacedName{Namespace: a.wf.Namespace, Name: a.wf.Name}, obj)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			// Add OwnershipReference
-			err = controllerutil.SetControllerReference(g, a.wf, a.scheme)
-			if err != nil {
-				l.Error(err, "unable to set ApplicationGroup as owner of Argo Workflow object")
-				return fmt.Errorf("unable to set ApplicationGroup as owner of Argo Workflow: %w", err)
-			}
-
-			a.wf.Labels[OwnershipLabel] = g.Name
-
-			// If the argo Workflow object is NotFound and not AlreadyExists on the cluster
-			// create a new object and submit it to the cluster
-			err = a.cli.Create(ctx, a.wf)
-			if err != nil {
-				l.Error(err, "failed to CREATE argo workflow object")
-				return fmt.Errorf("failed to CREATE argo workflow object : %w", err)
-			}
-		} else {
-			l.Error(err, "failed to GET workflow object with an unrecoverable error")
-			return fmt.Errorf("failed to GET workflow object with an unrecoverable error : %w", err)
-		}
-	}
-
-	// If the workflow needs an update, delete the previous workflow and apply the new one
-	// Argo Workflow does not rerun the workflow on UPDATE, so intead we cleanup and reapply
-	if g.Status.Update {
+	if err := a.cli.Get(ctx, types.NamespacedName{Namespace: a.wf.Namespace, Name: a.wf.Name}, obj); err == nil {
+		// We found a workflow that is already going, so we delete and provide a new one
 		err = a.cli.Delete(ctx, obj)
 		if err != nil {
 			l.Error(err, "failed to DELETE argo workflow object")
 			return fmt.Errorf("failed to DELETE argo workflow object : %w", err)
 		}
-		// If the argo Workflow object is Found on the cluster
-		// update the workflow and submit it to the cluster
-		// Add OwnershipReference
-		err = controllerutil.SetControllerReference(g, a.wf, a.scheme)
-		if err != nil {
-			l.Error(err, "unable to set ApplicationGroup as owner of Argo Workflow object")
-			return fmt.Errorf("unable to set ApplicationGroup as owner of Argo Workflow: %w", err)
-		}
-
-		a.wf.Labels[OwnershipLabel] = g.Name
-
-		// If the argo Workflow object is NotFound and not AlreadyExists on the cluster
-		// create a new object and submit it to the cluster
-		err = a.cli.Create(ctx, a.wf)
-		if err != nil {
-			l.Error(err, "failed to CREATE argo workflow object")
-			return fmt.Errorf("failed to CREATE argo workflow object : %w", err)
-		}
-
-		g.Status.Update = false
+	} else if client.IgnoreNotFound(err) != nil {
+		l.Error(err, "failed to CREATE argo workflow object")
+		return fmt.Errorf("failed to CREATE argo workflow object : %w", err)
 	}
 
+	// Add OwnershipReference
+	err := controllerutil.SetControllerReference(g, a.wf, a.scheme)
+	if err != nil {
+		l.Error(err, "unable to set ApplicationGroup as owner of Argo Workflow object")
+		return fmt.Errorf("unable to set ApplicationGroup as owner of Argo Workflow: %w", err)
+	}
+
+	a.wf.Labels[OwnershipLabel] = g.Name
+
+	// If the argo Workflow object is NotFound and not AlreadyExists on the cluster
+	// create a new object and submit it to the cluster
+	err = a.cli.Create(ctx, a.wf)
+	if err != nil {
+		l.Error(err, "failed to CREATE argo workflow object")
+		return fmt.Errorf("failed to CREATE argo workflow object : %w", err)
+	}
 	return nil
 }
 

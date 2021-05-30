@@ -343,3 +343,8 @@ type ApplicationGroupList struct {
 func init() {
 	SchemeBuilder.Register(&ApplicationGroup{}, &ApplicationGroupList{})
 }
+
+func (appGroup *ApplicationGroup) SetLastSuccessfulAnnotation() {
+	b, _ := json.Marshal(appGroup)
+	appGroup.SetAnnotations(map[string]string{LastSuccessfulAnnotation: string(b)})
+}
