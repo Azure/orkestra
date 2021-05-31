@@ -23,9 +23,8 @@ const (
 	bookinfoChartURL     = "https://nitishm.github.io/charts"
 	bookinfoChartVersion = "v1"
 
-	podinfoChartURL        = "https://stefanprodan.github.io/podinfo"
-	podinfoOldChartVersion = "5.0.0"
-	podinfoChartVersion    = "5.2.1"
+	podinfoChartURL     = "https://stefanprodan.github.io/podinfo"
+	podinfoChartVersion = "5.2.1"
 )
 
 var (
@@ -40,19 +39,6 @@ func defaultAppGroup() *v1alpha1.ApplicationGroup {
 	}
 	g.Spec.Applications = make([]v1alpha1.Application, 0)
 	g.Spec.Applications = append(g.Spec.Applications, bookinfoApplication(), ambassadorApplication())
-	return g
-}
-
-func defaultAppGroupWithPodinfo() *v1alpha1.ApplicationGroup {
-	g := &v1alpha1.ApplicationGroup{
-		ObjectMeta: v1.ObjectMeta{
-			Name: "bookinfo",
-		},
-	}
-	g.Spec.Applications = make([]v1alpha1.Application, 0)
-	g.Spec.Applications = append(g.Spec.Applications, bookinfoApplication(), ambassadorApplication(), podinfoApplication())
-	g.Spec.Applications[0].Dependencies = append(g.Spec.Applications[0].Dependencies, podinfo)
-	g.Spec.Applications[1].Dependencies = append(g.Spec.Applications[1].Dependencies, podinfo)
 	return g
 }
 

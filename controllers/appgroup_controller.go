@@ -268,7 +268,9 @@ func (r *ApplicationGroupReconciler) handleResponseAndEvent(ctx context.Context,
 	if err2 == nil && grp.GetReadyCondition() == meta.SucceededReason {
 		// Annotate the resource with the last successful ApplicationGroup spec
 		grp.SetLastSuccessful()
-		_ = r.Patch(ctx, &grp, patch)
+		if err := r.Patch(ctx, &grp, patch); err != nil {
+			return ctrl.Result{}, err
+		}
 
 		r.Recorder.Event(&grp, "Normal", "ReconcileSuccess", fmt.Sprintf("Successfully reconciled ApplicationGroup %s", grp.Name))
 	}

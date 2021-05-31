@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	meta2 "github.com/fluxcd/pkg/apis/meta"
+
 	"github.com/Azure/Orkestra/api/v1alpha1"
 	"github.com/Azure/Orkestra/pkg/meta"
 	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
@@ -229,8 +231,9 @@ var _ = Describe("ApplicationGroup Controller", func() {
 				return readyCondition.Reason == meta.FailedReason && deployCondition.Reason == meta.FailedReason
 			}, time.Second*30, time.Second).Should(BeTrue())
 
+			patch := client.MergeFrom(applicationGroup.DeepCopy())
 			applicationGroup.Spec.Applications[0].Spec.Chart.Version = bookinfoChartVersion
-			err = k8sClient.Update(ctx, applicationGroup)
+			err = k8sClient.Patch(ctx, applicationGroup, patch)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for the bookinfo object to reach a succeeded deploy condition")
@@ -245,9 +248,8 @@ var _ = Describe("ApplicationGroup Controller", func() {
 
 		It("should succeed to upgrade the versions of helm releases to newer versions", func() {
 			By("creating three releases that use older versions of charts")
-			applicationGroup := defaultAppGroupWithPodinfo()
+			applicationGroup := defaultAppGroup()
 			applicationGroup.Spec.Applications[1].Spec.Chart.Version = ambassadorOldChartVersion
-			applicationGroup.Spec.Applications[2].Spec.Chart.Version = podinfoOldChartVersion
 			key := client.ObjectKeyFromObject(applicationGroup)
 
 			By("Applying the bookinfo object to the cluster")
@@ -273,9 +275,9 @@ var _ = Describe("ApplicationGroup Controller", func() {
 			}, DefaultTimeout, time.Second).Should(BeTrue())
 
 			By("upgrading the charts to a newer version")
+			patch := client.MergeFrom(applicationGroup.DeepCopy())
 			applicationGroup.Spec.Applications[1].Spec.Chart.Version = ambassadorChartVersion
-			applicationGroup.Spec.Applications[2].Spec.Chart.Version = podinfoChartVersion
-			err = k8sClient.Update(ctx, applicationGroup)
+			err = k8sClient.Patch(ctx, applicationGroup, patch)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("waiting for the application group to start its upgrade")
@@ -289,22 +291,22 @@ var _ = Describe("ApplicationGroup Controller", func() {
 
 			By("waiting for the newer version of the charts to be released")
 			Eventually(func() bool {
-				podinfoHelmRelease, ambassadorHelmRelease := &fluxhelmv2beta1.HelmRelease{}, &fluxhelmv2beta1.HelmRelease{}
-				if err := k8sClient.Get(ctx, types.NamespacedName{Name: podinfo, Namespace: podinfo}, podinfoHelmRelease); err != nil {
-					return false
-				}
+				ambassadorHelmRelease := &fluxhelmv2beta1.HelmRelease{}
 				if err := k8sClient.Get(ctx, types.NamespacedName{Name: ambassador, Namespace: ambassador}, ambassadorHelmRelease); err != nil {
 					return false
 				}
-				return podinfoHelmRelease.Spec.Chart.Spec.Version == podinfoChartVersion &&
-					ambassadorHelmRelease.Spec.Chart.Spec.Version == ambassadorChartVersion
-			}, time.Minute*3, time.Second).Should(BeTrue())
+				applicationGroup = &v1alpha1.ApplicationGroup{}
+				if err := k8sClient.Get(ctx, key, applicationGroup); err != nil {
+					return false
+				}
+				return ambassadorHelmRelease.Spec.Chart.Spec.Version == ambassadorChartVersion &&
+					applicationGroup.GetReadyCondition() == meta.SucceededReason
+			}, DefaultTimeout, time.Second).Should(BeTrue())
 		})
 
 		It("should succeed to rollback helm chart versions on failure", func() {
-			applicationGroup := defaultAppGroupWithPodinfo()
+			applicationGroup := defaultAppGroup()
 			applicationGroup.Spec.Applications[1].Spec.Chart.Version = ambassadorOldChartVersion
-			applicationGroup.Spec.Applications[2].Spec.Chart.Version = podinfoOldChartVersion
 			key := client.ObjectKeyFromObject(applicationGroup)
 
 			By("Applying the bookinfo object to the cluster")
@@ -326,14 +328,16 @@ var _ = Describe("ApplicationGroup Controller", func() {
 				if err := k8sClient.Get(ctx, key, applicationGroup); err != nil {
 					return false
 				}
-				return applicationGroup.GetReadyCondition() == meta.SucceededReason
+				_, exist := applicationGroup.Annotations[v1alpha1.LastSuccessfulAnnotation]
+				return applicationGroup.GetReadyCondition() == meta.SucceededReason && exist
+
 			}, DefaultTimeout, time.Second).Should(BeTrue())
 
 			By("upgrading the ambassador chart to a newer version while intentionally timing out the last DAG step")
+			patch := client.MergeFrom(applicationGroup.DeepCopy())
 			applicationGroup.Spec.Applications[1].Spec.Chart.Version = ambassadorChartVersion
-			applicationGroup.Spec.Applications[2].Spec.Chart.Version = podinfoChartVersion
 			applicationGroup.Spec.Applications[0].Spec.Release.Timeout = &metav1.Duration{Duration: time.Second}
-			err = k8sClient.Update(ctx, applicationGroup)
+			err = k8sClient.Patch(ctx, applicationGroup, patch)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("waiting for the application group to start its upgrade")
@@ -346,38 +350,27 @@ var _ = Describe("ApplicationGroup Controller", func() {
 
 			By("waiting for the newer version of the charts to be released")
 			Eventually(func() bool {
-				podinfoHelmRelease, ambassadorHelmRelease := &fluxhelmv2beta1.HelmRelease{}, &fluxhelmv2beta1.HelmRelease{}
-				if err := k8sClient.Get(ctx, types.NamespacedName{Name: podinfo, Namespace: podinfo}, podinfoHelmRelease); err != nil {
-					return false
-				}
+				ambassadorHelmRelease := &fluxhelmv2beta1.HelmRelease{}
 				if err := k8sClient.Get(ctx, types.NamespacedName{Name: ambassador, Namespace: ambassador}, ambassadorHelmRelease); err != nil {
 					return false
 				}
-				return podinfoHelmRelease.Spec.Chart.Spec.Version == podinfoChartVersion &&
-					meta.GetResourceCondition(podinfoHelmRelease, meta.ReadyCondition).Reason == meta.SucceededReason &&
-					ambassadorHelmRelease.Spec.Chart.Spec.Version == ambassadorChartVersion &&
-					meta.GetResourceCondition(ambassadorHelmRelease, meta.ReadyCondition).Reason == meta.SucceededReason
+				return ambassadorHelmRelease.Spec.Chart.Spec.Version == ambassadorChartVersion &&
+					meta.GetResourceCondition(ambassadorHelmRelease, meta.ReadyCondition).Reason == meta2.ReconciliationSucceededReason
 			}, DefaultTimeout, time.Second).Should(BeTrue())
-
-			By("making sure that the application group times out and starts rollback")
-			Eventually(func() bool {
-				if err := k8sClient.Get(ctx, key, applicationGroup); err != nil {
-					return false
-				}
-				return applicationGroup.GetReadyCondition() == meta.RollingBackReason
-			}, time.Second*30, time.Second).Should(BeTrue())
 
 			By("ensuring that the applications rollback to their starting version")
 			Eventually(func() bool {
-				podinfoHelmRelease, ambassadorHelmRelease := &fluxhelmv2beta1.HelmRelease{}, &fluxhelmv2beta1.HelmRelease{}
-				if err := k8sClient.Get(ctx, types.NamespacedName{Name: podinfo, Namespace: podinfo}, podinfoHelmRelease); err != nil {
-					return false
-				}
+				ambassadorHelmRelease := &fluxhelmv2beta1.HelmRelease{}
 				if err := k8sClient.Get(ctx, types.NamespacedName{Name: ambassador, Namespace: ambassador}, ambassadorHelmRelease); err != nil {
 					return false
 				}
-				return podinfoHelmRelease.Spec.Chart.Spec.Version == podinfoOldChartVersion &&
-					ambassadorHelmRelease.Spec.Chart.Spec.Version == ambassadorOldChartVersion
+				applicationGroup = &v1alpha1.ApplicationGroup{}
+				if err := k8sClient.Get(ctx, key, applicationGroup); err != nil {
+					return false
+				}
+				return ambassadorHelmRelease.Spec.Chart.Spec.Version == ambassadorOldChartVersion &&
+					meta.GetResourceCondition(ambassadorHelmRelease, meta.ReadyCondition).Reason == meta2.ReconciliationSucceededReason &&
+					applicationGroup.GetReadyCondition() == meta.SucceededReason
 			}, DefaultTimeout, time.Second).Should(BeTrue())
 		})
 	})

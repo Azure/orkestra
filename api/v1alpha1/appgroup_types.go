@@ -305,17 +305,16 @@ func (in *ChartStatus) GetStatusConditions() *[]metav1.Condition {
 }
 
 func (in *ApplicationGroup) GetLastSuccessful() *ApplicationGroupSpec {
-	var lastSuccessfulSpec *ApplicationGroupSpec
-	if in.GetAnnotations() != nil {
-		if s, ok := in.Annotations[LastSuccessfulAnnotation]; ok {
-			_ = json.Unmarshal([]byte(s), lastSuccessfulSpec)
-		}
+	lastSuccessful := &ApplicationGroupSpec{}
+	if s, ok := in.Annotations[LastSuccessfulAnnotation]; ok {
+		_ = json.Unmarshal([]byte(s), lastSuccessful)
+		return lastSuccessful
 	}
-	return lastSuccessfulSpec
+	return nil
 }
 
 func (in *ApplicationGroup) SetLastSuccessful() {
-	b, _ := json.Marshal(in.Spec)
+	b, _ := json.Marshal(&in.Spec)
 	in.SetAnnotations(map[string]string{LastSuccessfulAnnotation: string(b)})
 }
 
