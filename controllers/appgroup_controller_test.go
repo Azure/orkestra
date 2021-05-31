@@ -27,8 +27,8 @@ var _ = Describe("ApplicationGroup Controller", func() {
 		)
 
 		const (
-			DefaultNamesapce     = "orkestra"
-			DefaultCreateTimeout = time.Minute * 5
+			DefaultNamesapce = "orkestra"
+			DefaultTimeout   = time.Minute * 5
 		)
 
 		BeforeEach(func() {
@@ -92,7 +92,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 					return false
 				}
 				return applicationGroup.GetReadyCondition() == meta.SucceededReason
-			}, DefaultCreateTimeout, time.Second).Should(BeTrue())
+			}, DefaultTimeout, time.Second).Should(BeTrue())
 
 			By("checking that the all the HelmReleases have come up and are in a ready state")
 			err = k8sClient.List(ctx, helmReleaseList)
@@ -117,7 +117,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 					return false
 				}
 				return len(helmReleases.Items) == 0
-			}, time.Minute*4, time.Second).Should(BeTrue())
+			}, DefaultTimeout, time.Second).Should(BeTrue())
 
 		})
 
@@ -179,7 +179,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 					return false
 				}
 				return applicationGroup.GetReadyCondition() == meta.SucceededReason
-			}, DefaultCreateTimeout, time.Second).Should(BeTrue())
+			}, DefaultTimeout, time.Second).Should(BeTrue())
 
 			By("Adding an Application to the ApplicationGroup Spec after the ApplicationGroup has fully reconciled")
 			newAppGroup := AddApplication(*applicationGroup, podinfoApplication())
@@ -270,7 +270,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 					return false
 				}
 				return applicationGroup.GetReadyCondition() == meta.SucceededReason
-			}, DefaultCreateTimeout, time.Second).Should(BeTrue())
+			}, DefaultTimeout, time.Second).Should(BeTrue())
 
 			By("upgrading the charts to a newer version")
 			applicationGroup.Spec.Applications[1].Spec.Chart.Version = ambassadorChartVersion
@@ -301,7 +301,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 			}, time.Minute*3, time.Second).Should(BeTrue())
 		})
 
-		FIt("should succeed to rollback helm chart versions on failure", func() {
+		It("should succeed to rollback helm chart versions on failure", func() {
 			applicationGroup := defaultAppGroupWithPodinfo()
 			applicationGroup.Spec.Applications[1].Spec.Chart.Version = ambassadorOldChartVersion
 			applicationGroup.Spec.Applications[2].Spec.Chart.Version = podinfoOldChartVersion
@@ -327,7 +327,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 					return false
 				}
 				return applicationGroup.GetReadyCondition() == meta.SucceededReason
-			}, DefaultCreateTimeout, time.Second).Should(BeTrue())
+			}, DefaultTimeout, time.Second).Should(BeTrue())
 
 			By("upgrading the ambassador chart to a newer version while intentionally timing out the last DAG step")
 			applicationGroup.Spec.Applications[1].Spec.Chart.Version = ambassadorChartVersion
@@ -357,7 +357,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 					meta.GetResourceCondition(podinfoHelmRelease, meta.ReadyCondition).Reason == meta.SucceededReason &&
 					ambassadorHelmRelease.Spec.Chart.Spec.Version == ambassadorChartVersion &&
 					meta.GetResourceCondition(ambassadorHelmRelease, meta.ReadyCondition).Reason == meta.SucceededReason
-			}, time.Minute*5, time.Second).Should(BeTrue())
+			}, DefaultTimeout, time.Second).Should(BeTrue())
 
 			By("making sure that the application group times out and starts rollback")
 			Eventually(func() bool {
@@ -378,7 +378,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 				}
 				return podinfoHelmRelease.Spec.Chart.Spec.Version == podinfoOldChartVersion &&
 					ambassadorHelmRelease.Spec.Chart.Spec.Version == ambassadorOldChartVersion
-			}, time.Minute*3, time.Second).Should(BeTrue())
+			}, DefaultTimeout, time.Second).Should(BeTrue())
 		})
 	})
 })

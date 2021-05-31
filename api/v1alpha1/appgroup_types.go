@@ -304,6 +304,21 @@ func (in *ChartStatus) GetStatusConditions() *[]metav1.Condition {
 	return &in.Conditions
 }
 
+func (in *ApplicationGroup) GetLastSuccessful() *ApplicationGroupSpec {
+	var lastSuccessfulSpec *ApplicationGroupSpec
+	if in.GetAnnotations() != nil {
+		if s, ok := in.Annotations[LastSuccessfulAnnotation]; ok {
+			_ = json.Unmarshal([]byte(s), lastSuccessfulSpec)
+		}
+	}
+	return lastSuccessfulSpec
+}
+
+func (in *ApplicationGroup) SetLastSuccessful() {
+	b, _ := json.Marshal(in.Spec)
+	in.SetAnnotations(map[string]string{LastSuccessfulAnnotation: string(b)})
+}
+
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:path=applicationgroups,scope=Cluster,shortName=ag
 // +kubebuilder:subresource:status

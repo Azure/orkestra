@@ -254,8 +254,6 @@ func (r *ApplicationGroupReconciler) reconcileDelete(ctx context.Context, appGro
 	} else {
 		r.Log.Info("cleaning up the applicationgroup resource")
 
-		// unset the last successful spec annotation
-		r.lastSuccessfulApplicationGroup = nil
 		if _, ok := appGroup.Annotations[v1alpha1.LastSuccessfulAnnotation]; ok {
 			appGroup.Annotations[v1alpha1.LastSuccessfulAnnotation] = ""
 		}
