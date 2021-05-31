@@ -16,8 +16,9 @@ const (
 	ambassador = "ambassador"
 	podinfo    = "podinfo"
 
-	ambassadorChartURL     = "https://www.getambassador.io/helm"
-	ambassadorChartVersion = "6.6.0"
+	ambassadorChartURL        = "https://www.getambassador.io/helm"
+	ambassadorOldChartVersion = "6.6.0"
+	ambassadorChartVersion    = "6.7.9"
 
 	bookinfoChartURL     = "https://nitishm.github.io/charts"
 	bookinfoChartVersion = "v1"
@@ -53,7 +54,7 @@ func ambassadorApplication() v1alpha1.Application {
 		},
 		Spec: v1alpha1.ApplicationSpec{
 			Chart: &v1alpha1.ChartRef{
-				Url:     ambassadorChartURL,
+				URL:     ambassadorChartURL,
 				Name:    ambassador,
 				Version: ambassadorChartVersion,
 			},
@@ -93,7 +94,7 @@ func bookinfoApplication() v1alpha1.Application {
 		},
 		Spec: v1alpha1.ApplicationSpec{
 			Chart: &v1alpha1.ChartRef{
-				Url:     bookinfoChartURL,
+				URL:     bookinfoChartURL,
 				Name:    bookinfo,
 				Version: bookinfoChartVersion,
 			},
@@ -129,14 +130,12 @@ func bookinfoApplication() v1alpha1.Application {
 func podinfoApplication() v1alpha1.Application {
 	return v1alpha1.Application{
 		DAG: v1alpha1.DAG{
-			Name: podinfo,
-			Dependencies: []string{
-				ambassador,
-			},
+			Name:         podinfo,
+			Dependencies: []string{},
 		},
 		Spec: v1alpha1.ApplicationSpec{
 			Chart: &v1alpha1.ChartRef{
-				Url:     podinfoChartURL,
+				URL:     podinfoChartURL,
 				Name:    podinfo,
 				Version: podinfoChartVersion,
 			},

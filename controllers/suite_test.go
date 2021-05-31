@@ -108,7 +108,7 @@ var _ = BeforeSuite(func() {
 		Engine:                  workflow.Argo(scheme.Scheme, k8sManager.GetClient(), inClusterstagingRepoURL, 10),
 		TargetDir:               tempChartStoreTargetDir,
 		Recorder:                k8sManager.GetEventRecorderFor("appgroup-controller"),
-		DisableRemediation:      true,
+		DisableRemediation:      false,
 		CleanupDownloadedCharts: false,
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())

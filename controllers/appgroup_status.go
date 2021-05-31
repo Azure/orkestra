@@ -31,7 +31,7 @@ func (r *ApplicationGroupReconciler) UpdateStatus(ctx context.Context, instance 
 	}
 	if instance.GetReadyCondition() == meta.SucceededReason {
 		r.Recorder.Event(instance, "Normal", "ReconcileSuccess", fmt.Sprintf("Successfully reconciled ApplicationGroup %s", instance.Name))
-		instance.SetLastSuccessfulAnnotation()
+		instance.SetLastSuccessful()
 		if err := r.Patch(ctx, instance, patch); err != nil {
 			r.Log.V(1).Error(err, "failed to patch the application group annotations")
 			return ctrl.Result{}, err

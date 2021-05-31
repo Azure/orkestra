@@ -66,13 +66,13 @@ func (r *ApplicationGroupReconciler) reconcileCreateOrUpdate(ctx context.Context
 }
 
 func (r *ApplicationGroupReconciler) reconcileRollback(ctx context.Context, instance *v1alpha1.ApplicationGroup, patch client.Patch) error {
-	if r.lastSuccessfulApplicationGroup == nil {
+	if instance.GetLastSuccessful() == nil {
 		err := errors.New("failed to rollback ApplicationGroup instance due to missing last successful applicationgroup annotation")
 		r.Log.Error(err, "")
 		return err
 	}
 	r.Log.Info("Rolling back to last successful application group spec")
-	instance.Spec = r.lastSuccessfulApplicationGroup.DeepCopy().Spec
+	instance.Spec = *instance.GetLastSuccessful()
 	if err := r.Patch(ctx, instance, patch); err != nil {
 		r.Log.Error(err, "failed to update ApplicationGroup instance while rolling back")
 		return err
@@ -97,14 +97,14 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 
 		repoCfg, err := registry.GetHelmRepoConfig(&application, r.Client)
 		if err != nil {
-			err = fmt.Errorf("failed to get repo configuration for repo at URL %s: %w", application.Spec.Chart.Url, err)
+			err = fmt.Errorf("failed to get repo configuration for repo at URL %s: %w", application.Spec.Chart.URL, err)
 			ll.Error(err, "failed to add helm repo ")
 			return err
 		}
 
 		err = r.RegistryClient.AddRepo(repoCfg)
 		if err != nil {
-			err = fmt.Errorf("failed to add helm repo at URL %s: %w", application.Spec.Chart.Url, err)
+			err = fmt.Errorf("failed to add helm repo at URL %s: %w", application.Spec.Chart.URL, err)
 			ll.Error(err, "failed to add helm repo ")
 			return err
 		}
@@ -282,8 +282,6 @@ func (r *ApplicationGroupReconciler) reconcileDelete(ctx context.Context, appGro
 	} else {
 		r.Log.Info("cleaning up the applicationgroup resource")
 
-		// unset the last successful spec annotation
-		r.lastSuccessfulApplicationGroup = nil
 		if _, ok := appGroup.Annotations[v1alpha1.LastSuccessfulAnnotation]; ok {
 			appGroup.Annotations[v1alpha1.LastSuccessfulAnnotation] = ""
 		}

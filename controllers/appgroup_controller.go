@@ -5,7 +5,6 @@ package controllers
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -62,11 +61,6 @@ type ApplicationGroupReconciler struct {
 	// CleanupDownloadedCharts signals the controller to delete the
 	// fetched charts after they have been repackaged and pushed to staging
 	CleanupDownloadedCharts bool
-
-	// lastSuccessfulApplicationGroup holds the applicationgroup spec body from the last
-	// successful reconciliation of the ApplicationGroup. This is set after every successful
-	// reconciliation.
-	lastSuccessfulApplicationGroup *v1alpha1.ApplicationGroup
 }
 
 // +kubebuilder:rbac:groups=orkestra.azure.microsoft.com,resources=applicationgroups,verbs=get;list;watch;create;update;patch;delete
@@ -90,33 +84,21 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	patch := client.MergeFrom(appGroup.DeepCopy())
 
-	// Check if this is an update event to the ApplicationGroup
-	// in which case unmarshal the last successful spec into a
-	// variable
-	if appGroup.GetAnnotations() != nil {
-		last := &v1alpha1.ApplicationGroup{}
-		if s, ok := appGroup.Annotations[v1alpha1.LastSuccessfulAnnotation]; ok {
-			_ = json.Unmarshal([]byte(s), last)
-			r.lastSuccessfulApplicationGroup = last
-		}
-	}
 	if !appGroup.DeletionTimestamp.IsZero() {
 		if err := r.reconcileDelete(ctx, appGroup, patch); err != nil {
 			return r.Failed(ctx, appGroup, patch, err)
 		}
 		return ctrl.Result{Requeue: true}, nil
 	}
-	// Add finalizer if it doesnt already exist
+	// Add finalizer if it doesn't already exist
 	if appGroup.Finalizers == nil {
 		controllerutil.AddFinalizer(appGroup, v1alpha1.AppGroupFinalizer)
 		if err := r.Patch(ctx, appGroup, patch); err != nil {
 			return r.Failed(ctx, appGroup, patch, err)
 		}
 	}
-
-	// If the (needs) Rollback phase is present in the reconciled version,
-	// we must rollback the application group to the last successful spec.
-	// This should only happen on updates and not during installs.
+	// Rollback if the workflow fails and the app group is marked
+	// in a rolling back state
 	if appGroup.GetDeployCondition() == meta.RollingBackReason {
 		if err := r.reconcileRollback(ctx, appGroup, patch); err != nil {
 			return r.Failed(ctx, appGroup, patch, err)
@@ -151,7 +133,7 @@ func (r *ApplicationGroupReconciler) handleRemediation(ctx context.Context, logr
 	patch client.Patch, err error) (ctrl.Result, error) {
 	// Rollback to previous successful spec since the annotation was set and this is
 	// an UPDATE event
-	if r.lastSuccessfulApplicationGroup != nil {
+	if g.GetLastSuccessful() != nil {
 		// If this is a HelmRelease failure then we must remediate by cleaning up
 		// all the helm releases deployed by the workflow and helm operator
 		if errors.Is(err, ErrHelmReleaseInFailureStatus) {
@@ -192,16 +174,11 @@ func (r *ApplicationGroupReconciler) handleRemediation(ctx context.Context, logr
 		logr.V(1).Info("initiating rollback")
 		return reconcile.Result{RequeueAfter: v1alpha1.DefaultProgressingRequeue}, nil
 	}
-	// Reverse and cleanup the workflow and associated helmreleases
-	g.RollingBack()
-	_ = r.Status().Patch(ctx, g, patch)
-
 	requeue := r.cleanupWorkflow(ctx, logr, g)
 	if requeue {
 		logr.Info("reverse workflow is in progress")
 		return reconcile.Result{Requeue: true}, nil
 	}
-
 	return reconcile.Result{}, nil
 }
 
