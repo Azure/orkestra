@@ -106,9 +106,9 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// we must rollback the application group to the last successful spec.
 	// This should only happen on updates and not during installs.
 	if appGroup.GetDeployCondition() == meta.RollingBackReason {
-		if appGroup.GetLastSuccessful() != nil {
+		if previousSpec := appGroup.GetLastSuccessful(); previousSpec != nil {
 			logr.Info("Rolling back to last successful application group spec")
-			appGroup.Spec = *appGroup.GetLastSuccessful()
+			appGroup.Spec = *previousSpec
 			err = r.Patch(ctx, &appGroup, patch)
 			if err != nil {
 				appGroup.DeployFailed(err.Error())

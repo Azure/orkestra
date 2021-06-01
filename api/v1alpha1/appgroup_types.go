@@ -315,7 +315,10 @@ func (in *ApplicationGroup) GetLastSuccessful() *ApplicationGroupSpec {
 
 func (in *ApplicationGroup) SetLastSuccessful() {
 	b, _ := json.Marshal(&in.Spec)
-	in.SetAnnotations(map[string]string{LastSuccessfulAnnotation: string(b)})
+	if in.Annotations == nil {
+		in.Annotations = make(map[string]string)
+	}
+	in.Annotations[LastSuccessfulAnnotation] = string(b)
 }
 
 // +kubebuilder:object:root=true

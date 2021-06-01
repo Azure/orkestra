@@ -29,7 +29,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 		)
 
 		const (
-			DefaultNamesapce = "orkestra"
+			DefaultNamespace = "orkestra"
 			DefaultTimeout   = time.Minute * 5
 		)
 
@@ -54,11 +54,12 @@ var _ = Describe("ApplicationGroup Controller", func() {
 			for _, ns := range []string{bookinfo, ambassador, podinfo} {
 				_ = k8sClient.DeleteAllOf(ctx, &fluxhelmv2beta1.HelmRelease{}, client.InNamespace(ns))
 			}
+			_ = k8sClient.DeleteAllOf(ctx, &v1alpha12.Workflow{}, client.InNamespace(DefaultNamespace))
 		})
 
 		It("Should create Bookinfo spec successfully", func() {
 			applicationGroup := defaultAppGroup()
-			applicationGroup.Namespace = DefaultNamesapce
+			applicationGroup.Namespace = DefaultNamespace
 			key := client.ObjectKeyFromObject(applicationGroup)
 
 			By("Applying the bookinfo object to the cluster")
@@ -125,7 +126,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 
 		It("should fail to create and post a failed error state", func() {
 			applicationGroup := defaultAppGroup()
-			applicationGroup.Namespace = DefaultNamesapce
+			applicationGroup.Namespace = DefaultNamespace
 
 			applicationGroup.Spec.Applications[0].Spec.Chart.Version = "fake-version"
 			key := client.ObjectKeyFromObject(applicationGroup)
@@ -158,7 +159,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 
 		It("should create the bookinfo spec and then update it", func() {
 			applicationGroup := defaultAppGroup()
-			applicationGroup.Namespace = DefaultNamesapce
+			applicationGroup.Namespace = DefaultNamespace
 			key := client.ObjectKeyFromObject(applicationGroup)
 
 			By("Applying the bookinfo object to the cluster")
@@ -201,7 +202,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 
 		It("should fail to install, then get updated and pass getting installed", func() {
 			applicationGroup := defaultAppGroup()
-			applicationGroup.Namespace = DefaultNamesapce
+			applicationGroup.Namespace = DefaultNamespace
 
 			applicationGroup.Spec.Applications[0].Spec.Chart.Version = "fake-version"
 
@@ -249,6 +250,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 		It("should succeed to upgrade the versions of helm releases to newer versions", func() {
 			By("creating three releases that use older versions of charts")
 			applicationGroup := defaultAppGroup()
+			applicationGroup.Namespace = DefaultNamespace
 			applicationGroup.Spec.Applications[1].Spec.Chart.Version = ambassadorOldChartVersion
 			key := client.ObjectKeyFromObject(applicationGroup)
 
@@ -306,6 +308,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 
 		It("should succeed to rollback helm chart versions on failure", func() {
 			applicationGroup := defaultAppGroup()
+			applicationGroup.Namespace = DefaultNamespace
 			applicationGroup.Spec.Applications[1].Spec.Chart.Version = ambassadorOldChartVersion
 			key := client.ObjectKeyFromObject(applicationGroup)
 
