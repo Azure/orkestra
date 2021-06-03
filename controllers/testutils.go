@@ -31,18 +31,18 @@ var (
 	defaultDuration = metav1.Duration{Duration: time.Minute * 5}
 )
 
-func defaultAppGroup() *v1alpha1.ApplicationGroup {
+func defaultAppGroup(targetNamespace string) *v1alpha1.ApplicationGroup {
 	g := &v1alpha1.ApplicationGroup{
 		ObjectMeta: v1.ObjectMeta{
-			Name: "bookinfo",
+			Name: targetNamespace,
 		},
 	}
 	g.Spec.Applications = make([]v1alpha1.Application, 0)
-	g.Spec.Applications = append(g.Spec.Applications, bookinfoApplication(), ambassadorApplication())
+	g.Spec.Applications = append(g.Spec.Applications, bookinfoApplication(targetNamespace), ambassadorApplication(targetNamespace))
 	return g
 }
 
-func ambassadorApplication() v1alpha1.Application {
+func ambassadorApplication(targetNamespace string) v1alpha1.Application {
 	values := []byte(`{
 	   "service": {
 		  "type": "ClusterIP"
@@ -60,7 +60,7 @@ func ambassadorApplication() v1alpha1.Application {
 			},
 			Release: &v1alpha1.Release{
 				Timeout:         &metav1.Duration{Duration: time.Minute * 10},
-				TargetNamespace: ambassador,
+				TargetNamespace: targetNamespace,
 				Values: &apiextensionsv1.JSON{
 					Raw: values,
 				},
@@ -70,7 +70,7 @@ func ambassadorApplication() v1alpha1.Application {
 	}
 }
 
-func bookinfoApplication() v1alpha1.Application {
+func bookinfoApplication(targetNamespace string) v1alpha1.Application {
 	values := []byte(`{
 		"productpage": {
 			"replicaCount": 1
@@ -99,7 +99,7 @@ func bookinfoApplication() v1alpha1.Application {
 				Version: bookinfoChartVersion,
 			},
 			Release: &v1alpha1.Release{
-				TargetNamespace: bookinfo,
+				TargetNamespace: targetNamespace,
 				Values: &apiextensionsv1.JSON{
 					Raw: values,
 				},
@@ -127,7 +127,7 @@ func bookinfoApplication() v1alpha1.Application {
 	}
 }
 
-func podinfoApplication() v1alpha1.Application {
+func podinfoApplication(targetNamespace string) v1alpha1.Application {
 	return v1alpha1.Application{
 		DAG: v1alpha1.DAG{
 			Name:         podinfo,
@@ -140,7 +140,7 @@ func podinfoApplication() v1alpha1.Application {
 				Version: podinfoChartVersion,
 			},
 			Release: &v1alpha1.Release{
-				TargetNamespace: podinfo,
+				TargetNamespace: targetNamespace,
 				Interval:        defaultDuration,
 			},
 		},

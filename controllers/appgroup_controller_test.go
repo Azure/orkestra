@@ -25,6 +25,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 	Context("ApplicationGroup", func() {
 		var (
 			namespace *corev1.Namespace
+			name      string
 			ctx       context.Context
 		)
 
@@ -44,6 +45,8 @@ var _ = Describe("ApplicationGroup Controller", func() {
 			_ = k8sClient.Create(ctx, namespace)
 			//Expect(err).ToNot(HaveOccurred())
 
+			// Give the application group a unique name
+			name = "bookinfo-" + randStringRunes(6)
 		})
 
 		AfterEach(func() {
@@ -58,7 +61,8 @@ var _ = Describe("ApplicationGroup Controller", func() {
 		})
 
 		It("Should create Bookinfo spec successfully", func() {
-			applicationGroup := defaultAppGroup()
+			applicationGroup := defaultAppGroup(name)
+			applicationGroup.Name = name
 			applicationGroup.Namespace = DefaultNamespace
 			key := client.ObjectKeyFromObject(applicationGroup)
 
@@ -125,7 +129,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 		})
 
 		It("should fail to create and post a failed error state", func() {
-			applicationGroup := defaultAppGroup()
+			applicationGroup := defaultAppGroup(name)
 			applicationGroup.Namespace = DefaultNamespace
 
 			applicationGroup.Spec.Applications[0].Spec.Chart.Version = "fake-version"
@@ -158,7 +162,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 		})
 
 		It("should create the bookinfo spec and then update it", func() {
-			applicationGroup := defaultAppGroup()
+			applicationGroup := defaultAppGroup(name)
 			applicationGroup.Namespace = DefaultNamespace
 			key := client.ObjectKeyFromObject(applicationGroup)
 
@@ -185,7 +189,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 			}, DefaultTimeout, time.Second).Should(BeTrue())
 
 			By("Adding an Application to the ApplicationGroup Spec after the ApplicationGroup has fully reconciled")
-			newAppGroup := AddApplication(*applicationGroup, podinfoApplication())
+			newAppGroup := AddApplication(*applicationGroup, podinfoApplication(name))
 			err = k8sClient.Update(ctx, &newAppGroup)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -201,7 +205,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 		})
 
 		It("should fail to install, then get updated and pass getting installed", func() {
-			applicationGroup := defaultAppGroup()
+			applicationGroup := defaultAppGroup(name)
 			applicationGroup.Namespace = DefaultNamespace
 
 			applicationGroup.Spec.Applications[0].Spec.Chart.Version = "fake-version"
@@ -249,7 +253,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 
 		It("should succeed to upgrade the versions of helm releases to newer versions", func() {
 			By("creating three releases that use older versions of charts")
-			applicationGroup := defaultAppGroup()
+			applicationGroup := defaultAppGroup(name)
 			applicationGroup.Namespace = DefaultNamespace
 			applicationGroup.Spec.Applications[1].Spec.Chart.Version = ambassadorOldChartVersion
 			key := client.ObjectKeyFromObject(applicationGroup)
@@ -307,7 +311,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 		})
 
 		It("should succeed to rollback helm chart versions on failure", func() {
-			applicationGroup := defaultAppGroup()
+			applicationGroup := defaultAppGroup(name)
 			applicationGroup.Namespace = DefaultNamespace
 			applicationGroup.Spec.Applications[1].Spec.Chart.Version = ambassadorOldChartVersion
 			key := client.ObjectKeyFromObject(applicationGroup)
