@@ -5,12 +5,13 @@ package controllers
 
 import (
 	"fmt"
-	"github.com/onsi/ginkgo/config"
 	"math/rand"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/onsi/ginkgo/config"
 
 	orkestrav1alpha1 "github.com/Azure/Orkestra/api/v1alpha1"
 	"github.com/Azure/Orkestra/pkg/registry"
@@ -83,7 +84,7 @@ var _ = BeforeSuite(func() {
 
 	k8sManager, err = ctrl.NewManager(cfg, ctrl.Options{
 		Scheme:             scheme.Scheme,
-		MetricsBindAddress: fmt.Sprintf(":%d", config.GinkgoConfig.ParallelNode),
+		MetricsBindAddress: fmt.Sprintf(":%d", 8081+config.GinkgoConfig.ParallelNode),
 		Port:               9443,
 	})
 

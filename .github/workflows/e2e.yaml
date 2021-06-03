@@ -46,7 +46,7 @@ jobs:
             ${{ runner.os }}-go-
       - name: Run test with Coverprofile
         run: |
-          go get github.com/onsi/ginkgo/ginkgo@v1.16.1
+          go get github.com/onsi/ginkgo/ginkgo
           ginkgo -p ./... -cover -coverprofile coverage.txt
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v1
