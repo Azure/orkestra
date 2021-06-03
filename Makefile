@@ -27,11 +27,11 @@ clean:
 
 ginkgo-test: install
 	go get github.com/onsi/ginkgo/ginkgo
-	ginkgo -p ./... -cover -coverprofile coverage.txt
+	ginkgo ./... -cover -coverprofile coverage.txt
 
 # Run tests
-test:
-	go test -v ./... -coverprofile coverage.txt
+test: install
+	go test -v ./... -coverprofile coverage.txt -timeout 25m
 
 # Build manager binary
 manager: generate fmt vet
