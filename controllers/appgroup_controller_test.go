@@ -35,12 +35,6 @@ var _ = Describe("ApplicationGroup Controller", func() {
 		)
 
 		BeforeEach(func() {
-			// TODO: Namespace will be added once we have the namespace based support for ApplicationGroup
-			namespace = &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "appgroup-test" + randStringRunes(5),
-				},
-			}
 			ctx = context.Background()
 			_ = k8sClient.Create(ctx, namespace)
 			//Expect(err).ToNot(HaveOccurred())
@@ -50,14 +44,9 @@ var _ = Describe("ApplicationGroup Controller", func() {
 		})
 
 		AfterEach(func() {
-			err := k8sClient.Delete(ctx, namespace)
-			Expect(err).ToNot(HaveOccurred())
-
 			// Call delete on the HelmReleases for cleanup
-			for _, ns := range []string{bookinfo, ambassador, podinfo} {
-				_ = k8sClient.DeleteAllOf(ctx, &fluxhelmv2beta1.HelmRelease{}, client.InNamespace(ns))
-			}
-			_ = k8sClient.DeleteAllOf(ctx, &v1alpha12.Workflow{}, client.InNamespace(DefaultNamespace))
+			_ = k8sClient.DeleteAllOf(ctx, &fluxhelmv2beta1.HelmRelease{}, client.InNamespace(name))
+			_ = k8sClient.DeleteAllOf(ctx, &v1alpha12.Workflow{}, client.InNamespace(name))
 		})
 
 		It("Should create Bookinfo spec successfully", func() {
@@ -298,7 +287,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 			By("waiting for the newer version of the charts to be released")
 			Eventually(func() bool {
 				ambassadorHelmRelease := &fluxhelmv2beta1.HelmRelease{}
-				if err := k8sClient.Get(ctx, types.NamespacedName{Name: ambassador, Namespace: ambassador}, ambassadorHelmRelease); err != nil {
+				if err := k8sClient.Get(ctx, types.NamespacedName{Name: ambassador, Namespace: name}, ambassadorHelmRelease); err != nil {
 					return false
 				}
 				applicationGroup = &v1alpha1.ApplicationGroup{}
@@ -358,7 +347,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 			By("waiting for the newer version of the charts to be released")
 			Eventually(func() bool {
 				ambassadorHelmRelease := &fluxhelmv2beta1.HelmRelease{}
-				if err := k8sClient.Get(ctx, types.NamespacedName{Name: ambassador, Namespace: ambassador}, ambassadorHelmRelease); err != nil {
+				if err := k8sClient.Get(ctx, types.NamespacedName{Name: ambassador, Namespace: name}, ambassadorHelmRelease); err != nil {
 					return false
 				}
 				return ambassadorHelmRelease.Spec.Chart.Spec.Version == ambassadorChartVersion &&
@@ -368,7 +357,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 			By("ensuring that the applications rollback to their starting version")
 			Eventually(func() bool {
 				ambassadorHelmRelease := &fluxhelmv2beta1.HelmRelease{}
-				if err := k8sClient.Get(ctx, types.NamespacedName{Name: ambassador, Namespace: ambassador}, ambassadorHelmRelease); err != nil {
+				if err := k8sClient.Get(ctx, types.NamespacedName{Name: ambassador, Namespace: name}, ambassadorHelmRelease); err != nil {
 					return false
 				}
 				applicationGroup = &v1alpha1.ApplicationGroup{}

@@ -4,11 +4,19 @@
 package controllers
 
 import (
+	"fmt"
+	"github.com/onsi/ginkgo/config"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
+	orkestrav1alpha1 "github.com/Azure/Orkestra/api/v1alpha1"
+	"github.com/Azure/Orkestra/pkg/registry"
+	"github.com/Azure/Orkestra/pkg/workflow"
+	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
+	fluxhelmv2beta1 "github.com/fluxcd/helm-controller/api/v2beta1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
@@ -20,12 +28,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
-	orkestrav1alpha1 "github.com/Azure/Orkestra/api/v1alpha1"
-	"github.com/Azure/Orkestra/pkg/registry"
-	"github.com/Azure/Orkestra/pkg/workflow"
-	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
-	fluxhelmv2beta1 "github.com/fluxcd/helm-controller/api/v2beta1"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -55,6 +57,7 @@ func TestAPIs(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+	rand.Seed(time.Now().UnixNano())
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
@@ -80,7 +83,7 @@ var _ = BeforeSuite(func() {
 
 	k8sManager, err = ctrl.NewManager(cfg, ctrl.Options{
 		Scheme:             scheme.Scheme,
-		MetricsBindAddress: ":8081",
+		MetricsBindAddress: fmt.Sprintf(":%d", config.GinkgoConfig.ParallelNode),
 		Port:               9443,
 	})
 
