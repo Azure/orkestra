@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -62,7 +61,6 @@ var _ = BeforeSuite(func() {
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths:  []string{filepath.Join("..", "config", "crd", "bases")},
 		UseExistingCluster: boolToBoolPtr(true),
 	}
 
