@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"fmt"
 	"math/rand"
 	"time"
 
@@ -43,11 +44,15 @@ func defaultAppGroup(targetNamespace string) *v1alpha1.ApplicationGroup {
 }
 
 func ambassadorApplication(targetNamespace string) v1alpha1.Application {
-	values := []byte(`{
+	values := []byte(fmt.Sprintf(`{
+       "nameOverride": "%s",
 	   "service": {
 		  "type": "ClusterIP"
-	   }
-	}`)
+	   },
+       "scope": {
+          "singleNamespace": true
+       }
+	}`, targetNamespace))
 	return v1alpha1.Application{
 		DAG: v1alpha1.DAG{
 			Name: ambassador,
