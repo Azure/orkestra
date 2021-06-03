@@ -108,6 +108,7 @@ func (a *argo) Submit(ctx context.Context, l logr.Logger, g *v1alpha1.Applicatio
 		found := false
 		for _, namespace := range namespaces {
 			if app.Spec.Release.TargetNamespace == namespace {
+				found = true
 				break
 			}
 		}
