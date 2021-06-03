@@ -47,7 +47,7 @@ cleanup:
 
 # set to dev mode until MVP
 debug:
-  enabled: true
+  enabled: false
 
 logLevel: 5
 
