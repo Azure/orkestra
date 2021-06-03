@@ -22,7 +22,7 @@ const (
 	ambassadorChartVersion    = "6.7.9"
 
 	bookinfoChartURL     = "https://nitishm.github.io/charts"
-	bookinfoChartVersion = "v1"
+	bookinfoChartVersion = "v2"
 
 	podinfoChartURL     = "https://stefanprodan.github.io/podinfo"
 	podinfoChartVersion = "5.2.1"
