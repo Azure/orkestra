@@ -25,40 +25,34 @@ var _ = Describe("ApplicationGroup Controller", func() {
 	Context("ApplicationGroup", func() {
 		var (
 			namespace *corev1.Namespace
+			name      string
 			ctx       context.Context
 		)
 
 		const (
-			DefaultNamesapce = "orkestra"
+			DefaultNamespace = "orkestra"
 			DefaultTimeout   = time.Minute * 5
 		)
 
 		BeforeEach(func() {
-			// TODO: Namespace will be added once we have the namespace based support for ApplicationGroup
-			namespace = &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "appgroup-test" + randStringRunes(5),
-				},
-			}
 			ctx = context.Background()
 			_ = k8sClient.Create(ctx, namespace)
 			//Expect(err).ToNot(HaveOccurred())
 
+			// Give the application group a unique name
+			name = "bookinfo-" + randStringRunes(6)
 		})
 
 		AfterEach(func() {
-			err := k8sClient.Delete(ctx, namespace)
-			Expect(err).ToNot(HaveOccurred())
-
 			// Call delete on the HelmReleases for cleanup
-			for _, ns := range []string{bookinfo, ambassador, podinfo} {
-				_ = k8sClient.DeleteAllOf(ctx, &fluxhelmv2beta1.HelmRelease{}, client.InNamespace(ns))
-			}
+			_ = k8sClient.DeleteAllOf(ctx, &fluxhelmv2beta1.HelmRelease{}, client.InNamespace(name))
+			_ = k8sClient.DeleteAllOf(ctx, &v1alpha12.Workflow{}, client.InNamespace(name))
 		})
 
 		It("Should create Bookinfo spec successfully", func() {
-			applicationGroup := defaultAppGroup()
-			applicationGroup.Namespace = DefaultNamesapce
+			applicationGroup := defaultAppGroup(name)
+			applicationGroup.Name = name
+			applicationGroup.Namespace = DefaultNamespace
 			key := client.ObjectKeyFromObject(applicationGroup)
 
 			By("Applying the bookinfo object to the cluster")
@@ -124,8 +118,8 @@ var _ = Describe("ApplicationGroup Controller", func() {
 		})
 
 		It("should fail to create and post a failed error state", func() {
-			applicationGroup := defaultAppGroup()
-			applicationGroup.Namespace = DefaultNamesapce
+			applicationGroup := defaultAppGroup(name)
+			applicationGroup.Namespace = DefaultNamespace
 
 			applicationGroup.Spec.Applications[0].Spec.Chart.Version = "fake-version"
 			key := client.ObjectKeyFromObject(applicationGroup)
@@ -157,8 +151,8 @@ var _ = Describe("ApplicationGroup Controller", func() {
 		})
 
 		It("should create the bookinfo spec and then update it", func() {
-			applicationGroup := defaultAppGroup()
-			applicationGroup.Namespace = DefaultNamesapce
+			applicationGroup := defaultAppGroup(name)
+			applicationGroup.Namespace = DefaultNamespace
 			key := client.ObjectKeyFromObject(applicationGroup)
 
 			By("Applying the bookinfo object to the cluster")
@@ -184,7 +178,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 			}, DefaultTimeout, time.Second).Should(BeTrue())
 
 			By("Adding an Application to the ApplicationGroup Spec after the ApplicationGroup has fully reconciled")
-			newAppGroup := AddApplication(*applicationGroup, podinfoApplication())
+			newAppGroup := AddApplication(*applicationGroup, podinfoApplication(name))
 			err = k8sClient.Update(ctx, &newAppGroup)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -200,8 +194,8 @@ var _ = Describe("ApplicationGroup Controller", func() {
 		})
 
 		It("should fail to install, then get updated and pass getting installed", func() {
-			applicationGroup := defaultAppGroup()
-			applicationGroup.Namespace = DefaultNamesapce
+			applicationGroup := defaultAppGroup(name)
+			applicationGroup.Namespace = DefaultNamespace
 
 			applicationGroup.Spec.Applications[0].Spec.Chart.Version = "fake-version"
 
@@ -248,7 +242,8 @@ var _ = Describe("ApplicationGroup Controller", func() {
 
 		It("should succeed to upgrade the versions of helm releases to newer versions", func() {
 			By("creating three releases that use older versions of charts")
-			applicationGroup := defaultAppGroup()
+			applicationGroup := defaultAppGroup(name)
+			applicationGroup.Namespace = DefaultNamespace
 			applicationGroup.Spec.Applications[1].Spec.Chart.Version = ambassadorOldChartVersion
 			key := client.ObjectKeyFromObject(applicationGroup)
 
@@ -292,7 +287,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 			By("waiting for the newer version of the charts to be released")
 			Eventually(func() bool {
 				ambassadorHelmRelease := &fluxhelmv2beta1.HelmRelease{}
-				if err := k8sClient.Get(ctx, types.NamespacedName{Name: ambassador, Namespace: ambassador}, ambassadorHelmRelease); err != nil {
+				if err := k8sClient.Get(ctx, types.NamespacedName{Name: ambassador, Namespace: name}, ambassadorHelmRelease); err != nil {
 					return false
 				}
 				applicationGroup = &v1alpha1.ApplicationGroup{}
@@ -305,7 +300,8 @@ var _ = Describe("ApplicationGroup Controller", func() {
 		})
 
 		It("should succeed to rollback helm chart versions on failure", func() {
-			applicationGroup := defaultAppGroup()
+			applicationGroup := defaultAppGroup(name)
+			applicationGroup.Namespace = DefaultNamespace
 			applicationGroup.Spec.Applications[1].Spec.Chart.Version = ambassadorOldChartVersion
 			key := client.ObjectKeyFromObject(applicationGroup)
 
@@ -351,7 +347,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 			By("waiting for the newer version of the charts to be released")
 			Eventually(func() bool {
 				ambassadorHelmRelease := &fluxhelmv2beta1.HelmRelease{}
-				if err := k8sClient.Get(ctx, types.NamespacedName{Name: ambassador, Namespace: ambassador}, ambassadorHelmRelease); err != nil {
+				if err := k8sClient.Get(ctx, types.NamespacedName{Name: ambassador, Namespace: name}, ambassadorHelmRelease); err != nil {
 					return false
 				}
 				return ambassadorHelmRelease.Spec.Chart.Spec.Version == ambassadorChartVersion &&
@@ -361,7 +357,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 			By("ensuring that the applications rollback to their starting version")
 			Eventually(func() bool {
 				ambassadorHelmRelease := &fluxhelmv2beta1.HelmRelease{}
-				if err := k8sClient.Get(ctx, types.NamespacedName{Name: ambassador, Namespace: ambassador}, ambassadorHelmRelease); err != nil {
+				if err := k8sClient.Get(ctx, types.NamespacedName{Name: ambassador, Namespace: name}, ambassadorHelmRelease); err != nil {
 					return false
 				}
 				applicationGroup = &v1alpha1.ApplicationGroup{}
