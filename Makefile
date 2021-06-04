@@ -25,8 +25,12 @@ clean:
 	helm delete orkestra -n orkestra 2>&1
 	kind delete cluster --name orkestra 2>&1
 
+ginkgo-test: install
+	go get github.com/onsi/ginkgo/ginkgo
+	ginkgo ./... -cover -coverprofile coverage.txt
+
 # Run tests
-test:
+test: install
 	go test -v ./... -coverprofile coverage.txt -timeout 25m
 
 # Build manager binary

@@ -70,14 +70,14 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 
 		repoCfg, err := registry.GetHelmRepoConfig(&application, r.Client)
 		if err != nil {
-			err = fmt.Errorf("failed to get repo configuration for repo at URL %s: %w", application.Spec.Chart.Url, err)
+			err = fmt.Errorf("failed to get repo configuration for repo at URL %s: %w", application.Spec.Chart.URL, err)
 			ll.Error(err, "failed to add helm repo ")
 			return err
 		}
 
 		err = r.RegistryClient.AddRepo(repoCfg)
 		if err != nil {
-			err = fmt.Errorf("failed to add helm repo at URL %s: %w", application.Spec.Chart.Url, err)
+			err = fmt.Errorf("failed to add helm repo at URL %s: %w", application.Spec.Chart.URL, err)
 			ll.Error(err, "failed to add helm repo ")
 			return err
 		}
@@ -254,8 +254,6 @@ func (r *ApplicationGroupReconciler) reconcileDelete(ctx context.Context, appGro
 	} else {
 		r.Log.Info("cleaning up the applicationgroup resource")
 
-		// unset the last successful spec annotation
-		r.lastSuccessfulApplicationGroup = nil
 		if _, ok := appGroup.Annotations[v1alpha1.LastSuccessfulAnnotation]; ok {
 			appGroup.Annotations[v1alpha1.LastSuccessfulAnnotation] = ""
 		}

@@ -22,6 +22,7 @@ jobs:
           curl https://baltocdn.com/helm/signing.asc | sudo apt-key add -
           sudo apt-get install apt-transport-https --yes
           echo "deb https://baltocdn.com/helm/stable/debian/ all main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash
           sudo apt-get update
           sudo apt-get install helm
           kind export kubeconfig --name orkestra
@@ -46,7 +47,7 @@ jobs:
             ${{ runner.os }}-go-
       - name: Run test with Coverprofile
         run: |
-          go test -v ./... -coverprofile coverage.txt
+          make test
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v1
         with:

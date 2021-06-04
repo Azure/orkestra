@@ -6,6 +6,7 @@ require (
 	github.com/argoproj/argo v2.5.2+incompatible
 	github.com/chartmuseum/helm-push v0.9.0
 	github.com/fluxcd/helm-controller/api v0.9.0
+	github.com/fluxcd/pkg/apis/meta v0.9.0
 	github.com/fluxcd/source-controller/api v0.12.2
 	github.com/go-logr/logr v0.4.0
 	github.com/go-openapi/spec v0.19.5 // indirect
@@ -35,5 +36,8 @@ replace (
 	github.com/docker/distribution => github.com/docker/distribution v0.0.0-20191216044856-a8371794149d
 	github.com/docker/docker => github.com/moby/moby v1.4.2-0.20200203170920-46ec8731fbce
 	k8s.io/api => k8s.io/api v0.20.2
+	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.20.2
+	k8s.io/apimachinery => k8s.io/apimachinery v0.20.2
 	k8s.io/client-go => k8s.io/client-go v0.20.2
+	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.8.3
 )

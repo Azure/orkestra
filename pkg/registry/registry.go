@@ -213,7 +213,7 @@ func SaveChartPackage(ch *chart.Chart, dir string) (string, error) {
 func GetHelmRepoConfig(app *orkestrav1alpha1.Application, c client.Client) (*Config, error) {
 	cfg := &Config{
 		Name: app.Name,
-		URL:  app.Spec.Chart.Url,
+		URL:  app.Spec.Chart.URL,
 	}
 
 	if app.Spec.Chart.AuthSecretRef != nil {

@@ -30,4 +30,4 @@ spec:
             value: {{ .Release.Namespace }}
           - name: HELMREPOSITORY_NAME
             value: {{ .Values.chartmuseum.name }}
-        command: ["kubectl", "delete", "helmrepositories", "-n", "$(RELEASE_NAMESPACE)", "$(HELMREPOSITORY_NAME)"]
+        command: ["kubectl", "delete", "helmrepositories", "-n", "$(RELEASE_NAMESPACE)", "$(HELMREPOSITORY_NAME)", "--ignore-not-found=true"]
