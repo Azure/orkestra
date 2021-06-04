@@ -47,7 +47,8 @@ jobs:
             ${{ runner.os }}-go-
       - name: Run test with Coverprofile
         run: |
-          make test
+          make ginkgo-test
+          ls -A
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v1
         with:

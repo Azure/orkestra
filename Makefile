@@ -27,7 +27,7 @@ clean:
 
 ginkgo-test: install
 	go get github.com/onsi/ginkgo/ginkgo
-	ginkgo ./... -cover -coverprofile coverage.txt
+	ginkgo -p ./... -cover -coverprofile coverage.txt
 
 # Run tests
 test: install
