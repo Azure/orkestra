@@ -14,19 +14,19 @@ import (
 	"github.com/go-logr/logr"
 )
 
-func (r *ApplicationGroupReconciler) generateWorkflow(ctx context.Context, logr logr.Logger, g *v1alpha1.ApplicationGroup) (requeue bool, err error) {
-	err = r.Engine.Generate(ctx, logr, g)
+func (r *ApplicationGroupReconciler) generateWorkflow(ctx context.Context, logr logr.Logger, g *v1alpha1.ApplicationGroup) error {
+	err := r.Engine.Generate(ctx, logr, g)
 	if err != nil {
 		logr.Error(err, "engine failed to generate workflow")
-		return false, fmt.Errorf("failed to generate workflow : %w", err)
+		return fmt.Errorf("failed to generate workflow : %w", err)
 	}
 
 	err = r.Engine.Submit(ctx, logr, g)
 	if err != nil {
 		logr.Error(err, "engine failed to submit workflow")
-		return false, err
+		return err
 	}
-	return true, nil
+	return nil
 }
 
 func (r *ApplicationGroupReconciler) generateReverseWorkflow(ctx context.Context, logr logr.Logger, nodes map[string]v1alpha12.NodeStatus, wf *v1alpha12.Workflow) (err error) {

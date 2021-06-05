@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/Azure/Orkestra/api/v1alpha1"
-	"github.com/Azure/Orkestra/pkg/meta"
 	"github.com/Azure/Orkestra/pkg/workflow"
 	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
 	fluxhelmv2beta1 "github.com/fluxcd/helm-controller/api/v2beta1"
@@ -14,40 +13,46 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (r *ApplicationGroupReconciler) UpdateStatus(ctx context.Context, instance *v1alpha1.ApplicationGroup, patch client.Patch, requeue bool) (ctrl.Result, error) {
-	if err := r.getWorkflowStatus(ctx, instance); err != nil {
-		return r.Failed(ctx, instance, patch, err)
-	}
-	chartConditionMap, subChartConditionMap, err := r.marshallChartStatus(ctx, instance)
+func (r *ApplicationGroupReconciler) UpdateStatusWithWorkflow(ctx context.Context, instance *v1alpha1.ApplicationGroup, patch client.Patch) (ctrl.Result, error) {
+	workflowStatus, err := r.getWorkflowStatus(ctx, instance)
 	if err != nil {
 		return r.Failed(ctx, instance, patch, err)
 	}
+
+	requeueTime := v1alpha1.DefaultProgressingRequeue
+
+	switch workflowStatus {
+	case v1alpha12.NodeError, v1alpha12.NodeFailed:
+		r.Log.V(1).Info("workflow failed with: %v", err)
+		return r.Remediate(ctx, instance, patch, err)
+	case v1alpha12.NodeSucceeded:
+		if _, err := r.Succeeded(ctx, instance, patch); err != nil {
+			return ctrl.Result{}, err
+		}
+		r.Log.V(1).Info("workflow has succeeded")
+		requeueTime = v1alpha1.GetInterval(instance) // update the requeue time if we succeeded
+	default:
+		instance.Progressing()
+		instance.DeploySucceeded()
+		r.Log.V(1).Info("workflow is still progressing")
+	}
+	r.UpdateStatus(ctx, instance, patch)
+
+	return ctrl.Result{RequeueAfter: requeueTime}, nil
+}
+
+func (r *ApplicationGroupReconciler) UpdateStatus(ctx context.Context, instance *v1alpha1.ApplicationGroup, patch client.Patch) error {
+	chartConditionMap, subChartConditionMap, err := r.marshallChartStatus(ctx, instance)
+	if err != nil {
+		return err
+	}
 	instance.Status.Applications = getAppStatus(instance, chartConditionMap, subChartConditionMap)
-	instance.DeploySucceeded()
 
 	if err := r.Status().Patch(ctx, instance, patch); err != nil {
 		r.Log.V(1).Error(err, "failed to patch the application group status")
-		return ctrl.Result{}, err
+		return err
 	}
-	if instance.GetReadyCondition() == meta.SucceededReason {
-		r.Recorder.Event(instance, "Normal", "ReconcileSuccess", fmt.Sprintf("Successfully reconciled ApplicationGroup %s", instance.Name))
-		instance.SetLastSuccessful()
-		if err := r.Patch(ctx, instance, patch); err != nil {
-			r.Log.V(1).Error(err, "failed to patch the application group annotations")
-			return ctrl.Result{}, err
-		}
-	}
-	if requeue {
-		if instance.GetReadyCondition() != meta.ProgressingReason && instance.GetReadyCondition() != meta.ReversingReason {
-			r.Log.WithValues("requeueTime", v1alpha1.GetInterval(instance).String())
-			r.Log.V(1).Info("workflow has succeeded")
-			return ctrl.Result{RequeueAfter: v1alpha1.GetInterval(instance)}, nil
-		}
-		r.Log.WithValues("requeueTime", v1alpha1.DefaultProgressingRequeue.String())
-		r.Log.V(1).Info("workflow is still progressing")
-		return ctrl.Result{RequeueAfter: v1alpha1.DefaultProgressingRequeue}, nil
-	}
-	return ctrl.Result{}, nil
+	return nil
 }
 
 func (r *ApplicationGroupReconciler) Failed(ctx context.Context, instance *v1alpha1.ApplicationGroup, patch client.Patch, err error) (ctrl.Result, error) {
@@ -58,11 +63,30 @@ func (r *ApplicationGroupReconciler) Failed(ctx context.Context, instance *v1alp
 		return ctrl.Result{}, err
 	}
 	r.Recorder.Event(instance, "Warning", "ReconcileError", fmt.Sprintf("Failed to reconcile ApplicationGroup %v with Error : %v", instance.Name, err))
+	return ctrl.Result{}, fmt.Errorf("failed to install the workflow with: %v", err)
+}
+
+func (r *ApplicationGroupReconciler) Succeeded(ctx context.Context, instance *v1alpha1.ApplicationGroup, patch client.Patch) (ctrl.Result, error) {
+	// Set the status conditions into a succeeding state
+	instance.ReadySucceeded()
+	instance.DeploySucceeded()
+	if err := r.Status().Patch(ctx, instance, patch); err != nil {
+		r.Log.V(1).Error(err, "failed to patch the application group status conditions")
+		return ctrl.Result{}, err
+	}
+
+	// Set the last successful annotation for rollback scenarios
+	instance.SetLastSuccessful()
+	if err := r.Patch(ctx, instance, patch); err != nil {
+		r.Log.V(1).Error(err, "failed to patch the application group annotations")
+		return ctrl.Result{}, err
+	}
+	r.Recorder.Event(instance, "Normal", "ReconcileSuccess", fmt.Sprintf("Successfully reconciled ApplicationGroup %s", instance.Name))
 	return ctrl.Result{}, nil
 }
 
 func (r *ApplicationGroupReconciler) Remediate(ctx context.Context, instance *v1alpha1.ApplicationGroup, patch client.Patch, err error) (ctrl.Result, error) {
-	if _, err := r.Failed(ctx, instance, patch, err); err != nil {
+	if _, err := r.Failed(ctx, instance, patch, fmt.Errorf("workflow in error state, starting to remediate")); err != nil {
 		return ctrl.Result{}, err
 	}
 	if !r.DisableRemediation {
@@ -131,7 +155,7 @@ func (r *ApplicationGroupReconciler) marshallChartStatus(ctx context.Context, ap
 	return chartConditionMap, subChartConditionMap, nil
 }
 
-func (r *ApplicationGroupReconciler) getWorkflowStatus(ctx context.Context, instance *v1alpha1.ApplicationGroup) error {
+func (r *ApplicationGroupReconciler) getWorkflowStatus(ctx context.Context, instance *v1alpha1.ApplicationGroup) (v1alpha12.NodePhase, error) {
 	wfs := v1alpha12.WorkflowList{}
 	listOption := client.MatchingLabels{
 		workflow.OwnershipLabel: instance.Name,
@@ -140,21 +164,14 @@ func (r *ApplicationGroupReconciler) getWorkflowStatus(ctx context.Context, inst
 	err := r.List(ctx, &wfs, listOption)
 	if err != nil {
 		r.Log.Error(err, "failed to find generated workflow instance")
-		return err
+		return "", err
 	}
 	if wfs.Items.Len() == 0 {
 		err = fmt.Errorf("no associated workflow found")
 		r.Log.Error(err, "no associated workflow found")
-		return err
+		return "", err
 	}
-	wfStatus := wfs.Items[0].Status.Phase
-	switch wfStatus {
-	case v1alpha12.NodeError, v1alpha12.NodeFailed:
-		instance.ReadyFailed(string(wfStatus))
-	case v1alpha12.NodeSucceeded:
-		instance.ReadySucceeded()
-	}
-	return nil
+	return wfs.Items[0].Status.Phase, nil
 }
 
 func getAppStatus(appGroup *v1alpha1.ApplicationGroup, chartConditionMap map[string][]metav1.Condition,

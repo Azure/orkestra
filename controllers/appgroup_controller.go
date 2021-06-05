@@ -6,7 +6,6 @@ package controllers
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/Azure/Orkestra/pkg/utils"
 
@@ -67,8 +66,6 @@ type ApplicationGroupReconciler struct {
 // +kubebuilder:rbac:groups=orkestra.azure.microsoft.com,resources=applicationgroups/status,verbs=get;update;patch
 
 func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	var requeue bool
-	var err error
 	appGroup := &v1alpha1.ApplicationGroup{}
 
 	logr := r.Log.WithValues(v1alpha1.AppGroupNameKey, req.NamespacedName.Name)
@@ -108,17 +105,20 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	if appGroup.Generation != appGroup.Status.ObservedGeneration {
 		// Change the app group spec into a progressing state
-		requeue, err = r.reconcileCreateOrUpdate(ctx, appGroup, patch)
-		if err != nil {
+		if err := r.reconcileCreateOrUpdate(ctx, appGroup, patch); err != nil {
 			return r.Failed(ctx, appGroup, patch, err)
 		}
 	}
-	if appGroup.GetReadyCondition() == meta.FailedReason {
-		err = fmt.Errorf("workflow in failure/error condition")
-		logr.Error(err, "workflow in failure/error condition")
-		return r.Remediate(ctx, appGroup, patch, err)
+	// While ready is progressing, we get the state of the workflow
+	switch appGroup.GetReadyCondition() {
+	case meta.ProgressingReason:
+		r.UpdateStatus(ctx, appGroup, patch)
+		return r.UpdateStatusWithWorkflow(ctx, appGroup, patch)
 	}
-	return r.UpdateStatus(ctx, appGroup, patch, requeue)
+
+	// If we are not progressing, update the status and requeue
+	r.UpdateStatus(ctx, appGroup, patch)
+	return ctrl.Result{RequeueAfter: v1alpha1.GetInterval(appGroup)}, nil
 }
 
 func (r *ApplicationGroupReconciler) SetupWithManager(mgr ctrl.Manager) error {

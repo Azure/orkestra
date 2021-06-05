@@ -35,10 +35,10 @@ data:
 	dummyConfigmapYAMLName = "templates/dummy-configmap.yaml"
 )
 
-func (r *ApplicationGroupReconciler) reconcileCreateOrUpdate(ctx context.Context, instance *v1alpha1.ApplicationGroup, patch client.Patch) (requeue bool, err error) {
+func (r *ApplicationGroupReconciler) reconcileCreateOrUpdate(ctx context.Context, instance *v1alpha1.ApplicationGroup, patch client.Patch) error {
 	instance.Progressing()
 	if err := r.Status().Patch(ctx, instance, patch); err != nil {
-		return false, err
+		return err
 	}
 
 	r.Log = r.Log.WithValues(v1alpha1.AppGroupNameKey, instance.Name)
@@ -47,22 +47,21 @@ func (r *ApplicationGroupReconciler) reconcileCreateOrUpdate(ctx context.Context
 	if len(instance.Spec.Applications) == 0 {
 		r.Log.Error(ErrInvalidSpec, "ApplicationGroup must list atleast one Application")
 		err := fmt.Errorf("application group must list atleast one Application : %w", ErrInvalidSpec)
-		return false, err
+		return err
 	}
 
 	if err := r.reconcileApplications(r.Log, instance); err != nil {
 		r.Log.Error(err, "failed to reconcile the applications")
 		err = fmt.Errorf("failed to reconcile the applications : %w", err)
-		return false, err
+		return err
 	}
 	// Generate the Workflow object to submit to Argo
-	requeue, err = r.generateWorkflow(ctx, r.Log, instance)
-	if err != nil {
+	if err := r.generateWorkflow(ctx, r.Log, instance); err != nil {
 		r.Log.Error(err, "failed to reconcile ApplicationGroup instance")
-		return false, err
+		return err
 	}
 	instance.Status.ObservedGeneration = instance.Generation
-	return requeue, nil
+	return nil
 }
 
 func (r *ApplicationGroupReconciler) reconcileRollback(ctx context.Context, instance *v1alpha1.ApplicationGroup, patch client.Patch) error {
