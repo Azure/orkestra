@@ -30,8 +30,9 @@ var _ = Describe("ApplicationGroup Controller", func() {
 		)
 
 		const (
-			DefaultNamespace = "orkestra"
-			DefaultTimeout   = time.Minute * 5
+			DefaultNamespace      = "orkestra"
+			DefaultTimeout        = time.Minute * 5
+			TotalHelmReleaseCount = 6
 		)
 
 		BeforeEach(func() {
@@ -93,7 +94,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 			By("checking that the all the HelmReleases have come up and are in a ready state")
 			err = k8sClient.List(ctx, helmReleaseList)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(helmReleaseList.Items)).To(Equal(oldHelmReleaseCount + 6))
+			Expect(len(helmReleaseList.Items)).To(Equal(oldHelmReleaseCount + TotalHelmReleaseCount))
 			allReady := true
 			for _, release := range helmReleaseList.Items {
 				if condition := meta.GetResourceCondition(&release, meta.ReadyCondition); condition.Reason == meta.SucceededReason {
@@ -368,6 +369,87 @@ var _ = Describe("ApplicationGroup Controller", func() {
 					meta.GetResourceCondition(ambassadorHelmRelease, meta.ReadyCondition).Reason == meta2.ReconciliationSucceededReason &&
 					applicationGroup.GetReadyCondition() == meta.SucceededReason
 			}, DefaultTimeout, time.Second).Should(BeTrue())
+		})
+
+		It("should create the bookinfo spec and then delete it while in progress", func() {
+			applicationGroup := defaultAppGroup(name)
+			applicationGroup.Name = name
+			applicationGroup.Namespace = DefaultNamespace
+			key := client.ObjectKeyFromObject(applicationGroup)
+
+			By("Applying the bookinfo object to the cluster")
+			err := k8sClient.Create(ctx, applicationGroup)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Defer the cleanup so that we delete the appGroup after creation
+			defer func() {
+				By("Deleting the bookinfo object from the cluster")
+				patch := client.MergeFrom(applicationGroup.DeepCopy())
+				controllerutil.RemoveFinalizer(applicationGroup, v1alpha1.AppGroupFinalizer)
+				_ = k8sClient.Patch(ctx, applicationGroup, patch)
+				_ = k8sClient.Delete(ctx, applicationGroup)
+			}()
+
+			helmReleaseList := &fluxhelmv2beta1.HelmReleaseList{}
+			err = k8sClient.List(ctx, helmReleaseList)
+			Expect(err).ToNot(HaveOccurred())
+			oldHelmReleaseCount := len(helmReleaseList.Items)
+
+			By("Making sure that the workflow goes into a running state")
+			Eventually(func() bool {
+				workflow := &v1alpha12.Workflow{}
+				workflowKey := types.NamespacedName{Name: applicationGroup.Name, Namespace: applicationGroup.Namespace}
+				_ = k8sClient.Get(ctx, workflowKey, workflow)
+				return workflow.Status.Phase == v1alpha12.NodeRunning
+			}, time.Minute, time.Second).Should(BeTrue())
+
+			By("Waiting for the bookinfo object to reach a progressing reason")
+			Eventually(func() bool {
+				applicationGroup = &v1alpha1.ApplicationGroup{}
+				if err := k8sClient.Get(ctx, key, applicationGroup); err != nil {
+					return false
+				}
+				return applicationGroup.GetReadyCondition() == meta.ProgressingReason
+			}, time.Minute, time.Second).Should(BeTrue())
+
+			By("Waiting for at least half of the HelmReleases have come up and are in a ready state")
+			Eventually(func() bool {
+				if err := k8sClient.List(ctx, helmReleaseList); err != nil {
+					return false
+				}
+				if len(helmReleaseList.Items) >= (oldHelmReleaseCount + 0.5*TotalHelmReleaseCount) {
+					allReady := true
+					for _, release := range helmReleaseList.Items {
+						if condition := meta.GetResourceCondition(&release, meta.ReadyCondition); condition.Reason == meta.SucceededReason {
+							allReady = false
+						}
+					}
+					return allReady
+				}
+				return false
+			}, DefaultTimeout, time.Second).Should(BeTrue())
+
+			// Wait for all the HelmReleases to delete
+			err = k8sClient.Delete(ctx, applicationGroup)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Making sure that the workflow goes into a suspended state")
+			Eventually(func() bool {
+				workflow := &v1alpha12.Workflow{}
+				workflowKey := types.NamespacedName{Name: name, Namespace: DefaultNamespace}
+				_ = k8sClient.Get(ctx, workflowKey, workflow)
+				return workflow.Spec.Suspend != nil && *workflow.Spec.Suspend
+			}, time.Minute, time.Second).Should(BeTrue())
+
+			By("waiting for the Workflow to delete all the HelmReleases")
+			Eventually(func() bool {
+				helmReleases := &fluxhelmv2beta1.HelmReleaseList{}
+				if err := k8sClient.List(ctx, helmReleases); err != nil {
+					return false
+				}
+				return len(helmReleases.Items) == 0
+			}, DefaultTimeout, time.Second).Should(BeTrue())
+
 		})
 	})
 })
