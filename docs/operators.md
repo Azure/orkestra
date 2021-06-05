@@ -370,7 +370,7 @@ helm-controller:
   # Default values for helm-controller.
   # This is a YAML-formatted file.
   # Declare variables to be passed into your templates.
-  concurrent: 10
+  concurrent: 5
 
   replicaCount: 1
 
