@@ -206,6 +206,8 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 			appCh.Templates = append(appCh.Templates, dummy)
 		}
 
+		appCh.Metadata.Name = pkg.ConvertToDNS1123(appCh.Metadata.Name)
+
 		if err := appCh.Validate(); err != nil {
 			ll.Error(err, "failed to validate application chart for staging registry")
 			err = fmt.Errorf("failed to validate application chart for staging registry : %w", err)

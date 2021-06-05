@@ -496,7 +496,15 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 					},
 				},
 			},
-			Dependencies: utils.ConvertSliceToDNS1123(sc.Dependencies),
+			Dependencies: func() (out []string) {
+				out = utils.convertSliceToDNS1123(sc.Dependencies)
+				// If parent chart must be deployed first then add it
+				// as a dependency for every subchart
+				if app.Order == v1alpha1.First {
+					out = append(out, utils.ConvertToDNS1123(app.Name))
+				}
+				return out
+			}(),
 		}
 
 		tasks = append(tasks, task)
@@ -571,12 +579,14 @@ func (a *argo) generateSubchartAndAppDAGTasks(ctx context.Context, g *v1alpha1.A
 			},
 		},
 		Dependencies: func() (out []string) {
+			if app.Order == v1alpha1.Last {
 			for _, t := range tasks {
 				out = append(out, utils.ConvertToDNS1123(t.Name))
 			}
-			return out
+			return
 		}(),
 	}
+
 	tasks = append(tasks, task)
 
 	return tasks, nil
