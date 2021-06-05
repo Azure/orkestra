@@ -191,6 +191,11 @@ type ApplicationGroupStatus struct {
 	// +optional
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
+	// LastSucceededGeneration captures the last generation
+	// that has successfully completed a full workflow rollout of the application group
+	// +optional
+	LastSucceededGeneration int64 `json:"lastSucceededGeneration,omitempty"`
+
 	// Conditions holds the conditions of the ApplicationGroup
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
@@ -245,7 +250,7 @@ func (in *ApplicationGroup) RollingBack() {
 // Reversing sets the meta.ReadyCondition to 'False', with the given
 // meta.Reversing reason and message
 func (in *ApplicationGroup) Reversing() {
-	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionFalse, meta.ReversingReason, "workflow reversing because of helmreleases during install...")
+	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionFalse, meta.ReversingReason, "application group is reversing...")
 }
 
 // ReadySucceeded sets the meta.ReadyCondition to 'True', with the given

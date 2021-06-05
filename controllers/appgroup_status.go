@@ -18,7 +18,6 @@ func (r *ApplicationGroupReconciler) UpdateStatusWithWorkflow(ctx context.Contex
 	if err != nil {
 		return r.Failed(ctx, instance, patch, err)
 	}
-
 	requeueTime := v1alpha1.DefaultProgressingRequeue
 
 	switch workflowStatus {
@@ -36,7 +35,10 @@ func (r *ApplicationGroupReconciler) UpdateStatusWithWorkflow(ctx context.Contex
 		instance.DeploySucceeded()
 		r.Log.V(1).Info("workflow is still progressing")
 	}
-	r.UpdateStatus(ctx, instance, patch)
+
+	if err := r.UpdateStatus(ctx, instance, patch); err != nil {
+		return r.Failed(ctx, instance, patch, fmt.Errorf("failed to patch the status while updating the workflow status with err: %v", err))
+	}
 
 	return ctrl.Result{RequeueAfter: requeueTime}, nil
 }
@@ -70,6 +72,7 @@ func (r *ApplicationGroupReconciler) Succeeded(ctx context.Context, instance *v1
 	// Set the status conditions into a succeeding state
 	instance.ReadySucceeded()
 	instance.DeploySucceeded()
+	instance.Status.LastSucceededGeneration = instance.Generation
 	if err := r.Status().Patch(ctx, instance, patch); err != nil {
 		r.Log.V(1).Error(err, "failed to patch the application group status conditions")
 		return ctrl.Result{}, err

@@ -6,6 +6,7 @@ package controllers
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/Azure/Orkestra/pkg/utils"
 
@@ -79,6 +80,8 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
+	// TODO: We should not be passing the patch around; instead, we should be deferring the patch operation
+	// at the end of the reconcile loop. This needs to be validated though
 	patch := client.MergeFrom(appGroup.DeepCopy())
 
 	if !appGroup.DeletionTimestamp.IsZero() {
@@ -103,21 +106,26 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{Requeue: true}, nil
 	}
 
+	// If we have not yet seen this generation, we should reconcile and create the workflow
 	if appGroup.Generation != appGroup.Status.ObservedGeneration {
 		// Change the app group spec into a progressing state
 		if err := r.reconcileCreateOrUpdate(ctx, appGroup, patch); err != nil {
 			return r.Failed(ctx, appGroup, patch, err)
 		}
 	}
+
 	// While ready is progressing, we get the state of the workflow
-	switch appGroup.GetReadyCondition() {
-	case meta.ProgressingReason:
-		r.UpdateStatus(ctx, appGroup, patch)
+	if appGroup.Generation != appGroup.Status.LastSucceededGeneration {
+		if err := r.UpdateStatus(ctx, appGroup, patch); err != nil {
+			return r.Failed(ctx, appGroup, patch, fmt.Errorf("failed to update the status of the progressing application group with err: %v", err))
+		}
 		return r.UpdateStatusWithWorkflow(ctx, appGroup, patch)
 	}
 
 	// If we are not progressing, update the status and requeue
-	r.UpdateStatus(ctx, appGroup, patch)
+	if err := r.UpdateStatus(ctx, appGroup, patch); err != nil {
+		return r.Failed(ctx, appGroup, patch, fmt.Errorf("failed to update the status of the application group with err: %v", err))
+	}
 	return ctrl.Result{RequeueAfter: v1alpha1.GetInterval(appGroup)}, nil
 }
 
