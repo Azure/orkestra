@@ -373,7 +373,6 @@ var _ = Describe("ApplicationGroup Controller", func() {
 
 		It("should create the bookinfo spec and then delete it while in progress", func() {
 			applicationGroup := defaultAppGroup(name)
-			applicationGroup.Name = name
 			applicationGroup.Namespace = DefaultNamespace
 			key := client.ObjectKeyFromObject(applicationGroup)
 
@@ -390,15 +389,10 @@ var _ = Describe("ApplicationGroup Controller", func() {
 				_ = k8sClient.Delete(ctx, applicationGroup)
 			}()
 
-			helmReleaseList := &fluxhelmv2beta1.HelmReleaseList{}
-			err = k8sClient.List(ctx, helmReleaseList)
-			Expect(err).ToNot(HaveOccurred())
-			oldHelmReleaseCount := len(helmReleaseList.Items)
-
 			By("Making sure that the workflow goes into a running state")
 			Eventually(func() bool {
 				workflow := &v1alpha12.Workflow{}
-				workflowKey := types.NamespacedName{Name: applicationGroup.Name, Namespace: applicationGroup.Namespace}
+				workflowKey := types.NamespacedName{Name: applicationGroup.Name, Namespace: DefaultNamespace}
 				_ = k8sClient.Get(ctx, workflowKey, workflow)
 				return workflow.Status.Phase == v1alpha12.NodeRunning
 			}, time.Minute, time.Second).Should(BeTrue())
@@ -412,22 +406,14 @@ var _ = Describe("ApplicationGroup Controller", func() {
 				return applicationGroup.GetReadyCondition() == meta.ProgressingReason
 			}, time.Minute, time.Second).Should(BeTrue())
 
-			By("Waiting for at least half of the HelmReleases have come up and are in a ready state")
+			By("Waiting for the ambassador helm release to be ready")
 			Eventually(func() bool {
-				if err := k8sClient.List(ctx, helmReleaseList); err != nil {
+				helmRelease := &fluxhelmv2beta1.HelmRelease{}
+				if err := k8sClient.Get(ctx, types.NamespacedName{Name: ambassador, Namespace: name}, helmRelease); err != nil {
 					return false
 				}
-				if len(helmReleaseList.Items) >= (oldHelmReleaseCount + 0.5*TotalHelmReleaseCount) {
-					allReady := true
-					for _, release := range helmReleaseList.Items {
-						if condition := meta.GetResourceCondition(&release, meta.ReadyCondition); condition.Reason == meta.SucceededReason {
-							allReady = false
-						}
-					}
-					return allReady
-				}
-				return false
-			}, DefaultTimeout, time.Second).Should(BeTrue())
+				return meta.GetResourceCondition(helmRelease, meta.ReadyCondition).Reason == meta2.ReconciliationSucceededReason
+			}, time.Minute*2, time.Second).Should(BeTrue())
 
 			// Wait for all the HelmReleases to delete
 			err = k8sClient.Delete(ctx, applicationGroup)
@@ -436,7 +422,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 			By("Making sure that the workflow goes into a suspended state")
 			Eventually(func() bool {
 				workflow := &v1alpha12.Workflow{}
-				workflowKey := types.NamespacedName{Name: name, Namespace: DefaultNamespace}
+				workflowKey := types.NamespacedName{Name: applicationGroup.Name, Namespace: DefaultNamespace}
 				_ = k8sClient.Get(ctx, workflowKey, workflow)
 				return workflow.Spec.Suspend != nil && *workflow.Spec.Suspend
 			}, time.Minute, time.Second).Should(BeTrue())
@@ -444,12 +430,20 @@ var _ = Describe("ApplicationGroup Controller", func() {
 			By("waiting for the Workflow to delete all the HelmReleases")
 			Eventually(func() bool {
 				helmReleases := &fluxhelmv2beta1.HelmReleaseList{}
-				if err := k8sClient.List(ctx, helmReleases); err != nil {
+				if err := k8sClient.List(ctx, helmReleases, client.InNamespace(name)); err != nil {
 					return false
 				}
 				return len(helmReleases.Items) == 0
-			}, DefaultTimeout, time.Second).Should(BeTrue())
+			}, time.Minute*3, time.Second).Should(BeTrue())
 
+			By("waiting for all the Workflows to be cleaned up from the cluster")
+			Eventually(func() bool {
+				workflowList := &v1alpha12.WorkflowList{}
+				if err := k8sClient.List(ctx, workflowList, client.InNamespace(name)); err != nil {
+					return false
+				}
+				return len(workflowList.Items) == 0
+			}, time.Minute, time.Second).Should(BeTrue())
 		})
 	})
 })
