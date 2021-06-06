@@ -256,6 +256,7 @@ func (in *ApplicationGroup) Reversing() {
 // ReadySucceeded sets the meta.ReadyCondition to 'True', with the given
 // meta.Succeeded reason and message
 func (in *ApplicationGroup) ReadySucceeded() {
+	in.Status.LastSucceededGeneration = in.Generation
 	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionTrue, meta.SucceededReason, "workflow and reconciliation succeeded")
 }
 
