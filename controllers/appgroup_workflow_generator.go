@@ -14,6 +14,14 @@ import (
 	"github.com/go-logr/logr"
 )
 
+
+type ForwardEngine struct {}
+
+type ReverseEngine struct {}
+
+ForwardEngine
+
+
 func (r *ApplicationGroupReconciler) generateWorkflow(ctx context.Context, logr logr.Logger, g *v1alpha1.ApplicationGroup) error {
 	err := r.Engine.Generate(ctx, logr, g)
 	if err != nil {
