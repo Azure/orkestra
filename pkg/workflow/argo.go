@@ -621,13 +621,13 @@ func generateSubchartHelmRelease(a v1alpha1.Application, appName, scName, versio
 			APIVersion: fluxhelmv2beta1.GroupVersion.String(),
 		},
 		ObjectMeta: v1.ObjectMeta{
-			Name:      utils.ConvertToDNS1123(utils.ToInitials(appName) + "-" + scName),
+			Name:      utils.ConvertToDNS1123(utils.GetHash(appName) + "-" + scName),
 			Namespace: targetNS,
 		},
 		Spec: fluxhelmv2beta1.HelmReleaseSpec{
 			Chart: fluxhelmv2beta1.HelmChartTemplate{
 				Spec: fluxhelmv2beta1.HelmChartTemplateSpec{
-					Chart:   utils.ConvertToDNS1123(utils.ToInitials(appName) + "-" + scName),
+					Chart:   utils.ConvertToDNS1123(utils.GetHash(appName) + "-" + scName),
 					Version: version,
 					SourceRef: fluxhelmv2beta1.CrossNamespaceObjectReference{
 						Kind:      fluxsourcev1beta1.HelmRepositoryKind,
