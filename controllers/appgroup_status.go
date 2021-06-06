@@ -22,7 +22,7 @@ func (r *ApplicationGroupReconciler) UpdateStatusWithWorkflow(ctx context.Contex
 
 	switch workflowStatus {
 	case v1alpha12.NodeError, v1alpha12.NodeFailed:
-		r.Log.V(1).Info("workflow failed with: %v", err)
+		r.Log.Error(err, "workflow node is in failed state")
 		return r.Remediate(ctx, instance, patch, err)
 	case v1alpha12.NodeSucceeded:
 		if _, err := r.Succeeded(ctx, instance, patch); err != nil {

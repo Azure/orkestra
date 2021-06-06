@@ -55,6 +55,12 @@ func (r *ApplicationGroupReconciler) cleanupWorkflow(ctx context.Context, logr l
 
 	if wfs.Items.Len() != 0 {
 		wf := wfs.Items[0]
+		// suspend the forward workflow if it is still running
+		err := r.suspendWorkflow(ctx, logr, &wf)
+		if err != nil {
+			logr.Error(err, "failed to suspend forward workflow")
+			return false
+		}
 		for _, node := range wf.Status.Nodes {
 			nodes[node.ID] = node
 		}
@@ -62,7 +68,7 @@ func (r *ApplicationGroupReconciler) cleanupWorkflow(ctx context.Context, logr l
 
 		rwfName := fmt.Sprintf("%s-reverse", wf.Name)
 		rwfNamespace := wf.Namespace
-		err := r.Client.Get(ctx, types.NamespacedName{Namespace: rwfNamespace, Name: rwfName}, rwf)
+		err = r.Client.Get(ctx, types.NamespacedName{Namespace: rwfNamespace, Name: rwfName}, rwf)
 		if err != nil {
 			if kerrors.IsNotFound(err) {
 				logr.Info("Reversing the workflow")
@@ -101,4 +107,22 @@ func (r *ApplicationGroupReconciler) cleanupWorkflow(ctx context.Context, logr l
 		}
 	}
 	return false
+}
+
+// suspend a workflow if it is not already finished or suspended
+func (r *ApplicationGroupReconciler) suspendWorkflow(ctx context.Context, logr logr.Logger, wf *v1alpha12.Workflow) error {
+	if !wf.Status.FinishedAt.IsZero() {
+		return nil
+	}
+	if wf.Spec.Suspend == nil || !*wf.Spec.Suspend {
+		wfPatch := client.MergeFrom(wf.DeepCopy())
+		suspend := true
+		wf.Spec.Suspend = &suspend
+		err := r.Client.Patch(ctx, wf, wfPatch)
+		if err != nil {
+			logr.Error(err, "failed to patch workflow")
+			return err
+		}
+	}
+	return nil
 }

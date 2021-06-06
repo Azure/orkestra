@@ -88,7 +88,7 @@ argo:
     createServiceAccount: false
 
 helm-controller:
-  concurrent: 20
+  concurrent: 5
   enabled: true
   serviceAccount:
     create: false
