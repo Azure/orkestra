@@ -5,6 +5,8 @@ import (
 	"errors"
 	"os"
 
+	"github.com/Azure/Orkestra/pkg/workflow"
+
 	"github.com/Azure/Orkestra/pkg/utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -56,7 +58,11 @@ func (r *ApplicationGroupReconciler) reconcileCreateOrUpdate(ctx context.Context
 		return err
 	}
 	// Generate the Workflow object to submit to Argo
-	if err := r.generateWorkflow(ctx, r.Log, instance); err != nil {
+	engine, err := r.EngineBuilder.Forward(instance).Build()
+	if err != nil {
+		return err
+	}
+	if err := workflow.Run(ctx, engine); err != nil {
 		r.Log.Error(err, "failed to reconcile ApplicationGroup instance")
 		return err
 	}

@@ -6,12 +6,13 @@ package main
 import (
 	"context"
 	"flag"
-	"github.com/Azure/Orkestra/pkg/utils"
 	"os"
 	"time"
 
-	"github.com/Azure/Orkestra/pkg/registry"
+	"github.com/Azure/Orkestra/pkg/utils"
 	"github.com/Azure/Orkestra/pkg/workflow"
+
+	"github.com/Azure/Orkestra/pkg/registry"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -154,13 +155,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	baseLogger := ctrl.Log.WithName("controllers").WithName("ApplicationGroup")
+
 	if err = (&controllers.ApplicationGroupReconciler{
 		Client:                  mgr.GetClient(),
-		Log:                     ctrl.Log.WithName("controllers").WithName("ApplicationGroup"),
+		Log:                     baseLogger,
 		Scheme:                  mgr.GetScheme(),
 		RegistryClient:          rc,
 		StagingRepoName:         "staging",
-		Engine:                  workflow.Argo(scheme, mgr.GetClient(), workflowHelmURL, workflowParallelism),
+		EngineBuilder:           workflow.NewEngineBuilder(mgr.GetClient(), baseLogger).WithStagingRepo(workflowHelmURL).WithParallelism(workflowParallelism),
 		TargetDir:               tempChartStoreTargetDir,
 		Recorder:                mgr.GetEventRecorderFor("appgroup-controller"),
 		DisableRemediation:      disableRemediation,

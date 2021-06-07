@@ -39,13 +39,13 @@ type ApplicationGroupReconciler struct {
 	Log    logr.Logger
 	Scheme *runtime.Scheme
 
-	Engine workflow.Engine
-
 	// RegistryClient interacts with the helm registries to pull and push charts
 	RegistryClient *registry.Client
 
 	// StagingRepoName is the nickname for the repository used for staging artifacts before being deployed using the HelmRelease object
 	StagingRepoName string
+
+	EngineBuilder *workflow.EngineBuilder
 
 	// TargetDir to stage the charts before pushing
 	TargetDir string
@@ -130,10 +130,9 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 }
 
 func (r *ApplicationGroupReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	pred := predicate.GenerationChangedPredicate{}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.ApplicationGroup{}).
-		WithEventFilter(pred).
+		WithEventFilter(predicate.GenerationChangedPredicate{}).
 		Complete(r)
 }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+
 	"github.com/Azure/Orkestra/pkg/utils"
 	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
 	fluxhelmv2beta1 "github.com/fluxcd/helm-controller/api/v2beta1"
@@ -13,9 +14,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func (engine ReverseEngine) Generate(ctx context.Context, l logr.Logger) error {
+func (engine ReverseEngine) GetLogger() logr.Logger {
+	return engine.Logger
+}
+
+func (engine ReverseEngine) Generate(ctx context.Context) error {
 	if engine.forwardWorkflow == nil {
-		l.Error(nil, "forward workflow object cannot be nil")
+		engine.Error(nil, "forward workflow object cannot be nil")
 		return fmt.Errorf("forward workflow object cannot be nil")
 	}
 
@@ -25,9 +30,9 @@ func (engine ReverseEngine) Generate(ctx context.Context, l logr.Logger) error {
 	engine.reverseWorkflow.Name = fmt.Sprintf("%s-reverse", engine.forwardWorkflow.Name)
 	engine.reverseWorkflow.Namespace = workflowNamespace()
 
-	entry, err := generateWorkflow(ctx, l, engine.nodes, engine.forwardWorkflow)
+	entry, err := generateWorkflow(ctx, engine, engine.nodes, engine.forwardWorkflow)
 	if err != nil {
-		l.Error(err, "failed to generate reverse workflow")
+		engine.Error(err, "failed to generate reverse workflow")
 		return fmt.Errorf("failed to generate argo reverse workflow : %w", err)
 	}
 
@@ -37,14 +42,14 @@ func (engine ReverseEngine) Generate(ctx context.Context, l logr.Logger) error {
 	return nil
 }
 
-func (engine ReverseEngine) Submit(ctx context.Context, l logr.Logger, wf *v1alpha12.Workflow) error {
+func (engine ReverseEngine) Submit(ctx context.Context) error {
 	if engine.reverseWorkflow == nil {
-		l.Error(nil, "reverse workflow object cannot be nil")
+		engine.Error(nil, "reverse workflow object cannot be nil")
 		return fmt.Errorf("reverse workflow object cannot be nil")
 	}
 
-	if wf == nil {
-		l.Error(nil, "forward workflow object cannot be nil")
+	if engine.forwardWorkflow == nil {
+		engine.Error(nil, "forward workflow object cannot be nil")
 		return fmt.Errorf("forward workflow object cannot be nil")
 	}
 
@@ -54,9 +59,9 @@ func (engine ReverseEngine) Submit(ctx context.Context, l logr.Logger, wf *v1alp
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Add OwnershipReference
-			err = controllerutil.SetControllerReference(wf, engine.reverseWorkflow, engine.Scheme())
+			err = controllerutil.SetControllerReference(engine.forwardWorkflow, engine.reverseWorkflow, engine.Scheme())
 			if err != nil {
-				l.Error(err, "unable to set forward workflow as owner of Argo reverse Workflow object")
+				engine.Error(err, "unable to set forward workflow as owner of Argo reverse Workflow object")
 				return fmt.Errorf("unable to set forward workflow as owner of Argo reverse Workflow: %w", err)
 			}
 
@@ -64,11 +69,11 @@ func (engine ReverseEngine) Submit(ctx context.Context, l logr.Logger, wf *v1alp
 			// create a new object and submit it to the cluster
 			err = engine.Create(ctx, engine.reverseWorkflow)
 			if err != nil {
-				l.Error(err, "failed to CREATE argo workflow object")
+				engine.Error(err, "failed to CREATE argo workflow object")
 				return fmt.Errorf("failed to CREATE argo workflow object : %w", err)
 			}
 		} else {
-			l.Error(err, "failed to GET workflow object with an unrecoverable error")
+			engine.Error(err, "failed to GET workflow object with an unrecoverable error")
 			return fmt.Errorf("failed to GET workflow object with an unrecoverable error : %w", err)
 		}
 	}

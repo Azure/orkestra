@@ -14,44 +14,6 @@ import (
 	"github.com/go-logr/logr"
 )
 
-
-type ForwardEngine struct {}
-
-type ReverseEngine struct {}
-
-ForwardEngine
-
-
-func (r *ApplicationGroupReconciler) generateWorkflow(ctx context.Context, logr logr.Logger, g *v1alpha1.ApplicationGroup) error {
-	err := r.Engine.Generate(ctx, logr, g)
-	if err != nil {
-		logr.Error(err, "engine failed to generate workflow")
-		return fmt.Errorf("failed to generate workflow : %w", err)
-	}
-
-	err = r.Engine.Submit(ctx, logr, g)
-	if err != nil {
-		logr.Error(err, "engine failed to submit workflow")
-		return err
-	}
-	return nil
-}
-
-func (r *ApplicationGroupReconciler) generateReverseWorkflow(ctx context.Context, logr logr.Logger, nodes map[string]v1alpha12.NodeStatus, wf *v1alpha12.Workflow) (err error) {
-	err = r.Engine.GenerateReverse(ctx, logr, nodes, wf)
-	if err != nil {
-		logr.Error(err, "engine failed to generate reverse workflow")
-		return fmt.Errorf("failed to generate reverse workflow : %w", err)
-	}
-
-	err = r.Engine.SubmitReverse(ctx, logr, wf)
-	if err != nil {
-		logr.Error(err, "engine failed to submit reverse workflow")
-		return err
-	}
-	return nil
-}
-
 func (r *ApplicationGroupReconciler) cleanupWorkflow(ctx context.Context, logr logr.Logger, g *v1alpha1.ApplicationGroup) bool {
 	nodes := make(map[string]v1alpha12.NodeStatus)
 	wfs := v1alpha12.WorkflowList{}
@@ -81,8 +43,8 @@ func (r *ApplicationGroupReconciler) cleanupWorkflow(ctx context.Context, logr l
 			if kerrors.IsNotFound(err) {
 				logr.Info("Reversing the workflow")
 
-				err = r.generateReverseWorkflow(ctx, logr, nodes, &wf)
-				if err != nil {
+				engine, _ := r.EngineBuilder.Reverse(&wf, nodes).Build()
+				if err := workflow.Run(ctx, engine); err != nil {
 					logr.Error(err, "failed to generate reverse workflow")
 					// if generation of reverse workflow failed, delete the forward workflow and return
 					err = r.Client.Delete(ctx, &wf)
