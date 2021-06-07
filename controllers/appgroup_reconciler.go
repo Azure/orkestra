@@ -5,7 +5,12 @@ import (
 	"errors"
 	"os"
 
+	"github.com/Azure/Orkestra/pkg/meta"
 	"github.com/Azure/Orkestra/pkg/workflow"
+
+	fluxhelmv2beta1 "github.com/fluxcd/helm-controller/api/v2beta1"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/Azure/Orkestra/pkg/utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -58,10 +63,7 @@ func (r *ApplicationGroupReconciler) reconcileCreateOrUpdate(ctx context.Context
 		return err
 	}
 	// Generate the Workflow object to submit to Argo
-	engine, err := r.EngineBuilder.Forward(instance).Build()
-	if err != nil {
-		return err
-	}
+	engine, _ := r.EngineBuilder.Forward(instance).Build()
 	if err := workflow.Run(ctx, engine); err != nil {
 		r.Log.Error(err, "failed to reconcile ApplicationGroup instance")
 		return err
@@ -70,30 +72,71 @@ func (r *ApplicationGroupReconciler) reconcileCreateOrUpdate(ctx context.Context
 	return nil
 }
 
-func (r *ApplicationGroupReconciler) reconcileRollback(ctx context.Context, instance *v1alpha1.ApplicationGroup, patch client.Patch) error {
-	if instance.GetLastSuccessful() == nil {
-		err := errors.New("failed to rollback ApplicationGroup instance due to missing last successful applicationgroup annotation")
-		r.Log.Error(err, "")
-		return err
+func (r *ApplicationGroupReconciler) reconcileRollback(ctx context.Context, instance *v1alpha1.ApplicationGroup, patch client.Patch, err error) (ctrl.Result, error) {
+	// Rollback to previous successful spec since the annotation was set and this is
+	// an UPDATE event
+	if lastSuccessfulSpec := instance.GetLastSuccessful(); lastSuccessfulSpec != nil {
+		// If this is a HelmRelease failure then we must remediate by cleaning up
+		// all the helm releases deployed by the workflow and helm operator
+		if errors.Is(err, ErrHelmReleaseInFailureStatus) {
+			// Delete the HelmRelease(s) - parent and subchart(s)
+			// Lookup charts using the label selector.
+			// Example: chart=kafka-dev,heritage=orkestra,owner=dev, where chart=<top-level-chart>
+			r.Log.Info("Remediating the applicationgroup with helmrelease failure status")
+			for _, app := range instance.Status.Applications {
+				switch meta.GetResourceCondition(&app.ChartStatus, meta.ReadyCondition).Reason {
+				case fluxhelmv2beta1.InstallFailedReason, fluxhelmv2beta1.UpgradeFailedReason, fluxhelmv2beta1.UninstallFailedReason,
+					fluxhelmv2beta1.ArtifactFailedReason, fluxhelmv2beta1.InitFailedReason, fluxhelmv2beta1.GetLastReleaseFailedReason:
+					listOption := client.MatchingLabels{
+						workflow.OwnershipLabel: instance.Name,
+						workflow.HeritageLabel:  workflow.Project,
+						workflow.ChartLabelKey:  app.Name,
+					}
+					helmReleases := fluxhelmv2beta1.HelmReleaseList{}
+					err = r.List(ctx, &helmReleases, listOption)
+					if err != nil {
+						r.Log.Error(err, "failed to find generated HelmRelease instances")
+						return reconcile.Result{}, nil
+					}
+
+					err = r.rollbackFailedHelmReleases(ctx, helmReleases.Items)
+					if err != nil {
+						r.Log.Error(err, "failed to rollback failed HelmRelease instances")
+						return reconcile.Result{}, nil
+					}
+				}
+			}
+		}
+		// mark the object as requiring rollback so that we can rollback
+		// to the previous versions of all the applications in the ApplicationGroup
+		// using the last successful spec
+		r.Log.Info("Rolling back to last successful application group spec")
+		instance.Spec = *lastSuccessfulSpec
+		if err := r.Patch(ctx, instance, patch); err != nil {
+			r.Log.Error(err, "failed to update ApplicationGroup instance while rolling back")
+			return r.Failed(ctx, instance, patch, err)
+		}
+		instance.RollingBack()
+		if err := r.Status().Patch(ctx, instance, patch); err != nil {
+			return r.Failed(ctx, instance, patch, err)
+		}
+		r.Log.WithValues("requeueTime", v1alpha1.DefaultProgressingRequeue.String())
+		r.Log.V(1).Info("initiating rollback")
+		return reconcile.Result{RequeueAfter: v1alpha1.DefaultProgressingRequeue}, nil
 	}
-	r.Log.Info("Rolling back to last successful application group spec")
-	instance.Spec = *instance.GetLastSuccessful()
-	if err := r.Patch(ctx, instance, patch); err != nil {
-		r.Log.Error(err, "failed to update ApplicationGroup instance while rolling back")
-		return err
+	requeue := r.cleanupWorkflow(ctx, r.Log, instance)
+	if requeue {
+		r.Log.Info("reverse workflow is in progress")
+		return reconcile.Result{Requeue: true}, nil
 	}
-	instance.Progressing()
-	if err := r.Status().Patch(ctx, instance, patch); err != nil {
-		return err
-	}
-	return nil
+	return reconcile.Result{}, nil
 }
 
 func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGroup *v1alpha1.ApplicationGroup) error {
 	stagingDir := r.TargetDir + "/" + r.StagingRepoName
 
 	// Init the application status every time we re-reconcile the applications
-	InitAppStatus(appGroup)
+	initAppStatus(appGroup)
 
 	// Pull and conditionally stage application & dependency charts
 	for i, application := range appGroup.Spec.Applications {

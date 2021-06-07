@@ -12,7 +12,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	"github.com/Azure/Orkestra/pkg/meta"
+	"github.com/Azure/Orkestra/api/v1alpha1"
 	"github.com/Azure/Orkestra/pkg/registry"
 	"github.com/Azure/Orkestra/pkg/workflow"
 	fluxhelmv2beta1 "github.com/fluxcd/helm-controller/api/v2beta1"
@@ -23,9 +23,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	"github.com/Azure/Orkestra/api/v1alpha1"
 )
 
 var (
@@ -97,16 +94,9 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			return r.Failed(ctx, appGroup, patch, err)
 		}
 	}
-	// Rollback if the workflow fails and the app group is marked
-	// in a rolling back state
-	if appGroup.GetDeployCondition() == meta.RollingBackReason {
-		if err := r.reconcileRollback(ctx, appGroup, patch); err != nil {
-			return r.Failed(ctx, appGroup, patch, err)
-		}
-		return ctrl.Result{Requeue: true}, nil
-	}
 
 	// If we have not yet seen this generation, we should reconcile and create the workflow
+	// Only do this if we have successfully completed a rollback
 	if appGroup.Generation != appGroup.Status.ObservedGeneration {
 		// Change the app group spec into a progressing state
 		if err := r.reconcileCreateOrUpdate(ctx, appGroup, patch); err != nil {
@@ -134,59 +124,6 @@ func (r *ApplicationGroupReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&v1alpha1.ApplicationGroup{}).
 		WithEventFilter(predicate.GenerationChangedPredicate{}).
 		Complete(r)
-}
-
-func (r *ApplicationGroupReconciler) handleRemediation(ctx context.Context, logr logr.Logger, g *v1alpha1.ApplicationGroup,
-	patch client.Patch, err error) (ctrl.Result, error) {
-	// Rollback to previous successful spec since the annotation was set and this is
-	// an UPDATE event
-	if g.GetLastSuccessful() != nil {
-		// If this is a HelmRelease failure then we must remediate by cleaning up
-		// all the helm releases deployed by the workflow and helm operator
-		if errors.Is(err, ErrHelmReleaseInFailureStatus) {
-			// Delete the HelmRelease(s) - parent and subchart(s)
-			// Lookup charts using the label selector.
-			// Example: chart=kafka-dev,heritage=orkestra,owner=dev, where chart=<top-level-chart>
-			logr.Info("Remediating the applicationgroup with helmrelease failure status")
-			for _, app := range g.Status.Applications {
-				switch meta.GetResourceCondition(&app.ChartStatus, meta.ReadyCondition).Reason {
-				case fluxhelmv2beta1.InstallFailedReason, fluxhelmv2beta1.UpgradeFailedReason, fluxhelmv2beta1.UninstallFailedReason,
-					fluxhelmv2beta1.ArtifactFailedReason, fluxhelmv2beta1.InitFailedReason, fluxhelmv2beta1.GetLastReleaseFailedReason:
-					listOption := client.MatchingLabels{
-						workflow.OwnershipLabel: g.Name,
-						workflow.HeritageLabel:  workflow.Project,
-						workflow.ChartLabelKey:  app.Name,
-					}
-					helmReleases := fluxhelmv2beta1.HelmReleaseList{}
-					err = r.List(ctx, &helmReleases, listOption)
-					if err != nil {
-						logr.Error(err, "failed to find generated HelmRelease instances")
-						return reconcile.Result{}, nil
-					}
-
-					err = r.rollbackFailedHelmReleases(ctx, helmReleases.Items)
-					if err != nil {
-						logr.Error(err, "failed to rollback failed HelmRelease instances")
-						return reconcile.Result{}, nil
-					}
-				}
-			}
-		}
-		// mark the object as requiring rollback so that we can rollback
-		// to the previous versions of all the applications in the ApplicationGroup
-		// using the last successful spec
-		g.RollingBack()
-		_ = r.Status().Patch(ctx, g, patch)
-		logr.WithValues("requeueTime", v1alpha1.DefaultProgressingRequeue.String())
-		logr.V(1).Info("initiating rollback")
-		return reconcile.Result{RequeueAfter: v1alpha1.DefaultProgressingRequeue}, nil
-	}
-	requeue := r.cleanupWorkflow(ctx, logr, g)
-	if requeue {
-		logr.Info("reverse workflow is in progress")
-		return reconcile.Result{Requeue: true}, nil
-	}
-	return reconcile.Result{}, nil
 }
 
 func (r *ApplicationGroupReconciler) rollbackFailedHelmReleases(ctx context.Context, hrs []fluxhelmv2beta1.HelmRelease) error {

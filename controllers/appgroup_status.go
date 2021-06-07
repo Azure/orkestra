@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/Azure/Orkestra/api/v1alpha1"
+	"github.com/Azure/Orkestra/pkg/meta"
 	"github.com/Azure/Orkestra/pkg/workflow"
 	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
 	fluxhelmv2beta1 "github.com/fluxcd/helm-controller/api/v2beta1"
@@ -22,8 +23,8 @@ func (r *ApplicationGroupReconciler) UpdateStatusWithWorkflow(ctx context.Contex
 
 	switch workflowStatus {
 	case v1alpha12.NodeError, v1alpha12.NodeFailed:
-		r.Log.V(1).Info("workflow failed with: %v", err)
-		return r.Remediate(ctx, instance, patch, err)
+		r.Log.Info("workflow node is in failed state")
+		return r.Remediate(ctx, instance, patch)
 	case v1alpha12.NodeSucceeded:
 		if _, err := r.Succeeded(ctx, instance, patch); err != nil {
 			return ctrl.Result{}, err
@@ -31,11 +32,14 @@ func (r *ApplicationGroupReconciler) UpdateStatusWithWorkflow(ctx context.Contex
 		r.Log.V(1).Info("workflow has succeeded")
 		requeueTime = v1alpha1.GetInterval(instance) // update the requeue time if we succeeded
 	default:
-		instance.Progressing()
+		if instance.GetReadyCondition() == meta.RollingBackReason {
+			instance.RollingBack()
+		} else {
+			instance.Progressing()
+		}
 		instance.DeploySucceeded()
 		r.Log.V(1).Info("workflow is still progressing")
 	}
-
 	if err := r.UpdateStatus(ctx, instance, patch); err != nil {
 		return r.Failed(ctx, instance, patch, fmt.Errorf("failed to patch the status while updating the workflow status with err: %v", err))
 	}
@@ -72,7 +76,6 @@ func (r *ApplicationGroupReconciler) Succeeded(ctx context.Context, instance *v1
 	// Set the status conditions into a succeeding state
 	instance.ReadySucceeded()
 	instance.DeploySucceeded()
-	instance.Status.LastSucceededGeneration = instance.Generation
 	if err := r.Status().Patch(ctx, instance, patch); err != nil {
 		r.Log.V(1).Error(err, "failed to patch the application group status conditions")
 		return ctrl.Result{}, err
@@ -88,17 +91,20 @@ func (r *ApplicationGroupReconciler) Succeeded(ctx context.Context, instance *v1
 	return ctrl.Result{}, nil
 }
 
-func (r *ApplicationGroupReconciler) Remediate(ctx context.Context, instance *v1alpha1.ApplicationGroup, patch client.Patch, err error) (ctrl.Result, error) {
-	if _, err := r.Failed(ctx, instance, patch, fmt.Errorf("workflow in error state, starting to remediate")); err != nil {
+func (r *ApplicationGroupReconciler) Remediate(ctx context.Context, instance *v1alpha1.ApplicationGroup, patch client.Patch) (ctrl.Result, error) {
+	instance.ReadyFailed("workflow in failed state, starting rollback")
+	instance.DeployFailed("workflow in failed state, starting rollback")
+	if err := r.Status().Patch(ctx, instance, patch); err != nil {
+		r.Log.V(1).Error(err, "failed to patch the application group status")
 		return ctrl.Result{}, err
 	}
 	if !r.DisableRemediation {
-		return r.handleRemediation(ctx, r.Log, instance, patch, err)
+		return r.reconcileRollback(ctx, instance, patch, fmt.Errorf(""))
 	}
 	return ctrl.Result{}, nil
 }
 
-func InitAppStatus(appGroup *v1alpha1.ApplicationGroup) {
+func initAppStatus(appGroup *v1alpha1.ApplicationGroup) {
 	// Initialize the Status fields if not already setup
 	appGroup.Status.Applications = make([]v1alpha1.ApplicationStatus, 0, len(appGroup.Spec.Applications))
 	for _, app := range appGroup.Spec.Applications {

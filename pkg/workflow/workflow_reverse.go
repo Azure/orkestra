@@ -14,11 +14,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func (engine ReverseEngine) GetLogger() logr.Logger {
+func (engine *ReverseEngine) GetLogger() logr.Logger {
 	return engine.Logger
 }
 
-func (engine ReverseEngine) Generate(ctx context.Context) error {
+func (engine *ReverseEngine) Generate() error {
 	if engine.forwardWorkflow == nil {
 		engine.Error(nil, "forward workflow object cannot be nil")
 		return fmt.Errorf("forward workflow object cannot be nil")
@@ -30,19 +30,17 @@ func (engine ReverseEngine) Generate(ctx context.Context) error {
 	engine.reverseWorkflow.Name = fmt.Sprintf("%s-reverse", engine.forwardWorkflow.Name)
 	engine.reverseWorkflow.Namespace = workflowNamespace()
 
-	entry, err := generateWorkflow(ctx, engine, engine.nodes, engine.forwardWorkflow)
+	entry, err := generateWorkflow(engine, engine.nodes, engine.forwardWorkflow)
 	if err != nil {
 		engine.Error(err, "failed to generate reverse workflow")
 		return fmt.Errorf("failed to generate argo reverse workflow : %w", err)
 	}
 
-	updateWorkflowTemplates(engine.reverseWorkflow, *entry)
-	updateWorkflowTemplates(engine.reverseWorkflow, defaultExecutor(HelmReleaseReverseExecutorName, Delete))
-
+	updateWorkflowTemplates(engine.reverseWorkflow, *entry, defaultExecutor(HelmReleaseReverseExecutorName, Delete))
 	return nil
 }
 
-func (engine ReverseEngine) Submit(ctx context.Context) error {
+func (engine *ReverseEngine) Submit(ctx context.Context) error {
 	if engine.reverseWorkflow == nil {
 		engine.Error(nil, "reverse workflow object cannot be nil")
 		return fmt.Errorf("reverse workflow object cannot be nil")
@@ -81,7 +79,7 @@ func (engine ReverseEngine) Submit(ctx context.Context) error {
 	return nil
 }
 
-func generateWorkflow(ctx context.Context, l logr.Logger, nodes map[string]v1alpha12.NodeStatus, forward *v1alpha12.Workflow) (*v1alpha12.Template, error) {
+func generateWorkflow(l logr.Logger, nodes map[string]v1alpha12.NodeStatus, forward *v1alpha12.Workflow) (*v1alpha12.Template, error) {
 	graph, err := Build(forward.Name, nodes)
 	if err != nil {
 		l.Error(err, "failed to build the wf status DAG")

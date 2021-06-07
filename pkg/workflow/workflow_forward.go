@@ -18,11 +18,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func (engine ForwardEngine) GetLogger() logr.Logger {
+func (engine *ForwardEngine) GetLogger() logr.Logger {
 	return engine.Logger
 }
 
-func (engine ForwardEngine) Generate(ctx context.Context) error {
+func (engine *ForwardEngine) Generate() error {
 	if engine.appGroup == nil {
 		engine.Error(nil, "ApplicationGroup object cannot be nil")
 		return fmt.Errorf("applicationGroup object cannot be nil")
@@ -34,7 +34,7 @@ func (engine ForwardEngine) Generate(ctx context.Context) error {
 	engine.workflow.Name = engine.appGroup.Name
 	engine.workflow.Namespace = workflowNamespace()
 
-	entryTemplate, templates, err := engine.generateTemplates(ctx)
+	entryTemplate, templates, err := engine.generateTemplates()
 	if err != nil {
 		engine.Error(err, "failed to generate workflow")
 		return fmt.Errorf("failed to generate argo workflow : %w", err)
@@ -55,7 +55,7 @@ func (engine ForwardEngine) Generate(ctx context.Context) error {
 	return nil
 }
 
-func (engine ForwardEngine) Submit(ctx context.Context) error {
+func (engine *ForwardEngine) Submit(ctx context.Context) error {
 	if engine.workflow == nil {
 		engine.Error(nil, "workflow object cannot be nil")
 		return fmt.Errorf("workflow object cannot be nil")
@@ -126,7 +126,7 @@ func (engine ForwardEngine) Submit(ctx context.Context) error {
 	return nil
 }
 
-func (engine ForwardEngine) generateTemplates(ctx context.Context) (*v1alpha12.Template, []v1alpha12.Template, error) {
+func (engine *ForwardEngine) generateTemplates() (*v1alpha12.Template, []v1alpha12.Template, error) {
 	if engine.appGroup == nil {
 		return nil, nil, fmt.Errorf("applicationGroup cannot be nil")
 	}
@@ -148,7 +148,7 @@ func (engine ForwardEngine) generateTemplates(ctx context.Context) (*v1alpha12.T
 	return entryTemplate, templates, nil
 }
 
-func (engine ForwardEngine) generateAppDAGTemplates() ([]v1alpha12.Template, error) {
+func (engine *ForwardEngine) generateAppDAGTemplates() ([]v1alpha12.Template, error) {
 	ts := make([]v1alpha12.Template, 0)
 
 	for i, app := range engine.appGroup.Spec.Applications {
@@ -244,7 +244,7 @@ func (engine ForwardEngine) generateAppDAGTemplates() ([]v1alpha12.Template, err
 	return ts, nil
 }
 
-func (engine ForwardEngine) generateSubchartAndAppDAGTasks(app *v1alpha1.Application, subchartsStatus map[string]v1alpha1.ChartStatus) ([]v1alpha12.DAGTask, error) {
+func (engine *ForwardEngine) generateSubchartAndAppDAGTasks(app *v1alpha1.Application, subchartsStatus map[string]v1alpha1.ChartStatus) ([]v1alpha12.DAGTask, error) {
 	if engine.stagingRepo == "" {
 		return nil, fmt.Errorf("repo arg must be a valid non-empty string")
 	}
