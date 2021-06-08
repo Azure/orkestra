@@ -67,7 +67,7 @@ helm upgrade orkestra chart/orkestra -n orkestra --create-namespace --set image.
 If you have build and pushed an image to your local docker registery using the above example, then the follwing command will update the orkestra deployment with your own `registery/image:tag`.
 
 ```shell
-helm upgrade --install orkestra chart/orkestra -n orkestra --create-namespace --set image.repository=<localhost:5000/orkestra> --set image.tag=dev [--disable-remediation]
+helm upgrade --install orkestra chart/orkestra -n orkestra --create-namespace --set image.repository=localhost:5000/orkestra --set image.tag=dev [--disable-remediation]
 ```
 
 ---
