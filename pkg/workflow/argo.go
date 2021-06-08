@@ -615,8 +615,7 @@ func defaultExecutor(tplName string, action ExecutorAction) v1alpha12.Template {
 }
 
 func generateSubchartHelmRelease(a v1alpha1.Application, appName, scName, version, repo, targetNS string, isStaged bool) (*fluxhelmv2beta1.HelmRelease, error) {
-	hashAppName := utils.GetHash(appName)
-	chName := utils.ConvertToDNS1123(utils.JoinForDNS1123(hashAppName, scName))
+	chName := utils.GetSubchartName(appName, scName)
 	hr := &fluxhelmv2beta1.HelmRelease{
 		TypeMeta: v1.TypeMeta{
 			Kind:       fluxhelmv2beta1.HelmReleaseKind,

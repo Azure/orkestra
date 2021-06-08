@@ -35,17 +35,6 @@ func TruncateString(in string, num int) string {
 	return out
 }
 
-// JoinForDNS1123 concatenates two given strings separated by "-", with resulting
-// string <= 63 chars.
-//
-// Max len limit enforced by DNS1123 is 63 chars. The resulting string has
-// at least 10 chars from a, 1 sep char (i.e. "-"), and remaining from b.
-func JoinForDNS1123(a, b string) string {
-	b = TruncateString(b, 52)
-	a = TruncateString(a, 62-len(b))
-	return a + "-" + b
-}
-
 func ToStrPtr(in string) *string {
 	return &in
 }

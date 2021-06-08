@@ -147,8 +147,7 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 					}
 				}
 
-				hashAppChName := utils.GetHash(appCh.Metadata.Name)
-				scc.Metadata.Name = utils.ConvertToDNS1123(utils.JoinForDNS1123(hashAppChName, scc.Metadata.Name))
+				scc.Metadata.Name = utils.GetSubchartName(appCh.Metadata.Name, scc.Metadata.Name)
 				path, err := registry.SaveChartPackage(scc, stagingDir)
 				if err != nil {
 					ll.Error(err, "failed to save subchart package as tgz")
