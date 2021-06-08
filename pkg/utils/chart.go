@@ -3,7 +3,7 @@ package utils
 const (
 	DNS1123NameMaximumLength = 63
 
-	// subchartNameMaxLen is the maximum length of a chart/subchart name.
+	// subchartNameMaxLen is the maximum length of a subchart name.
 	//
 	// The max name length limit enforced by DNS1123 is 63 chars. We reserve 10 chars
 	// for concatenating application name hash.
