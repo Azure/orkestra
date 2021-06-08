@@ -615,19 +615,21 @@ func defaultExecutor(tplName string, action ExecutorAction) v1alpha12.Template {
 }
 
 func generateSubchartHelmRelease(a v1alpha1.Application, appName, scName, version, repo, targetNS string, isStaged bool) (*fluxhelmv2beta1.HelmRelease, error) {
+	hashAppName := utils.GetHash(appName)
+	chName := utils.ConvertToDNS1123(utils.JoinForDNS1123(hashAppName, scName))
 	hr := &fluxhelmv2beta1.HelmRelease{
 		TypeMeta: v1.TypeMeta{
 			Kind:       fluxhelmv2beta1.HelmReleaseKind,
 			APIVersion: fluxhelmv2beta1.GroupVersion.String(),
 		},
 		ObjectMeta: v1.ObjectMeta{
-			Name:      utils.ConvertToDNS1123(utils.GetHash(appName) + "-" + scName),
+			Name:      chName,
 			Namespace: targetNS,
 		},
 		Spec: fluxhelmv2beta1.HelmReleaseSpec{
 			Chart: fluxhelmv2beta1.HelmChartTemplate{
 				Spec: fluxhelmv2beta1.HelmChartTemplateSpec{
-					Chart:   utils.ConvertToDNS1123(utils.GetHash(appName) + "-" + scName),
+					Chart:   chName,
 					Version: version,
 					SourceRef: fluxhelmv2beta1.CrossNamespaceObjectReference{
 						Kind:      fluxsourcev1beta1.HelmRepositoryKind,
