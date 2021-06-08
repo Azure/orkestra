@@ -1,35 +1,32 @@
-package controllers
+package helpers
 
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 
-	"github.com/Azure/Orkestra/pkg/status"
-	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
-
-	"github.com/Azure/Orkestra/pkg/meta"
-	"github.com/Azure/Orkestra/pkg/workflow"
-	fluxhelmv2beta1 "github.com/fluxcd/helm-controller/api/v2beta1"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	"github.com/Azure/Orkestra/pkg/utils"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"fmt"
-
 	"github.com/Azure/Orkestra/api/v1alpha1"
+	"github.com/Azure/Orkestra/pkg/meta"
 	"github.com/Azure/Orkestra/pkg/registry"
+	"github.com/Azure/Orkestra/pkg/utils"
+	"github.com/Azure/Orkestra/pkg/workflow"
+	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
+	fluxhelmv2beta1 "github.com/fluxcd/helm-controller/api/v2beta1"
 	"github.com/go-logr/logr"
 	"github.com/jinzhu/copier"
 	"helm.sh/helm/v3/pkg/chart"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 var (
 	ErrInvalidSpec = fmt.Errorf("custom resource spec is invalid")
 	// ErrRequeue describes error while requeuing
-	ErrRequeue = fmt.Errorf("(transitory error) Requeue-ing resource to try again")
+	ErrRequeue                    = fmt.Errorf("(transitory error) Requeue-ing resource to try again")
+	ErrWorkflowInFailureStatus    = errors.New("workflow in failure status")
+	ErrHelmReleaseInFailureStatus = errors.New("helmrelease in failure status")
 
 	dummyConfigmapYAMLSpec = `apiVersion: v1
 kind: ConfigMap
@@ -156,7 +153,7 @@ func (helper *ReconcileHelper) reconcileApplications() error {
 	stagingDir := helper.RegistryOptions.TargetDir + "/" + helper.RegistryOptions.StagingRepoName
 
 	// Init the application status every time we re-reconcile the applications
-	status.InitAppStatus(helper.Instance)
+	InitAppStatus(helper.Instance)
 
 	// Pull and conditionally stage application & dependency charts
 	for i, application := range helper.Instance.Spec.Applications {

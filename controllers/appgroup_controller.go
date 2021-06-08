@@ -5,15 +5,15 @@ package controllers
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
+
+	"github.com/Azure/Orkestra/pkg/helpers"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/Azure/Orkestra/api/v1alpha1"
 	"github.com/Azure/Orkestra/pkg/registry"
-	"github.com/Azure/Orkestra/pkg/status"
 	"github.com/Azure/Orkestra/pkg/workflow"
 	"github.com/go-logr/logr"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -22,11 +22,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
-)
-
-var (
-	ErrWorkflowInFailureStatus    = errors.New("workflow in failure status")
-	ErrHelmReleaseInFailureStatus = errors.New("helmrelease in failure status")
 )
 
 // ApplicationGroupReconciler reconciles a ApplicationGroup object
@@ -76,19 +71,19 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 	patch := client.MergeFrom(appGroup.DeepCopy())
 
-	statusHelper := status.Helper{
+	statusHelper := helpers.StatusHelper{
 		Client:    r.Client,
 		Logger:    logr,
 		PatchFrom: patch,
 		Recorder:  r.Recorder,
 	}
-	reconcileHelper := ReconcileHelper{
+	reconcileHelper := helpers.ReconcileHelper{
 		Client:         r.Client,
 		Logger:         logr,
 		Instance:       appGroup,
 		Engine:         r.Engine,
 		RegistryClient: r.RegistryClient,
-		RegistryOptions: RegistryClientOptions{
+		RegistryOptions: helpers.RegistryClientOptions{
 			StagingRepoName:         r.StagingRepoName,
 			TargetDir:               r.TargetDir,
 			CleanupDownloadedCharts: r.CleanupDownloadedCharts,

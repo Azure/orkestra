@@ -1,31 +1,30 @@
-package status
+package helpers
 
 import (
 	"context"
 	"fmt"
+	"github.com/Azure/Orkestra/pkg/meta"
 	"time"
 
-	"github.com/go-logr/logr"
-	"k8s.io/client-go/tools/record"
-
 	"github.com/Azure/Orkestra/api/v1alpha1"
-	"github.com/Azure/Orkestra/pkg/meta"
 	"github.com/Azure/Orkestra/pkg/workflow"
 	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
 	fluxhelmv2beta1 "github.com/fluxcd/helm-controller/api/v2beta1"
+	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type Helper struct {
+type StatusHelper struct {
 	client.Client
 	logr.Logger
 	PatchFrom client.Patch
 	Recorder  record.EventRecorder
 }
 
-func (helper *Helper) UpdateStatusWithWorkflow(ctx context.Context, instance *v1alpha1.ApplicationGroup) (shouldRemediate bool, requeueTime time.Duration, err error) {
+func (helper *StatusHelper) UpdateStatusWithWorkflow(ctx context.Context, instance *v1alpha1.ApplicationGroup) (shouldRemediate bool, requeueTime time.Duration, err error) {
 	workflowStatus, err := helper.getWorkflowStatus(ctx, instance.Name)
 	if err != nil {
 		_, err = helper.Failed(ctx, instance, err)
@@ -55,7 +54,7 @@ func (helper *Helper) UpdateStatusWithWorkflow(ctx context.Context, instance *v1
 	return false, requeueTime, nil
 }
 
-func (helper *Helper) UpdateStatus(ctx context.Context, instance *v1alpha1.ApplicationGroup) error {
+func (helper *StatusHelper) UpdateStatus(ctx context.Context, instance *v1alpha1.ApplicationGroup) error {
 	chartConditionMap, subChartConditionMap, err := helper.marshallChartStatus(ctx, instance)
 	if err != nil {
 		return err
@@ -66,7 +65,7 @@ func (helper *Helper) UpdateStatus(ctx context.Context, instance *v1alpha1.Appli
 	return helper.patchStatus(ctx, instance)
 }
 
-func (helper *Helper) Failed(ctx context.Context, instance *v1alpha1.ApplicationGroup, err error) (ctrl.Result, error) {
+func (helper *StatusHelper) Failed(ctx context.Context, instance *v1alpha1.ApplicationGroup, err error) (ctrl.Result, error) {
 	helper.Recorder.Event(instance, "Warning", "ReconcileError", fmt.Sprintf("Failed to reconcile ApplicationGroup %v with Error : %v", instance.Name, err))
 	instance.ReadyFailed(err.Error())
 	instance.DeployFailed(err.Error())
@@ -74,7 +73,7 @@ func (helper *Helper) Failed(ctx context.Context, instance *v1alpha1.Application
 	return ctrl.Result{}, helper.patchStatus(ctx, instance)
 }
 
-func (helper *Helper) Succeeded(ctx context.Context, instance *v1alpha1.ApplicationGroup) (ctrl.Result, error) {
+func (helper *StatusHelper) Succeeded(ctx context.Context, instance *v1alpha1.ApplicationGroup) (ctrl.Result, error) {
 	// Set the status conditions into a succeeding state
 	instance.ReadySucceeded()
 	instance.DeploySucceeded()
@@ -92,7 +91,7 @@ func (helper *Helper) Succeeded(ctx context.Context, instance *v1alpha1.Applicat
 	return ctrl.Result{}, nil
 }
 
-func (helper *Helper) Remediating(ctx context.Context, instance *v1alpha1.ApplicationGroup) error {
+func (helper *StatusHelper) Remediating(ctx context.Context, instance *v1alpha1.ApplicationGroup) error {
 	instance.ReadyFailed("workflow in failed state, starting rollback...")
 	instance.DeployFailed("workflow in failed state, starting rollback...")
 
@@ -101,7 +100,7 @@ func (helper *Helper) Remediating(ctx context.Context, instance *v1alpha1.Applic
 
 // RollingBack sets the meta.ReadyCondition to 'True' and
 // meta.RollingBack reason and message
-func (helper *Helper) RollingBack(ctx context.Context, instance *v1alpha1.ApplicationGroup) error {
+func (helper *StatusHelper) RollingBack(ctx context.Context, instance *v1alpha1.ApplicationGroup) error {
 	meta.SetResourceCondition(instance, meta.ReadyCondition, metav1.ConditionTrue, meta.FailedReason, "workflow failed because of helmreleases during upgrade, rolling back...")
 	meta.SetResourceCondition(instance, meta.DeployCondition, metav1.ConditionTrue, meta.RollingBackReason, "rolling back because of failed helm releases...")
 
@@ -111,7 +110,7 @@ func (helper *Helper) RollingBack(ctx context.Context, instance *v1alpha1.Applic
 // Progressing resets the conditions of the ApplicationGroup to
 // metav1.Condition of type meta.ReadyCondition with status 'Unknown' and
 // meta.StartingReason reason and message.
-func (helper *Helper) Progressing(ctx context.Context, instance *v1alpha1.ApplicationGroup) error {
+func (helper *StatusHelper) Progressing(ctx context.Context, instance *v1alpha1.ApplicationGroup) error {
 	instance.Status.Conditions = []metav1.Condition{}
 	meta.SetResourceCondition(instance, meta.ReadyCondition, metav1.ConditionUnknown, meta.ProgressingReason, "workflow is reconciling...")
 	meta.SetResourceCondition(instance, meta.DeployCondition, metav1.ConditionUnknown, meta.ProgressingReason, "application group is reconciling...")
@@ -121,7 +120,7 @@ func (helper *Helper) Progressing(ctx context.Context, instance *v1alpha1.Applic
 
 // MarkReversing sets the meta.ReadyCondition to 'False', with the given
 // meta.Reversing reason and message
-func (helper *Helper) MarkReversing(ctx context.Context, instance *v1alpha1.ApplicationGroup) error {
+func (helper *StatusHelper) MarkReversing(ctx context.Context, instance *v1alpha1.ApplicationGroup) error {
 	meta.SetResourceCondition(instance, meta.ReadyCondition, metav1.ConditionFalse, meta.ReversingReason, "application group is reversing...")
 	return helper.patchStatus(ctx, instance)
 }
@@ -139,7 +138,7 @@ func InitAppStatus(appGroup *v1alpha1.ApplicationGroup) {
 	}
 }
 
-func (helper *Helper) getWorkflowStatus(ctx context.Context, appGroupName string) (v1alpha12.NodePhase, error) {
+func (helper *StatusHelper) getWorkflowStatus(ctx context.Context, appGroupName string) (v1alpha12.NodePhase, error) {
 	wfs := v1alpha12.WorkflowList{}
 	listOption := client.MatchingLabels{
 		workflow.OwnershipLabel: appGroupName,
@@ -161,7 +160,7 @@ func (helper *Helper) getWorkflowStatus(ctx context.Context, appGroupName string
 // marshallChartStatus lists all of the HelmRelease objects that were deployed and assigns
 // their status to the appropriate maps corresponding to their chart of subchart.
 // These statuses are used to update the application status above
-func (helper *Helper) marshallChartStatus(ctx context.Context, appGroup *v1alpha1.ApplicationGroup) (
+func (helper *StatusHelper) marshallChartStatus(ctx context.Context, appGroup *v1alpha1.ApplicationGroup) (
 	chartConditionMap map[string][]metav1.Condition,
 	subChartConditionMap map[string]map[string][]metav1.Condition,
 	err error) {
@@ -220,7 +219,7 @@ func getAppStatus(appGroup *v1alpha1.ApplicationGroup, chartConditionMap map[str
 	return v
 }
 
-func (helper *Helper) patchStatus(ctx context.Context, instance *v1alpha1.ApplicationGroup) error {
+func (helper *StatusHelper) patchStatus(ctx context.Context, instance *v1alpha1.ApplicationGroup) error {
 	if err := helper.Status().Patch(ctx, instance, helper.PatchFrom); err != nil {
 		helper.V(1).Error(err, "failed to patch the application group status")
 		return err
