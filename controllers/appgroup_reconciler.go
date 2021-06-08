@@ -5,6 +5,9 @@ import (
 	"errors"
 	"os"
 
+	"github.com/Azure/Orkestra/pkg/status"
+	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
+
 	"github.com/Azure/Orkestra/pkg/meta"
 	"github.com/Azure/Orkestra/pkg/workflow"
 	fluxhelmv2beta1 "github.com/fluxcd/helm-controller/api/v2beta1"
@@ -13,7 +16,6 @@ import (
 
 	"github.com/Azure/Orkestra/pkg/utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"fmt"
 
@@ -41,114 +43,134 @@ data:
 	dummyConfigmapYAMLName = "templates/dummy-configmap.yaml"
 )
 
-func (r *ApplicationGroupReconciler) reconcileCreateOrUpdate(ctx context.Context, instance *v1alpha1.ApplicationGroup, patch client.Patch) error {
-	instance.Progressing()
-	if err := r.Status().Patch(ctx, instance, patch); err != nil {
-		return err
-	}
+type ReconcileHelper struct {
+	client.Client
+	logr.Logger
+	Instance       *v1alpha1.ApplicationGroup
+	Engine         workflow.Engine
+	RegistryClient *registry.Client
 
-	r.Log = r.Log.WithValues(v1alpha1.AppGroupNameKey, instance.Name)
-	r.Log.V(3).Info("Reconciling ApplicationGroup object")
+	RegistryOptions RegistryClientOptions
+}
 
-	if len(instance.Spec.Applications) == 0 {
-		r.Log.Error(ErrInvalidSpec, "ApplicationGroup must list atleast one Application")
+type RegistryClientOptions struct {
+	StagingRepoName         string
+	TargetDir               string
+	CleanupDownloadedCharts bool
+}
+
+func (helper *ReconcileHelper) CreateOrUpdate(ctx context.Context) error {
+	helper.Logger = helper.Logger.WithValues(v1alpha1.AppGroupNameKey, helper.Instance.Name)
+	helper.V(3).Info("Reconciling ApplicationGroup object")
+
+	if len(helper.Instance.Spec.Applications) == 0 {
+		helper.Error(ErrInvalidSpec, "ApplicationGroup must list atleast one Application")
 		err := fmt.Errorf("application group must list atleast one Application : %w", ErrInvalidSpec)
 		return err
 	}
 
-	if err := r.reconcileApplications(r.Log, instance); err != nil {
-		r.Log.Error(err, "failed to reconcile the applications")
+	if err := helper.reconcileApplications(); err != nil {
+		helper.Error(err, "failed to reconcile the applications")
 		err = fmt.Errorf("failed to reconcile the applications : %w", err)
 		return err
 	}
 	// Generate the Workflow object to submit to Argo
-	if err := r.generateWorkflow(ctx, r.Log, instance); err != nil {
-		r.Log.Error(err, "failed to reconcile ApplicationGroup instance")
+	if err := helper.generateWorkflow(ctx, helper.Logger, helper.Instance); err != nil {
+		helper.Error(err, "failed to reconcile ApplicationGroup instance")
 		return err
 	}
-	instance.Status.ObservedGeneration = instance.Generation
+	helper.Instance.Status.ObservedGeneration = helper.Instance.Generation
 	return nil
 }
 
-func (r *ApplicationGroupReconciler) reconcileRollback(ctx context.Context, instance *v1alpha1.ApplicationGroup, patch client.Patch, err error) (ctrl.Result, error) {
-	// Rollback to previous successful spec since the annotation was set and this is
-	// an UPDATE event
-	if lastSuccessfulSpec := instance.GetLastSuccessful(); lastSuccessfulSpec != nil {
-		// If this is a HelmRelease failure then we must remediate by cleaning up
-		// all the helm releases deployed by the workflow and helm operator
-		if errors.Is(err, ErrHelmReleaseInFailureStatus) {
-			// Delete the HelmRelease(s) - parent and subchart(s)
-			// Lookup charts using the label selector.
-			// Example: chart=kafka-dev,heritage=orkestra,owner=dev, where chart=<top-level-chart>
-			r.Log.Info("Remediating the applicationgroup with helmrelease failure status")
-			for _, app := range instance.Status.Applications {
-				switch meta.GetResourceCondition(&app.ChartStatus, meta.ReadyCondition).Reason {
-				case fluxhelmv2beta1.InstallFailedReason, fluxhelmv2beta1.UpgradeFailedReason, fluxhelmv2beta1.UninstallFailedReason,
-					fluxhelmv2beta1.ArtifactFailedReason, fluxhelmv2beta1.InitFailedReason, fluxhelmv2beta1.GetLastReleaseFailedReason:
-					listOption := client.MatchingLabels{
-						workflow.OwnershipLabel: instance.Name,
-						workflow.HeritageLabel:  workflow.Project,
-						workflow.ChartLabelKey:  app.Name,
-					}
-					helmReleases := fluxhelmv2beta1.HelmReleaseList{}
-					err = r.List(ctx, &helmReleases, listOption)
-					if err != nil {
-						r.Log.Error(err, "failed to find generated HelmRelease instances")
-						return reconcile.Result{}, nil
-					}
+func (helper *ReconcileHelper) Rollback(ctx context.Context, patch client.Patch, err error) (ctrl.Result, error) {
+	// If this is a HelmRelease failure then we must remediate by cleaning up
+	// all the helm releases deployed by the workflow and helm operator
+	if errors.Is(err, ErrHelmReleaseInFailureStatus) {
+		// Delete the HelmRelease(s) - parent and subchart(s)
+		// Lookup charts using the label selector.
+		// Example: chart=kafka-dev,heritage=orkestra,owner=dev, where chart=<top-level-chart>
+		helper.Info("Remediating the applicationgroup with helmrelease failure status")
+		for _, app := range helper.Instance.Status.Applications {
+			switch meta.GetResourceCondition(&app.ChartStatus, meta.ReadyCondition).Reason {
+			case fluxhelmv2beta1.InstallFailedReason, fluxhelmv2beta1.UpgradeFailedReason, fluxhelmv2beta1.UninstallFailedReason,
+				fluxhelmv2beta1.ArtifactFailedReason, fluxhelmv2beta1.InitFailedReason, fluxhelmv2beta1.GetLastReleaseFailedReason:
+				listOption := client.MatchingLabels{
+					workflow.OwnershipLabel: helper.Instance.Name,
+					workflow.HeritageLabel:  workflow.Project,
+					workflow.ChartLabelKey:  app.Name,
+				}
+				helmReleases := fluxhelmv2beta1.HelmReleaseList{}
+				err = helper.List(ctx, &helmReleases, listOption)
+				if err != nil {
+					helper.Error(err, "failed to find generated HelmRelease instances")
+					return reconcile.Result{}, nil
+				}
 
-					err = r.rollbackFailedHelmReleases(ctx, helmReleases.Items)
-					if err != nil {
-						r.Log.Error(err, "failed to rollback failed HelmRelease instances")
-						return reconcile.Result{}, nil
-					}
+				err = helper.rollbackFailedHelmReleases(ctx, helmReleases.Items)
+				if err != nil {
+					helper.Error(err, "failed to rollback failed HelmRelease instances")
+					return reconcile.Result{}, nil
 				}
 			}
 		}
-		// mark the object as requiring rollback so that we can rollback
-		// to the previous versions of all the applications in the ApplicationGroup
-		// using the last successful spec
-		r.Log.Info("Rolling back to last successful application group spec")
-		instance.Spec = *lastSuccessfulSpec
-		if err := r.Patch(ctx, instance, patch); err != nil {
-			r.Log.Error(err, "failed to update ApplicationGroup instance while rolling back")
-			return r.Failed(ctx, instance, patch, err)
-		}
-		instance.RollingBack()
-		if err := r.Status().Patch(ctx, instance, patch); err != nil {
-			return r.Failed(ctx, instance, patch, err)
-		}
-		r.Log.WithValues("requeueTime", v1alpha1.DefaultProgressingRequeue.String())
-		r.Log.V(1).Info("initiating rollback")
-		return reconcile.Result{RequeueAfter: v1alpha1.DefaultProgressingRequeue}, nil
 	}
-	requeue := r.cleanupWorkflow(ctx, r.Log, instance)
-	if requeue {
-		r.Log.Info("reverse workflow is in progress")
-		return reconcile.Result{Requeue: true}, nil
+	// mark the object as requiring rollback so that we can rollback
+	// to the previous versions of all the applications in the ApplicationGroup
+	// using the last successful spec
+	helper.Info("Rolling back to last successful application group spec")
+	helper.Instance.Spec = *helper.Instance.GetLastSuccessful()
+	if err := helper.Patch(ctx, helper.Instance, patch); err != nil {
+		helper.Error(err, "failed to update ApplicationGroup instance while rolling back")
+		return ctrl.Result{}, err
+	}
+	return reconcile.Result{RequeueAfter: v1alpha1.DefaultProgressingRequeue}, nil
+}
+
+func (helper *ReconcileHelper) Reverse(ctx context.Context) (ctrl.Result, error) {
+	if workflow := helper.GetWorkflow(ctx); workflow != nil {
+		helper.Info("cleaning up the workflow object")
+		if err := helper.cleanupWorkflow(ctx, helper.Logger, workflow); err != nil {
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{Requeue: true}, nil
 	}
 	return reconcile.Result{}, nil
 }
 
-func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGroup *v1alpha1.ApplicationGroup) error {
-	stagingDir := r.TargetDir + "/" + r.StagingRepoName
+func (helper *ReconcileHelper) GetWorkflow(ctx context.Context) *v1alpha12.Workflow {
+	wfs := v1alpha12.WorkflowList{}
+	listOption := client.MatchingLabels{
+		workflow.OwnershipLabel: helper.Instance.Name,
+		workflow.HeritageLabel:  workflow.Project,
+	}
+	_ = helper.List(ctx, &wfs, listOption)
+
+	if len(wfs.Items) != 0 {
+		return &wfs.Items[0]
+	}
+	return nil
+}
+
+func (helper *ReconcileHelper) reconcileApplications() error {
+	stagingDir := helper.RegistryOptions.TargetDir + "/" + helper.RegistryOptions.StagingRepoName
 
 	// Init the application status every time we re-reconcile the applications
-	initAppStatus(appGroup)
+	status.InitAppStatus(helper.Instance)
 
 	// Pull and conditionally stage application & dependency charts
-	for i, application := range appGroup.Spec.Applications {
-		ll := l.WithValues("application", application.Name)
+	for i, application := range helper.Instance.Spec.Applications {
+		ll := helper.WithValues("application", application.Name)
 		ll.V(3).Info("performing chart actions")
 
-		repoCfg, err := registry.GetHelmRepoConfig(&application, r.Client)
+		repoCfg, err := registry.GetHelmRepoConfig(&application, helper.Client)
 		if err != nil {
 			err = fmt.Errorf("failed to get repo configuration for repo at URL %s: %w", application.Spec.Chart.URL, err)
 			ll.Error(err, "failed to add helm repo ")
 			return err
 		}
 
-		err = r.RegistryClient.AddRepo(repoCfg)
+		err = helper.RegistryClient.AddRepo(repoCfg)
 		if err != nil {
 			err = fmt.Errorf("failed to add helm repo at URL %s: %w", application.Spec.Chart.URL, err)
 			ll.Error(err, "failed to add helm repo ")
@@ -159,9 +181,9 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 		version := application.Spec.Chart.Version
 		repoKey := application.Name
 
-		fpath, appCh, err := r.RegistryClient.PullChart(ll, repoKey, name, version)
+		fpath, appCh, err := helper.RegistryClient.PullChart(ll, repoKey, name, version)
 		defer func() {
-			if r.CleanupDownloadedCharts {
+			if helper.RegistryOptions.CleanupDownloadedCharts {
 				os.Remove(fpath)
 			}
 		}()
@@ -179,17 +201,17 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 			}
 
 			// Remove all explicit subchart entries from tracking map
-			for _, d := range appGroup.Spec.Applications[i].Spec.Subcharts {
+			for _, d := range helper.Instance.Spec.Applications[i].Spec.Subcharts {
 				delete(embeddedSubcharts, d.Name)
 			}
 
 			// Use the remaining set of dependencies that are not explicitly declared and
 			// add them to the groups application spec's subcharts list
 			for name := range embeddedSubcharts {
-				appGroup.Spec.Applications[i].Spec.Subcharts = append(appGroup.Spec.Applications[i].Spec.Subcharts, v1alpha1.DAG{Name: name})
+				helper.Instance.Spec.Applications[i].Spec.Subcharts = append(helper.Instance.Spec.Applications[i].Spec.Subcharts, v1alpha1.DAG{Name: name})
 			}
 
-			stagingRepoName := r.StagingRepoName
+			stagingRepoName := helper.RegistryOptions.StagingRepoName
 			// Package and push all application subcharts staging registry
 			for _, sc := range appCh.Dependencies() {
 				chartStatus := v1alpha1.ChartStatus{
@@ -206,7 +228,7 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 					ll.Error(err, "failed to validate application subchart for staging registry")
 					err = fmt.Errorf("failed to validate application subchart for staging registry : %w", err)
 					chartStatus.Error = err.Error()
-					appGroup.Status.Applications[i].Subcharts[sc.Name()] = chartStatus
+					helper.Instance.Status.Applications[i].Subcharts[sc.Name()] = chartStatus
 					return err
 				}
 
@@ -226,22 +248,22 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 					ll.Error(err, "failed to save subchart package as tgz")
 					err = fmt.Errorf("failed to save subchart package as tgz at location %s : %w", path, err)
 					chartStatus.Error = err.Error()
-					appGroup.Status.Applications[i].Subcharts[sc.Name()] = chartStatus
+					helper.Instance.Status.Applications[i].Subcharts[sc.Name()] = chartStatus
 					return err
 				}
 
-				err = r.RegistryClient.PushChart(ll, stagingRepoName, path, scc)
+				err = helper.RegistryClient.PushChart(ll, stagingRepoName, path, scc)
 				if err != nil {
 					ll.Error(err, "failed to push application subchart to staging registry")
 					err = fmt.Errorf("failed to push application subchart to staging registry : %w", err)
 					chartStatus.Error = err.Error()
-					appGroup.Status.Applications[i].Subcharts[sc.Name()] = chartStatus
+					helper.Instance.Status.Applications[i].Subcharts[sc.Name()] = chartStatus
 					return err
 				}
 
 				chartStatus.Staged = true
 
-				appGroup.Status.Applications[i].Subcharts[sc.Name()] = chartStatus
+				helper.Instance.Status.Applications[i].Subcharts[sc.Name()] = chartStatus
 			}
 		}
 
@@ -263,7 +285,7 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 		if err != nil {
 			ll.Error(err, "chart templates directory yaml check failed")
 			err = fmt.Errorf("chart templates directory yaml check failed : %w", err)
-			appGroup.Status.Applications[i].ChartStatus.Error = err.Error()
+			helper.Instance.Status.Applications[i].ChartStatus.Error = err.Error()
 			return err
 		}
 
@@ -282,7 +304,7 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 		if err := appCh.Validate(); err != nil {
 			ll.Error(err, "failed to validate application chart for staging registry")
 			err = fmt.Errorf("failed to validate application chart for staging registry : %w", err)
-			appGroup.Status.Applications[i].ChartStatus.Error = err.Error()
+			helper.Instance.Status.Applications[i].ChartStatus.Error = err.Error()
 			return err
 		}
 
@@ -292,47 +314,38 @@ func (r *ApplicationGroupReconciler) reconcileApplications(l logr.Logger, appGro
 		if err != nil {
 			ll.Error(err, "failed to save modified app chart to filesystem")
 			err = fmt.Errorf("failed to save modified app chart to filesystem : %w", err)
-			appGroup.Status.Applications[i].ChartStatus.Error = err.Error()
+			helper.Instance.Status.Applications[i].ChartStatus.Error = err.Error()
 			return err
 		}
 
 		// Replace existing chart with modified chart
 		path := stagingDir + "/" + utils.ConvertToDNS1123(application.Spec.Chart.Name) + "-" + appCh.Metadata.Version + ".tgz"
-		err = r.RegistryClient.PushChart(ll, r.StagingRepoName, path, appCh)
+		err = helper.RegistryClient.PushChart(ll, helper.RegistryOptions.StagingRepoName, path, appCh)
 		defer func() {
-			if r.CleanupDownloadedCharts {
+			if helper.RegistryOptions.CleanupDownloadedCharts {
 				os.Remove(path)
 			}
 		}()
 		if err != nil {
 			ll.Error(err, "failed to push modified application chart to staging registry")
 			err = fmt.Errorf("failed to push modified application chart to staging registry : %w", err)
-			appGroup.Status.Applications[i].ChartStatus.Error = err.Error()
+			helper.Instance.Status.Applications[i].ChartStatus.Error = err.Error()
 			return err
 		}
 
-		appGroup.Status.Applications[i].ChartStatus.Staged = true
+		helper.Instance.Status.Applications[i].ChartStatus.Staged = true
 	}
 	return nil
 }
 
-func (r *ApplicationGroupReconciler) reconcileDelete(ctx context.Context, appGroup *v1alpha1.ApplicationGroup, patch client.Patch) error {
-	requeue := r.cleanupWorkflow(ctx, r.Log, appGroup)
-	if requeue {
-		// Change the app group spec into a reversing state
-		appGroup.Reversing()
-		if err := r.Status().Patch(ctx, appGroup, patch); err != nil {
+func (helper *ReconcileHelper) rollbackFailedHelmReleases(ctx context.Context, hrs []fluxhelmv2beta1.HelmRelease) error {
+	for _, hr := range hrs {
+		err := utils.HelmRollback(hr.Spec.ReleaseName, hr.Spec.TargetNamespace)
+		if err != nil {
 			return err
 		}
-		r.Log.Info("reverse workflow is in progress")
-	} else {
-		r.Log.Info("cleaning up the applicationgroup resource")
-
-		if _, ok := appGroup.Annotations[v1alpha1.LastSuccessfulAnnotation]; ok {
-			appGroup.Annotations[v1alpha1.LastSuccessfulAnnotation] = ""
-		}
-		controllerutil.RemoveFinalizer(appGroup, v1alpha1.AppGroupFinalizer)
-		if err := r.Patch(ctx, appGroup, patch); err != nil {
+		err = helper.Delete(ctx, &hr)
+		if err != nil {
 			return err
 		}
 	}
