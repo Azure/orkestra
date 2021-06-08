@@ -7,13 +7,24 @@ nav_order: 5
 
 ## Prerequisites
 
-**Kubernetes Cluster** ([KinD](https://kind.sigs.k8s.io/)/Minikube/AKS/GKE/EKS/others) v0.10.0 or higher
-**kubectl** - v1.18 or higher
-**helm** - v3.5.2 or higher
-**kubebuilder** - v2.3.1 or higher (Kubebuilder and controller-runtime binaries. Install using `make setup-kubebuilder` )
-**controller-gen** - v0.5.0 or higher (can be installed using `make controller-gen`). This is required to generate the ApplicationGroup CRDs.
+For getting started, you will need:
 
-> **NOTE**: `controller-gen` versions *<v0.5.0* will generate an incompatible CRD type
+- **Go installed** - see this [Getting Started](https://golang.org/doc/install) guide for Go.
+- **Docker installed** - see this [Getting Started](https://docs.docker.com/install/) guide for Docker.
+- **Kubernetes Cluster** *v0.10.0* or higher. Some options are:
+  - Locally hosted cluster, such as
+    - [Kind](https://kind.sigs.k8s.io/docs/user/quick-start/) (preferred; used by `Makefile` and this guide)
+    - [Minikube](https://minikube.sigs.k8s.io/docs/start/)
+  - Cloud-based, such as
+    - [AKS](https://azure.microsoft.com/en-us/services/kubernetes-service/)
+    - [GKE](https://cloud.google.com/kubernetes-engine)
+    - [EKS](https://aws.amazon.com/eks/)
+- `kubectl` *v1.18* or higher - see this [Getting started](https://kubernetes.io/docs/tasks/tools/) guide for `kubectl`.
+- `helm` *v3.5.2* or higher - see this [Getting started](https://helm.sh/docs/intro/install/) guide for `helm`.
+- `kubebuilder` *v2.3.1* or higher - Install using `make setup-kubebuilder`.
+- `controller-gen` *v0.5.0* or higher - Install using `make controller-gen`. This is required to generate the ApplicationGroup CRDS.
+  
+  > **NOTE**: `controller-gen` versions *< v0.5.0* will generate an incompatible CRD type.
 
 ## Build & Run
 
@@ -30,23 +41,33 @@ $ make manifests
 /Users/nitish_malhotra/bin/controller-gen "crd:trivialVersions=true" rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=chart/orkestra/crds
 ```
 
-- Build the docker image and push it to (your own) docker registry
+Build the docker image and push it to (your own) docker registry
 
 ```shell
 docker build . -t <your-registry>/orkestra:<your-tag>
 docker push <your-registry>/orkestra:<your-tag>
 ```
 
-- Update the orkestra deployment with your own `registry/image:tag`
+*Example*
+
+If you're using docker and want to build and push the image to your local docker registry, run the following command.
+
+```shell
+docker build . -t localhost:5000/orkestra:dev
+```
+
+Update the orkestra deployment with your own `registry/image:tag`
 
 ```shell
 helm upgrade orkestra chart/orkestra -n orkestra --create-namespace --set image.repository=<your-registry> --set image.tag=<your-tag> [--disable-remediation]
 ```
 
-### Example
+*Example*
+
+If you have build and pushed an image to your local docker registery using the above example, then the follwing command will update the orkestra deployment with your own `registery/image:tag`.
 
 ```shell
-helm upgrade orkestra chart/orkestra -n orkestra --create-namespace --set image.repository=<azureorkestra/orkestra> --set image.tag=my-tag [--disable-remediation]
+helm upgrade --install orkestra chart/orkestra -n orkestra --create-namespace --set image.repository=<localhost:5000/orkestra> --set image.tag=dev [--disable-remediation]
 ```
 
 ---
