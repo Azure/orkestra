@@ -1,14 +1,10 @@
 package utils
 
-const (
-	DNS1123NameMaximumLength = 63
-
-	// subchartNameMaxLen is the maximum length of a subchart name.
-	//
-	// The max name length limit enforced by DNS1123 is 63 chars. We reserve 10 chars
-	// for concatenating application name hash.
-	subchartNameMaxLen = 53
-)
+// subchartNameMaxLen is the maximum length of a subchart name.
+//
+// The max name length limit enforced by DNS1123 is 63 chars. We reserve 10 chars
+// for concatenating application name hash.
+const subchartNameMaxLen = 53
 
 func GetSubchartName(appName, scName string) string {
 	scName = TruncateString(scName, subchartNameMaxLen)
