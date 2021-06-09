@@ -19,15 +19,18 @@ const (
 )
 
 func ConvertToDNS1123(in string) string {
-	in = strings.ToLower(in)
+	name := strings.ToLower(in)
 
 	notAllowedChars := regexp.MustCompile(DNS1123NotAllowedChars)
-	in = notAllowedChars.ReplaceAllString(in, "-")
+	name = notAllowedChars.ReplaceAllString(name, "-")
 
 	notAllowedStartChars := regexp.MustCompile(DNS1123NotAllowedStartChars)
-	in = notAllowedStartChars.ReplaceAllString(in, "a")
+	name = notAllowedStartChars.ReplaceAllString(name, "")
 
-	return TruncateString(in, DNS1123NameMaximumLength)
+	if name == "" {
+		name = GetHash(in)
+	}
+	return TruncateString(name, DNS1123NameMaximumLength)
 }
 
 func ConvertSliceToDNS1123(in []string) []string {

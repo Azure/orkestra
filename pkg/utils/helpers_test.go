@@ -28,11 +28,18 @@ func TestConvertToDNS1123(t *testing.T) {
 			want: "tok3---ofthe-runner",
 		},
 		{
+			name: "testing all characters are invalid",
+			args: args{
+				in: "?.?&^%#$@_??",
+			},
+			want: GetHash("?.?&^%#$@_??")[0:63],
+		},
+		{
 			name: "testing invalid start chars",
 			args: args{
 				in: "----??tOk3_??ofTHE-Runner",
 			},
-			want: "atok3---ofthe-runner",
+			want: "tok3---ofthe-runner",
 		},
 		{
 			name: "testing very long name",
