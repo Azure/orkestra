@@ -1,9 +1,10 @@
 package workflow
 
 import (
+	"os"
+
 	"github.com/Azure/Orkestra/pkg/utils"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"os"
 )
 
 func getTimeout(t *v1.Duration) *string {
