@@ -14,18 +14,25 @@ endif
 
 all: manager
 
-update-types: generate manifests
+# Create a local docker registry and start kinD cluster
+start-kind-with-registry:
+	bash scripts/kind-with-registry.sh
+
+# Delete the local docker registry and the kinD cluster
+stop-kind-with-registry:
+	bash scripts/teardown-kind-with-registry.sh
 
 dev:
-	-kind create cluster --config .kind-cluster.yaml --name orkestra
+	docker build . -t localhost:5000/orkestra:dev
+	docker push localhost:5000/orkestra:dev
 	helm upgrade --install orkestra chart/orkestra --wait --atomic -n orkestra --create-namespace --values ${CI_VALUES}
-
-debug: dev
-	go run main.go --debug --log-level ${DEBUG_LEVEL}
+	helm upgrade orkestra chart/orkestra -n orkestra --create-namespace --set image.repository=localhost:5000/orkestra --set image.tag=dev
 
 clean:
 	helm delete orkestra -n orkestra 2>&1
-	kind delete cluster --name orkestra 2>&1
+
+debug: dev
+	go run main.go --debug --log-level ${DEBUG_LEVEL}
 
 # Build the docker image and push it to local docker registry
 local-build:
