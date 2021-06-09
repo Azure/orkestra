@@ -191,6 +191,11 @@ type ApplicationGroupStatus struct {
 	// +optional
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
+	// LastSucceededGeneration captures the last generation
+	// that has successfully completed a full workflow rollout of the application group
+	// +optional
+	LastSucceededGeneration int64 `json:"lastSucceededGeneration,omitempty"`
+
 	// Conditions holds the conditions of the ApplicationGroup
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
@@ -226,31 +231,10 @@ func (in *Application) SetValues(values map[string]interface{}) error {
 	return nil
 }
 
-// Progressing resets the conditions of the ApplicationGroup to
-// metav1.Condition of type meta.ReadyCondition with status 'Unknown' and
-// meta.StartingReason reason and message.
-func (in *ApplicationGroup) Progressing() {
-	in.Status.Conditions = []metav1.Condition{}
-	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionUnknown, meta.ProgressingReason, "workflow is reconciling...")
-	meta.SetResourceCondition(in, meta.DeployCondition, metav1.ConditionUnknown, meta.ProgressingReason, "application group is reconciling...")
-}
-
-// RollingBack sets the meta.ReadyCondition to 'True' and
-// meta.RollingBack reason and message
-func (in *ApplicationGroup) RollingBack() {
-	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionTrue, meta.FailedReason, "workflow failed because of helmreleases during upgrade, rolling back...")
-	meta.SetResourceCondition(in, meta.DeployCondition, metav1.ConditionTrue, meta.RollingBackReason, "rolling back because of failed helm releases...")
-}
-
-// Reversing sets the meta.ReadyCondition to 'False', with the given
-// meta.Reversing reason and message
-func (in *ApplicationGroup) Reversing() {
-	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionFalse, meta.ReversingReason, "workflow reversing because of helmreleases during install...")
-}
-
 // ReadySucceeded sets the meta.ReadyCondition to 'True', with the given
 // meta.Succeeded reason and message
 func (in *ApplicationGroup) ReadySucceeded() {
+	in.Status.LastSucceededGeneration = in.Generation
 	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionTrue, meta.SucceededReason, "workflow and reconciliation succeeded")
 }
 
