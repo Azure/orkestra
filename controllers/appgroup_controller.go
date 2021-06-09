@@ -8,14 +8,13 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/Azure/Orkestra/pkg/utils"
+	"github.com/Azure/Orkestra/pkg/helpers"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/Azure/Orkestra/api/v1alpha1"
 	"github.com/Azure/Orkestra/pkg/registry"
 	"github.com/Azure/Orkestra/pkg/workflow"
-	fluxhelmv2beta1 "github.com/fluxcd/helm-controller/api/v2beta1"
 	"github.com/go-logr/logr"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -76,22 +75,48 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		logr.Error(err, "unable to fetch ApplicationGroup instance")
 		return ctrl.Result{}, err
 	}
-
-	// TODO: We should not be passing the patch around; instead, we should be deferring the patch operation
-	// at the end of the reconcile loop. This needs to be validated though
 	patch := client.MergeFrom(appGroup.DeepCopy())
 
+	statusHelper := helpers.StatusHelper{
+		Client:    r.Client,
+		Logger:    logr,
+		PatchFrom: patch,
+		Recorder:  r.Recorder,
+	}
+	reconcileHelper := helpers.ReconcileHelper{
+		Client:         r.Client,
+		Logger:         logr,
+		Instance:       appGroup,
+		EngineBuilder:  r.EngineBuilder,
+		RegistryClient: r.RegistryClient,
+		RegistryOptions: helpers.RegistryClientOptions{
+			StagingRepoName:         r.StagingRepoName,
+			TargetDir:               r.TargetDir,
+			CleanupDownloadedCharts: r.CleanupDownloadedCharts,
+		},
+	}
+
 	if !appGroup.DeletionTimestamp.IsZero() {
-		if err := r.reconcileDelete(ctx, appGroup, patch); err != nil {
-			return r.Failed(ctx, appGroup, patch, err)
+		if err := statusHelper.MarkReversing(ctx, appGroup); err != nil {
+			logr.Error(err, "failed to mark the app group into a reversing state")
+			return statusHelper.Failed(ctx, appGroup, err)
 		}
-		return ctrl.Result{Requeue: true}, nil
+		result, err := reconcileHelper.Reverse(ctx)
+		if !result.Requeue && err != nil {
+			// Remove the finalizer because we have finished reversing
+			controllerutil.RemoveFinalizer(appGroup, v1alpha1.AppGroupFinalizer)
+			if err := r.Patch(ctx, appGroup, patch); err != nil {
+				return ctrl.Result{}, nil
+			}
+		}
+		return result, err
 	}
 	// Add finalizer if it doesn't already exist
 	if appGroup.Finalizers == nil {
 		controllerutil.AddFinalizer(appGroup, v1alpha1.AppGroupFinalizer)
 		if err := r.Patch(ctx, appGroup, patch); err != nil {
-			return r.Failed(ctx, appGroup, patch, err)
+			logr.Error(err, "failed to patch the release with the appgroup finalizer")
+			return statusHelper.Failed(ctx, appGroup, err)
 		}
 	}
 
@@ -99,24 +124,49 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// Only do this if we have successfully completed a rollback
 	if appGroup.Generation != appGroup.Status.ObservedGeneration {
 		// Change the app group spec into a progressing state
-		if err := r.reconcileCreateOrUpdate(ctx, appGroup, patch); err != nil {
-			return r.Failed(ctx, appGroup, patch, err)
+		if err := statusHelper.Progressing(ctx, appGroup); err != nil {
+			logr.Error(err, "failed to patch the status into a progressing state")
+			return statusHelper.Failed(ctx, appGroup, err)
+		}
+		if err := reconcileHelper.CreateOrUpdate(ctx); err != nil {
+			logr.Error(err, "failed to reconcile creating or updating the appgroup")
+			return statusHelper.Failed(ctx, appGroup, err)
 		}
 	}
+
+	// Update the status based on the current state of the helm charts
+	if err := statusHelper.UpdateStatus(ctx, appGroup); err != nil {
+		logr.Error(err, "failed to update the status of the app group")
+		return statusHelper.Failed(ctx, appGroup, fmt.Errorf("failed to update the status of the progressing application group with err: %v", err))
+	}
+
+	requeueDuration := v1alpha1.GetInterval(appGroup)
+	var shouldRemediate bool
+	var err error
 
 	// While ready is progressing, we get the state of the workflow
 	if appGroup.Generation != appGroup.Status.LastSucceededGeneration {
-		if err := r.UpdateStatus(ctx, appGroup, patch); err != nil {
-			return r.Failed(ctx, appGroup, patch, fmt.Errorf("failed to update the status of the progressing application group with err: %v", err))
+		shouldRemediate, requeueDuration, err = statusHelper.UpdateStatusWithWorkflow(ctx, appGroup)
+		if err != nil {
+			logr.Error(err, "failed to update the status based on the workflow status")
+			return statusHelper.Failed(ctx, appGroup, err)
 		}
-		return r.UpdateStatusWithWorkflow(ctx, appGroup, patch)
+		if !r.DisableRemediation && shouldRemediate {
+			if lastSuccessfulSpec := appGroup.GetLastSuccessful(); lastSuccessfulSpec != nil {
+				if err := statusHelper.RollingBack(ctx, appGroup); err != nil {
+					logr.Error(err, "failed to mark the app group status as rolling back")
+					return statusHelper.Failed(ctx, appGroup, err)
+				}
+				return reconcileHelper.Rollback(ctx, patch, fmt.Errorf(""))
+			}
+			if err := statusHelper.MarkReversing(ctx, appGroup); err != nil {
+				logr.Error(err, "failed to mark the app group status as reversing")
+				return statusHelper.Failed(ctx, appGroup, err)
+			}
+			return reconcileHelper.Reverse(ctx)
+		}
 	}
-
-	// If we are not progressing, update the status and requeue
-	if err := r.UpdateStatus(ctx, appGroup, patch); err != nil {
-		return r.Failed(ctx, appGroup, patch, fmt.Errorf("failed to update the status of the application group with err: %v", err))
-	}
-	return ctrl.Result{RequeueAfter: v1alpha1.GetInterval(appGroup)}, nil
+	return ctrl.Result{RequeueAfter: requeueDuration}, nil
 }
 
 func (r *ApplicationGroupReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -124,18 +174,4 @@ func (r *ApplicationGroupReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&v1alpha1.ApplicationGroup{}).
 		WithEventFilter(predicate.GenerationChangedPredicate{}).
 		Complete(r)
-}
-
-func (r *ApplicationGroupReconciler) rollbackFailedHelmReleases(ctx context.Context, hrs []fluxhelmv2beta1.HelmRelease) error {
-	for _, hr := range hrs {
-		err := utils.HelmRollback(hr.Spec.ReleaseName, hr.Spec.TargetNamespace)
-		if err != nil {
-			return err
-		}
-		err = r.Client.Delete(ctx, &hr)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }

@@ -371,19 +371,20 @@ func (engine *ForwardEngine) generateSubchartAndAppDAGTasks(app *v1alpha1.Applic
 }
 
 func generateSubchartHelmRelease(a v1alpha1.Application, subchartName, version string) (*fluxhelmv2beta1.HelmRelease, error) {
+	chName := utils.GetSubchartName(a.Spec.Chart.Name, subchartName)
 	hr := &fluxhelmv2beta1.HelmRelease{
 		TypeMeta: v1.TypeMeta{
 			Kind:       fluxhelmv2beta1.HelmReleaseKind,
 			APIVersion: fluxhelmv2beta1.GroupVersion.String(),
 		},
 		ObjectMeta: v1.ObjectMeta{
-			Name:      utils.ConvertToDNS1123(utils.ToInitials(a.Name) + "-" + subchartName),
+			Name:      chName,
 			Namespace: a.Spec.Release.TargetNamespace,
 		},
 		Spec: fluxhelmv2beta1.HelmReleaseSpec{
 			Chart: fluxhelmv2beta1.HelmChartTemplate{
 				Spec: fluxhelmv2beta1.HelmChartTemplateSpec{
-					Chart:   utils.ConvertToDNS1123(utils.ToInitials(a.Name) + "-" + subchartName),
+					Chart:   chName,
 					Version: version,
 					SourceRef: fluxhelmv2beta1.CrossNamespaceObjectReference{
 						Kind:      fluxsourcev1beta1.HelmRepositoryKind,
