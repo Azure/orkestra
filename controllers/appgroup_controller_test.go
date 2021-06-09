@@ -70,7 +70,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 			}()
 
 			helmReleaseList := &fluxhelmv2beta1.HelmReleaseList{}
-			err = k8sClient.List(ctx, helmReleaseList)
+			err = k8sClient.List(ctx, helmReleaseList, client.InNamespace(name))
 			Expect(err).ToNot(HaveOccurred())
 			oldHelmReleaseCount := len(helmReleaseList.Items)
 
@@ -92,7 +92,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 			}, DefaultTimeout, time.Second).Should(BeTrue())
 
 			By("checking that the all the HelmReleases have come up and are in a ready state")
-			err = k8sClient.List(ctx, helmReleaseList)
+			err = k8sClient.List(ctx, helmReleaseList, client.InNamespace(name))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(helmReleaseList.Items)).To(Equal(oldHelmReleaseCount + TotalHelmReleaseCount))
 			allReady := true
@@ -110,7 +110,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 			By("waiting for the Workflow to delete all the HelmReleases")
 			Eventually(func() bool {
 				helmReleases := &fluxhelmv2beta1.HelmReleaseList{}
-				if err := k8sClient.List(ctx, helmReleases); err != nil {
+				if err := k8sClient.List(ctx, helmReleases, client.InNamespace(name)); err != nil {
 					return false
 				}
 				return len(helmReleases.Items) == 0

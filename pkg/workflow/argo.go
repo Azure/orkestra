@@ -141,34 +141,24 @@ func (a *argo) Submit(ctx context.Context, l logr.Logger, g *v1alpha1.Applicatio
 	if err := a.cli.Create(ctx, a.wf); !errors.IsAlreadyExists(err) && err != nil {
 		l.Error(err, "failed to CREATE argo workflow object")
 		return fmt.Errorf("failed to CREATE argo workflow object : %w", err)
-	}
-
-	// If the workflow needs an update, delete the previous workflow and apply the new one
-	// Argo Workflow does not rerun the workflow on UPDATE, so intead we cleanup and reapply
-	if g.Status.Update {
+	} else if errors.IsAlreadyExists(err) {
+		// If the workflow needs an update, delete the previous workflow and apply the new one
+		// Argo Workflow does not rerun the workflow on UPDATE, so intead we cleanup and reapply
 		if err := a.cli.Delete(ctx, a.wf); err != nil {
 			l.Error(err, "failed to DELETE argo workflow object")
 			return fmt.Errorf("failed to DELETE argo workflow object : %w", err)
 		}
-		// If the argo Workflow object is Found on the cluster
-		// update the workflow and submit it to the cluster
-		// Add OwnershipReference
 		if err := controllerutil.SetControllerReference(g, a.wf, a.scheme); err != nil {
 			l.Error(err, "unable to set ApplicationGroup as owner of Argo Workflow object")
 			return fmt.Errorf("unable to set ApplicationGroup as owner of Argo Workflow: %w", err)
 		}
-
-		a.wf.Labels[OwnershipLabel] = g.Name
-
 		// If the argo Workflow object is NotFound and not AlreadyExists on the cluster
 		// create a new object and submit it to the cluster
 		if err := a.cli.Create(ctx, a.wf); err != nil {
 			l.Error(err, "failed to CREATE argo workflow object")
 			return fmt.Errorf("failed to CREATE argo workflow object : %w", err)
 		}
-		g.Status.Update = false
 	}
-
 	return nil
 }
 
@@ -615,19 +605,20 @@ func defaultExecutor(tplName string, action ExecutorAction) v1alpha12.Template {
 }
 
 func generateSubchartHelmRelease(a v1alpha1.Application, appName, scName, version, repo, targetNS string, isStaged bool) (*fluxhelmv2beta1.HelmRelease, error) {
+	chName := utils.GetSubchartName(appName, scName)
 	hr := &fluxhelmv2beta1.HelmRelease{
 		TypeMeta: v1.TypeMeta{
 			Kind:       fluxhelmv2beta1.HelmReleaseKind,
 			APIVersion: fluxhelmv2beta1.GroupVersion.String(),
 		},
 		ObjectMeta: v1.ObjectMeta{
-			Name:      utils.ConvertToDNS1123(utils.ToInitials(appName) + "-" + scName),
+			Name:      chName,
 			Namespace: targetNS,
 		},
 		Spec: fluxhelmv2beta1.HelmReleaseSpec{
 			Chart: fluxhelmv2beta1.HelmChartTemplate{
 				Spec: fluxhelmv2beta1.HelmChartTemplateSpec{
-					Chart:   utils.ConvertToDNS1123(utils.ToInitials(appName) + "-" + scName),
+					Chart:   chName,
 					Version: version,
 					SourceRef: fluxhelmv2beta1.CrossNamespaceObjectReference{
 						Kind:      fluxsourcev1beta1.HelmRepositoryKind,

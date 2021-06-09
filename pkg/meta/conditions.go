@@ -14,6 +14,7 @@ limitations under the License.
 package meta
 
 import (
+	fluxhelmv2beta1 "github.com/fluxcd/helm-controller/api/v2beta1"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -76,4 +77,13 @@ func SetResourceCondition(obj ObjectWithStatusConditions, condition string, stat
 func GetResourceCondition(obj ObjectWithStatusConditions, condition string) *metav1.Condition {
 	conditions := obj.GetStatusConditions()
 	return apimeta.FindStatusCondition(*conditions, condition)
+}
+
+func IsFailedHelmReason(reason string) bool {
+	switch reason {
+	case fluxhelmv2beta1.InstallFailedReason, fluxhelmv2beta1.UpgradeFailedReason, fluxhelmv2beta1.UninstallFailedReason,
+		fluxhelmv2beta1.ArtifactFailedReason, fluxhelmv2beta1.InitFailedReason, fluxhelmv2beta1.GetLastReleaseFailedReason:
+		return true
+	}
+	return false
 }
