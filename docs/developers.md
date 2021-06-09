@@ -27,29 +27,26 @@ $ make generate
 ```shell
 $ make manifests
 /usr/local/bin/controller-gen "crd:trivialVersions=true" rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
-```
-
-```shell
-$ cp config/crd/bases/orkestra.azure.microsoft.com_applicationgroups.yaml chart/orkestra/crds/orkestra.azure.microsoft.com_applicationgroups.yaml
+/Users/nitish_malhotra/bin/controller-gen "crd:trivialVersions=true" rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=chart/orkestra/crds
 ```
 
 - Build the docker image and push it to (your own) docker registry
 
 ```shell
-$ docker build . -t <your-registry>/orkestra:<your-tag>
-$ docker push <your-registry>/orkestra:<your-tag>
+docker build . -t <your-registry>/orkestra:<your-tag>
+docker push <your-registry>/orkestra:<your-tag>
 ```
 
 - Update the orkestra deployment with your own `registry/image:tag`
 
 ```shell
-$ helm upgrade orkestra chart/orkestra -n orkestra --create-namespace --set image.repository=<your-registry> --set image.tag=<your-tag> [--disable-remediation]
+helm upgrade orkestra chart/orkestra -n orkestra --create-namespace --set image.repository=<your-registry> --set image.tag=<your-tag> [--disable-remediation]
 ```
 
-*Example*
+### Example
 
 ```shell
-$ helm upgrade orkestra chart/orkestra -n orkestra --create-namespace --set image.repository=<azureorkestra/orkestra> --set image.tag=my-tag [--disable-remediation]
+helm upgrade orkestra chart/orkestra -n orkestra --create-namespace --set image.repository=<azureorkestra/orkestra> --set image.tag=my-tag [--disable-remediation]
 ```
 
 ---
@@ -58,10 +55,23 @@ $ helm upgrade orkestra chart/orkestra -n orkestra --create-namespace --set imag
 
 ### E2E Testing
 
-- Create a KinD cluster for E2E testing using the provided `.kind-cluster.yaml` as the config file which adds an `extraPortMapping` from Port `8080` on the host to Port `30950` on the cluster node. The chartmuseum `Service` is being exposed on the cluster node using `type: NodePort` on port`30950`.
+#### Cleanup any previous installation and KinD cluster
 
 ```shell
-$ kind create cluster --name orkestra --config .kind-cluster.yaml
+make clean
+
+helm delete orkestra -n orkestra 2>&1
+release "orkestra" uninstalled
+kind delete cluster --name orkestra 2>&1
+Deleting cluster "orkestra" ...
+```
+
+#### Start KinD cluster instance with a dev/debug installation of Orkestra helm chart
+
+```shell
+make dev
+
+kind create cluster --config .kind-cluster.yaml --name orkestra
 Creating cluster "orkestra" ...
  ✓ Ensuring node image (kindest/node:v1.20.2) 🖼
  ✓ Preparing nodes 📦
@@ -74,19 +84,15 @@ You can now use your cluster with:
 
 kubectl cluster-info --context kind-orkestra
 
-Not sure what to do next? 😅  Check out https://kind.sigs.k8s.io/docs/user/quick-start/
-```
-
-- Install Orkestra helm chart using E2E the CI specific `chart/orkestra/values-ci.yaml` overlay. 
-
-```shell
-$ helm install orkestra chart/orkestra --wait --atomic -n orkestra --create-namespace --values chart/orkestra/values-ci.yaml
+Have a question, bug, or feature request? Let us know! https://kind.sigs.k8s.io/#community 🙂
+helm upgrade --install orkestra chart/orkestra --wait --atomic -n orkestra --create-namespace --values "chart/orkestra/values-ci.yaml"
+Release "orkestra" does not exist. Installing it now.
 manifest_sorter.go:192: info: skipping unknown hook: "crd-install"
 manifest_sorter.go:192: info: skipping unknown hook: "crd-install"
 manifest_sorter.go:192: info: skipping unknown hook: "crd-install"
 manifest_sorter.go:192: info: skipping unknown hook: "crd-install"
 NAME: orkestra
-LAST DEPLOYED: Wed May  5 14:25:42 2021
+LAST DEPLOYED: Mon Jun  7 18:05:28 2021
 NAMESPACE: orkestra
 STATUS: deployed
 REVISION: 1
@@ -95,48 +101,88 @@ NOTES:
 Happy Helming with Azure/Orkestra
 ```
 
-- Verify orkestra-chartmuseum service reachability
+#### Run the E2E test suite
+
+Run the ginkgo based test suite
 
 ```shell
-$ curl http://127.0.0.1:8080/index.yaml
-apiVersion: v1
-entries: {}
-generated: "2021-05-05T21:26:26Z"
-serverInfo: {}
-```
+make test
 
-- Run the tests
-
-```shell
-$ make test
-go test -v ./... -coverprofile coverage.txt
-?       github.com/Azure/Orkestra       [no test files]
-?       github.com/Azure/Orkestra/api/v1alpha1  [no test files]
+go test -v ./... -coverprofile coverage.txt -timeout 25m
+?   	github.com/Azure/Orkestra	[no test files]
+?   	github.com/Azure/Orkestra/api/v1alpha1	[no test files]
 === RUN   TestAPIs
 Running Suite: Controller Suite
 ===============================
-Random Seed: 1620250177
-Will run 1 of 1 specs
+Random Seed: 1622919020
+Will run 7 of 7 specs
 
-• [SLOW TEST:10.026 seconds]
+• [SLOW TEST:195.349 seconds]
 ApplicationGroup Controller
-/Users/nitish_malhotra/github/azure/orkestra/controllers/appgroup_controller_test.go:11
-  Submit Bookinfo ApplicationGroup
-  /Users/nitish_malhotra/github/azure/orkestra/controllers/appgroup_controller_test.go:20
-    Should create successfully
-    /Users/nitish_malhotra/github/azure/orkestra/controllers/appgroup_controller_test.go:21
+/home/runner/work/orkestra/orkestra/controllers/appgroup_controller_test.go:23
+  ApplicationGroup
+  /home/runner/work/orkestra/orkestra/controllers/appgroup_controller_test.go:25
+    Should create Bookinfo spec successfully
+    /home/runner/work/orkestra/orkestra/controllers/appgroup_controller_test.go:53
+------------------------------
+•
+------------------------------
+• [SLOW TEST:92.649 seconds]
+ApplicationGroup Controller
+/home/runner/work/orkestra/orkestra/controllers/appgroup_controller_test.go:23
+  ApplicationGroup
+  /home/runner/work/orkestra/orkestra/controllers/appgroup_controller_test.go:25
+    should create the bookinfo spec and then update it
+    /home/runner/work/orkestra/orkestra/controllers/appgroup_controller_test.go:154
+------------------------------
+•
+------------------------------
+• [SLOW TEST:259.173 seconds]
+ApplicationGroup Controller
+/home/runner/work/orkestra/orkestra/controllers/appgroup_controller_test.go:23
+  ApplicationGroup
+  /home/runner/work/orkestra/orkestra/controllers/appgroup_controller_test.go:25
+    should succeed to upgrade the versions of helm releases to newer versions
+    /home/runner/work/orkestra/orkestra/controllers/appgroup_controller_test.go:244
+------------------------------
+• [SLOW TEST:381.190 seconds]
+ApplicationGroup Controller
+/home/runner/work/orkestra/orkestra/controllers/appgroup_controller_test.go:23
+  ApplicationGroup
+  /home/runner/work/orkestra/orkestra/controllers/appgroup_controller_test.go:25
+    should succeed to rollback helm chart versions on failure
+    /home/runner/work/orkestra/orkestra/controllers/appgroup_controller_test.go:303
+------------------------------
+• [SLOW TEST:49.508 seconds]
+ApplicationGroup Controller
+/home/runner/work/orkestra/orkestra/controllers/appgroup_controller_test.go:23
+  ApplicationGroup
+  /home/runner/work/orkestra/orkestra/controllers/appgroup_controller_test.go:25
+    should create the bookinfo spec and then delete it while in progress
+    /home/runner/work/orkestra/orkestra/controllers/appgroup_controller_test.go:374
 ------------------------------
 
 
-Ran 1 of 1 Specs in 13.364 seconds
-SUCCESS! -- 1 Passed | 0 Failed | 0 Pending | 0 Skipped
---- PASS: TestAPIs (13.36s)
+Ran 7 of 7 Specs in 985.786 seconds
+SUCCESS! -- 7 Passed | 0 Failed | 0 Pending | 0 Skipped
+You're using deprecated Ginkgo functionality:
+=============================================
+Ginkgo 2.0 is under active development and will introduce (a small number of) breaking changes.
+To learn more, view the migration guide at https://github.com/onsi/ginkgo/blob/v2/docs/MIGRATING_TO_V2.md
+To comment, chime in at https://github.com/onsi/ginkgo/issues/711
+
+  You are using a custom reporter.  Support for custom reporters will likely be removed in V2.  Most users were using them to generate junit or teamcity reports and this functionality will be merged into the core reporter.  In addition, Ginkgo 2.0 will support emitting a JSON-formatted report that users can then manipulate to generate custom reports.
+
+  If this change will be impactful to you please leave a comment on https://github.com/onsi/ginkgo/issues/711
+  Learn more at: https://github.com/onsi/ginkgo/blob/v2/docs/MIGRATING_TO_V2.md#removed-custom-reporters
+
+--- PASS: TestAPIs (985.79s)
 PASS
-coverage: 45.2% of statements
-ok      github.com/Azure/Orkestra/controllers   14.435s coverage: 45.2% of statements
-?       github.com/Azure/Orkestra/pkg   [no test files]
-?       github.com/Azure/Orkestra/pkg/meta      [no test files]
-?       github.com/Azure/Orkestra/pkg/registry  [no test files]
+coverage: 67.4% of statements
+ok  	github.com/Azure/Orkestra/controllers	985.849s	coverage: 67.4% of statements
+?   	github.com/Azure/Orkestra/pkg/meta	[no test files]
+?   	github.com/Azure/Orkestra/pkg/registry	[no test files]
+?   	github.com/Azure/Orkestra/pkg/utils	[no test files]
 === RUN   Test_subchartValues
 === RUN   Test_subchartValues/withGlobalSuchart
 === RUN   Test_subchartValues/withOnlyGlobal
@@ -148,8 +194,8 @@ ok      github.com/Azure/Orkestra/controllers   14.435s coverage: 45.2% of state
     --- PASS: Test_subchartValues/withOnlySubchart (0.00s)
     --- PASS: Test_subchartValues/withNone (0.00s)
 PASS
-coverage: 3.9% of statements
-ok      github.com/Azure/Orkestra/pkg/workflow  0.935s  coverage: 3.9% of statements
+coverage: 3.3% of statements
+ok  	github.com/Azure/Orkestra/pkg/workflow	0.044s	coverage: 3.3% of statements
 ```
 
 ### Guide for creating e2e tests
@@ -171,8 +217,6 @@ Reference:
 
   The process described in E2E Testing can be used for local debugging of the orkestra controller as well. This is preferred over okteto and bridge-to-kubernetes since it is faster.
 
-  Substitute the "Run the [delve](https://github.com/go-delve/delve) against the modified codebase using your IDE (*VSCode* is preferred)
-
 - **<ins>Using [Tilt](https://docs.tilt.dev/)</ins>**
 
   Install `tilt` using the official [installation](https://docs.tilt.dev/install.html) instructions
@@ -193,6 +237,33 @@ Reference:
 ---
 
 - **<ins>Debugging using [Visual Studio Code](https://code.visualstudio.com/) and [delve](https://github.com/go-delve/delve)</ins>**
+
+  - <ins>[Built-in Debugger](https://code.visualstudio.com/docs/languages/go#_debugging)</ins>
+    - Required extensions:
+      - ["Golang"](https://marketplace.visualstudio.com/items?itemName=golang.go)
+
+    `.vscode/launch.json`
+
+    ```json
+    {
+      // Use IntelliSense to learn about possible attributes.
+      // Hover to view descriptions of existing attributes.
+      // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+      "version": "0.2.0",
+      "configurations": [
+        {
+          "name": "Launch Package",
+          "type": "go",
+          "request": "launch",
+          "mode": "auto",
+          "program": "${fileDirname}",
+          "args": [
+            "--debug"
+          ]
+        }
+      ]
+    }
+    ```
 
   - <ins>[Bridge to Kubernetes](https://marketplace.visualstudio.com/items?itemName=mindaro.mindaro) </ins>
 
@@ -236,9 +307,8 @@ Reference:
 | **controllers/** | **appgroup_controller.go** | Core controller logic for the `Reconcile()` function. See flow diagram below. | No |
 | | **appgroup_reconciler.go** | Logic to reconcile the state of the Application group object, by generating new workflows to get to the desired state. | No |
 | | **suite_test.go** | Bootstrap function to run integration tests for the controller using Ginkgo's Behavior Driven Test framework. | No |
-| **pkg/** | **helm.go** | Wrappers for Helm Actions using the official helmv2 package. | No |
-| | **helpers.go** | Miscellaneous utility functions | No |
-| | **registry/** | Helm Registry functions using the office helmv2 package and chartmuseum for pull and push functionality, respectively | No |
+| | **utils/** | Miscellaneous utility functions | No |
+| | **registry/** | Helm Registry functions using the official helmv2 package and chartmuseum for pull and push functionality, respectively | No |
 | | **workflow/** | DAG workflow generation and submission interface, implemented using Argo Workflows | No |
 | | **meta/** | `ApplicationGroup` transition states | No |
 
@@ -247,3 +317,7 @@ Reference:
 ## Workflow
 
 <p align="center"><img src="./assets/reconciler-flow.png" width="750x" /></p>
+
+## Default Workflow Executor
+
+The code for the *default* workflow executor container can be found at [Orkestra Workflow Executor](https://github.com/Azure/orkestra-workflow-executor).

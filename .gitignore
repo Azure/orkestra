@@ -39,6 +39,7 @@ debug
 
 /bin/
 build/
+testbin/
 .dev/
 .env
 _dist/
