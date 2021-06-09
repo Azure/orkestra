@@ -54,6 +54,7 @@ type RegistryClientOptions struct {
 	StagingRepoName         string
 	TargetDir               string
 	CleanupDownloadedCharts bool
+	stagingDirecotry        string
 }
 
 func (helper *ReconcileHelper) CreateOrUpdate(ctx context.Context) error {
@@ -89,9 +90,8 @@ func (helper *ReconcileHelper) Rollback(ctx context.Context, patch client.Patch,
 		// Example: chart=kafka-dev,heritage=orkestra,owner=dev, where chart=<top-level-chart>
 		helper.Info("Remediating the applicationgroup with helmrelease failure status")
 		for _, app := range helper.Instance.Status.Applications {
-			switch meta.GetResourceCondition(&app.ChartStatus, meta.ReadyCondition).Reason {
-			case fluxhelmv2beta1.InstallFailedReason, fluxhelmv2beta1.UpgradeFailedReason, fluxhelmv2beta1.UninstallFailedReason,
-				fluxhelmv2beta1.ArtifactFailedReason, fluxhelmv2beta1.InitFailedReason, fluxhelmv2beta1.GetLastReleaseFailedReason:
+			helmReleaseReason := meta.GetResourceCondition(&app.ChartStatus, meta.ReadyCondition).Reason
+			if meta.IsFailedHelmReason(helmReleaseReason) {
 				listOption := client.MatchingLabels{
 					workflow.OwnershipLabel: helper.Instance.Name,
 					workflow.HeritageLabel:  workflow.Project,
@@ -150,10 +150,8 @@ func (helper *ReconcileHelper) GetWorkflow(ctx context.Context) *v1alpha12.Workf
 }
 
 func (helper *ReconcileHelper) reconcileApplications() error {
-	stagingDir := helper.RegistryOptions.TargetDir + "/" + helper.RegistryOptions.StagingRepoName
-
 	// Init the application status every time we re-reconcile the applications
-	InitAppStatus(helper.Instance)
+	initAppStatus(helper.Instance)
 
 	// Pull and conditionally stage application & dependency charts
 	for i, application := range helper.Instance.Spec.Applications {
@@ -240,7 +238,7 @@ func (helper *ReconcileHelper) reconcileApplications() error {
 				}
 
 				scc.Metadata.Name = utils.ConvertToDNS1123(utils.ToInitials(appCh.Metadata.Name) + "-" + scc.Metadata.Name)
-				path, err := registry.SaveChartPackage(scc, stagingDir)
+				path, err := registry.SaveChartPackage(scc, helper.getStagingDirectory())
 				if err != nil {
 					ll.Error(err, "failed to save subchart package as tgz")
 					err = fmt.Errorf("failed to save subchart package as tgz at location %s : %w", path, err)
@@ -307,7 +305,7 @@ func (helper *ReconcileHelper) reconcileApplications() error {
 
 		appCh.Metadata.Name = utils.ConvertToDNS1123(appCh.Metadata.Name)
 
-		_, err = registry.SaveChartPackage(appCh, stagingDir)
+		_, err = registry.SaveChartPackage(appCh, helper.getStagingDirectory())
 		if err != nil {
 			ll.Error(err, "failed to save modified app chart to filesystem")
 			err = fmt.Errorf("failed to save modified app chart to filesystem : %w", err)
@@ -316,11 +314,11 @@ func (helper *ReconcileHelper) reconcileApplications() error {
 		}
 
 		// Replace existing chart with modified chart
-		path := stagingDir + "/" + utils.ConvertToDNS1123(application.Spec.Chart.Name) + "-" + appCh.Metadata.Version + ".tgz"
-		err = helper.RegistryClient.PushChart(ll, helper.RegistryOptions.StagingRepoName, path, appCh)
+		chartPath := helper.getChartPath(application.Spec.Chart.Name, appCh.Metadata.Version)
+		err = helper.RegistryClient.PushChart(ll, helper.RegistryOptions.StagingRepoName, chartPath, appCh)
 		defer func() {
 			if helper.RegistryOptions.CleanupDownloadedCharts {
-				os.Remove(path)
+				os.Remove(chartPath)
 			}
 		}()
 		if err != nil {
@@ -347,4 +345,12 @@ func (helper *ReconcileHelper) rollbackFailedHelmReleases(ctx context.Context, h
 		}
 	}
 	return nil
+}
+
+func (helper *ReconcileHelper) getStagingDirectory() string {
+	return helper.RegistryOptions.TargetDir + "/" + helper.RegistryOptions.StagingRepoName
+}
+
+func (helper *ReconcileHelper) getChartPath(name, version string) string {
+	return helper.getStagingDirectory() + "/" + utils.ConvertToDNS1123(name) + "-" + version + ".tgz"
 }

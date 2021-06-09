@@ -3,8 +3,9 @@ package helpers
 import (
 	"context"
 	"fmt"
-	"github.com/Azure/Orkestra/pkg/meta"
 	"time"
+
+	"github.com/Azure/Orkestra/pkg/meta"
 
 	"github.com/Azure/Orkestra/api/v1alpha1"
 	"github.com/Azure/Orkestra/pkg/workflow"
@@ -32,7 +33,7 @@ func (helper *StatusHelper) UpdateStatusWithWorkflow(ctx context.Context, instan
 	}
 	requeueTime = v1alpha1.DefaultProgressingRequeue
 
-	switch workflowStatus {
+	switch workflowStatus.Phase {
 	case v1alpha12.NodeError, v1alpha12.NodeFailed:
 		helper.Info("workflow node is in failed state")
 		err = helper.Remediating(ctx, instance)
@@ -101,8 +102,8 @@ func (helper *StatusHelper) Remediating(ctx context.Context, instance *v1alpha1.
 // RollingBack sets the meta.ReadyCondition to 'True' and
 // meta.RollingBack reason and message
 func (helper *StatusHelper) RollingBack(ctx context.Context, instance *v1alpha1.ApplicationGroup) error {
-	meta.SetResourceCondition(instance, meta.ReadyCondition, metav1.ConditionTrue, meta.FailedReason, "workflow failed because of helmreleases during upgrade, rolling back...")
-	meta.SetResourceCondition(instance, meta.DeployCondition, metav1.ConditionTrue, meta.RollingBackReason, "rolling back because of failed helm releases...")
+	meta.SetResourceCondition(instance, meta.ReadyCondition, metav1.ConditionTrue, meta.FailedReason, "rolling back because of failed workflow during upgrade...")
+	meta.SetResourceCondition(instance, meta.DeployCondition, metav1.ConditionTrue, meta.RollingBackReason, "rolling back because of failed workflow during upgrade...")
 
 	return helper.patchStatus(ctx, instance)
 }
@@ -125,7 +126,7 @@ func (helper *StatusHelper) MarkReversing(ctx context.Context, instance *v1alpha
 	return helper.patchStatus(ctx, instance)
 }
 
-func InitAppStatus(appGroup *v1alpha1.ApplicationGroup) {
+func initAppStatus(appGroup *v1alpha1.ApplicationGroup) {
 	// Initialize the Status fields if not already setup
 	appGroup.Status.Applications = make([]v1alpha1.ApplicationStatus, 0, len(appGroup.Spec.Applications))
 	for _, app := range appGroup.Spec.Applications {
@@ -138,7 +139,7 @@ func InitAppStatus(appGroup *v1alpha1.ApplicationGroup) {
 	}
 }
 
-func (helper *StatusHelper) getWorkflowStatus(ctx context.Context, appGroupName string) (v1alpha12.NodePhase, error) {
+func (helper *StatusHelper) getWorkflowStatus(ctx context.Context, appGroupName string) (*v1alpha12.WorkflowStatus, error) {
 	wfs := v1alpha12.WorkflowList{}
 	listOption := client.MatchingLabels{
 		workflow.OwnershipLabel: appGroupName,
@@ -147,14 +148,14 @@ func (helper *StatusHelper) getWorkflowStatus(ctx context.Context, appGroupName 
 	err := helper.List(ctx, &wfs, listOption)
 	if err != nil {
 		helper.Error(err, "failed to find generated workflow instance")
-		return "", err
+		return nil, err
 	}
 	if wfs.Items.Len() == 0 {
 		err = fmt.Errorf("no associated workflow found")
 		helper.Error(err, "no associated workflow found")
-		return "", err
+		return nil, err
 	}
-	return wfs.Items[0].Status.Phase, nil
+	return &wfs.Items[0].Status, nil
 }
 
 // marshallChartStatus lists all of the HelmRelease objects that were deployed and assigns
@@ -173,7 +174,6 @@ func (helper *StatusHelper) marshallChartStatus(ctx context.Context, appGroup *v
 	chartConditionMap = make(map[string][]metav1.Condition)
 	subChartConditionMap = make(map[string]map[string][]metav1.Condition)
 
-	// XXX (nitishm) Not sure why this happens ???
 	// Lookup all associated HelmReleases for status as well since the Workflow will not always reflect the status of the HelmRelease
 	// Lookup Workflow by ownership and heritage labels
 	helmReleases := fluxhelmv2beta1.HelmReleaseList{}

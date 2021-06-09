@@ -6,7 +6,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/Azure/Orkestra/pkg/helpers"
 
@@ -128,15 +127,18 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 	}
 
-	var requeueDuration time.Duration
+	// Update the status based on the current state of the helm charts
+	if err := statusHelper.UpdateStatus(ctx, appGroup); err != nil {
+		logr.Error(err, "failed to update the status of the app group")
+		return statusHelper.Failed(ctx, appGroup, fmt.Errorf("failed to update the status of the progressing application group with err: %v", err))
+	}
+
+	requeueDuration := v1alpha1.GetInterval(appGroup)
 	var shouldRemediate bool
 	var err error
+
 	// While ready is progressing, we get the state of the workflow
 	if appGroup.Generation != appGroup.Status.LastSucceededGeneration {
-		if err := statusHelper.UpdateStatus(ctx, appGroup); err != nil {
-			logr.Error(err, "failed to update the status of the app group")
-			return statusHelper.Failed(ctx, appGroup, fmt.Errorf("failed to update the status of the progressing application group with err: %v", err))
-		}
 		shouldRemediate, requeueDuration, err = statusHelper.UpdateStatusWithWorkflow(ctx, appGroup)
 		if err != nil {
 			logr.Error(err, "failed to update the status based on the workflow status")
@@ -156,13 +158,6 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			}
 			return reconcileHelper.Reverse(ctx)
 		}
-	} else {
-		// If we are not progressing, update the status and requeue
-		if err := statusHelper.UpdateStatus(ctx, appGroup); err != nil {
-			logr.Error(err, "failed to update the status of the app group")
-			return statusHelper.Failed(ctx, appGroup, fmt.Errorf("failed to update the status of the application group with err: %v", err))
-		}
-		requeueDuration = v1alpha1.GetInterval(appGroup)
 	}
 	return ctrl.Result{RequeueAfter: requeueDuration}, nil
 }
