@@ -41,7 +41,7 @@ type ApplicationGroupReconciler struct {
 	// StagingRepoName is the nickname for the repository used for staging artifacts before being deployed using the HelmRelease object
 	StagingRepoName string
 
-	EngineBuilder *workflow.EngineBuilder
+	WorkflowClientBuilder *workflow.Builder
 
 	// TargetDir to stage the charts before pushing
 	TargetDir string
@@ -84,11 +84,11 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		Recorder:  r.Recorder,
 	}
 	reconcileHelper := helpers.ReconcileHelper{
-		Client:         r.Client,
-		Logger:         logr,
-		Instance:       appGroup,
-		EngineBuilder:  r.EngineBuilder,
-		RegistryClient: r.RegistryClient,
+		Client:                r.Client,
+		Logger:                logr,
+		Instance:              appGroup,
+		WorkflowClientBuilder: r.WorkflowClientBuilder,
+		RegistryClient:        r.RegistryClient,
 		RegistryOptions: helpers.RegistryClientOptions{
 			StagingRepoName:         r.StagingRepoName,
 			TargetDir:               r.TargetDir,
@@ -102,7 +102,7 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			return statusHelper.Failed(ctx, appGroup, err)
 		}
 		result, err := reconcileHelper.Reverse(ctx)
-		if !result.Requeue && err != nil {
+		if !result.Requeue && err == nil {
 			// Remove the finalizer because we have finished reversing
 			controllerutil.RemoveFinalizer(appGroup, v1alpha1.AppGroupFinalizer)
 			if err := r.Patch(ctx, appGroup, patch); err != nil {

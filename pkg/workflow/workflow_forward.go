@@ -15,60 +15,72 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func (engine *ForwardEngine) GetLogger() logr.Logger {
-	return engine.Logger
+func (wc *ForwardWorkflowClient) GetLogger() logr.Logger {
+	return wc.Logger
 }
 
-func (engine *ForwardEngine) Generate() error {
-	if engine.appGroup == nil {
-		engine.Error(nil, "ApplicationGroup object cannot be nil")
+func (wc *ForwardWorkflowClient) GetClient() client.Client {
+	return wc.Client
+}
+
+func (wc *ForwardWorkflowClient) GetWorkflow(ctx context.Context) (*v1alpha12.Workflow, error) {
+	workflow := &v1alpha12.Workflow{}
+	err := wc.Get(ctx, types.NamespacedName{Namespace: wc.namespace, Name: wc.appGroup.Name}, workflow)
+	return workflow, err
+}
+
+func (wc *ForwardWorkflowClient) Generate() error {
+	if wc.appGroup == nil {
+		wc.Error(nil, "ApplicationGroup object cannot be nil")
 		return fmt.Errorf("applicationGroup object cannot be nil")
 	}
 
-	engine.workflow = initWorkflowObject(engine.parallelism)
+	wc.workflow = initWorkflowObject(wc.parallelism)
 
 	// Set name and namespace based on the input application group
-	engine.workflow.Name = engine.appGroup.Name
-	engine.workflow.Namespace = workflowNamespace()
+	wc.workflow.Name = wc.appGroup.Name
+	wc.workflow.Namespace = wc.namespace
 
-	entryTemplate, templates, err := engine.generateTemplates()
+	entryTemplate, templates, err := wc.generateTemplates()
 	if err != nil {
-		engine.Error(err, "failed to generate workflow")
+		wc.Error(err, "failed to generate workflow")
 		return fmt.Errorf("failed to generate argo workflow : %w", err)
 	}
 
-	updateWorkflowTemplates(engine.workflow, templates...)
+	updateWorkflowTemplates(wc.workflow, templates...)
 
-	err = updateAppGroupDAG(engine.appGroup, entryTemplate, templates)
+	err = updateAppGroupDAG(wc.appGroup, entryTemplate, templates)
 	if err != nil {
 		return fmt.Errorf("failed to generate Application Group DAG : %w", err)
 	}
-	updateWorkflowTemplates(engine.workflow, *entryTemplate)
+	updateWorkflowTemplates(wc.workflow, *entryTemplate)
 
 	// TODO: Add the executor template
 	// This should eventually be configurable
-	updateWorkflowTemplates(engine.workflow, defaultExecutor(HelmReleaseExecutorName, Install))
+	updateWorkflowTemplates(wc.workflow, wc.executor(HelmReleaseExecutorName, Install))
 
 	return nil
 }
 
-func (engine *ForwardEngine) Submit(ctx context.Context) error {
-	if engine.workflow == nil {
-		engine.Error(nil, "workflow object cannot be nil")
+func (wc *ForwardWorkflowClient) Submit(ctx context.Context) error {
+	if wc.workflow == nil {
+		wc.Error(nil, "workflow object cannot be nil")
 		return fmt.Errorf("workflow object cannot be nil")
 	}
 
-	if engine.appGroup == nil {
-		engine.Error(nil, "applicationGroup object cannot be nil")
+	if wc.appGroup == nil {
+		wc.Error(nil, "applicationGroup object cannot be nil")
 		return fmt.Errorf("applicationGroup object cannot be nil")
 	}
 
 	namespaces := []string{}
 	// Add namespaces we need to create while removing duplicates
-	for _, app := range engine.appGroup.Spec.Applications {
+	for _, app := range wc.appGroup.Spec.Applications {
 		found := false
 		for _, namespace := range namespaces {
 			if app.Spec.Release.TargetNamespace == namespace {
@@ -88,83 +100,83 @@ func (engine *ForwardEngine) Submit(ctx context.Context) error {
 				Name: namespace,
 			},
 		}
-		if err := controllerutil.SetControllerReference(engine.appGroup, ns, engine.Scheme()); err != nil {
+		if err := controllerutil.SetControllerReference(wc.appGroup, ns, wc.Scheme()); err != nil {
 			return fmt.Errorf("failed to set OwnerReference for Namespace %s : %w", ns.Name, err)
 		}
-		if err := engine.Create(ctx, ns); !errors.IsAlreadyExists(err) && err != nil {
+		if err := wc.Create(ctx, ns); !errors.IsAlreadyExists(err) && err != nil {
 			return fmt.Errorf("failed to CREATE namespace %s object : %w", ns.Name, err)
 		}
 	}
 
 	// Create the Workflow
-	engine.workflow.Labels[OwnershipLabel] = engine.appGroup.Name
-	if err := controllerutil.SetControllerReference(engine.appGroup, engine.workflow, engine.Scheme()); err != nil {
-		engine.Error(err, "unable to set ApplicationGroup as owner of Argo Workflow object")
+	wc.workflow.Labels[OwnershipLabel] = wc.appGroup.Name
+	if err := controllerutil.SetControllerReference(wc.appGroup, wc.workflow, wc.Scheme()); err != nil {
+		wc.Error(err, "unable to set ApplicationGroup as owner of Argo Workflow object")
 		return fmt.Errorf("unable to set ApplicationGroup as owner of Argo Workflow: %w", err)
 	}
-	if err := engine.Create(ctx, engine.workflow); !errors.IsAlreadyExists(err) && err != nil {
-		engine.Error(err, "failed to CREATE argo workflow object")
+	if err := wc.Create(ctx, wc.workflow); !errors.IsAlreadyExists(err) && err != nil {
+		wc.Error(err, "failed to CREATE argo workflow object")
 		return fmt.Errorf("failed to CREATE argo workflow object : %w", err)
 	} else if errors.IsAlreadyExists(err) {
 		// If the workflow needs an update, delete the previous workflow and apply the new one
 		// Argo Workflow does not rerun the workflow on UPDATE, so intead we cleanup and reapply
-		if err := engine.Delete(ctx, engine.workflow); err != nil {
-			engine.Error(err, "failed to DELETE argo workflow object")
+		if err := wc.Delete(ctx, wc.workflow); err != nil {
+			wc.Error(err, "failed to DELETE argo workflow object")
 			return fmt.Errorf("failed to DELETE argo workflow object : %w", err)
 		}
-		if err := controllerutil.SetControllerReference(engine.appGroup, engine.workflow, engine.Scheme()); err != nil {
-			engine.Error(err, "unable to set ApplicationGroup as owner of Argo Workflow object")
+		if err := controllerutil.SetControllerReference(wc.appGroup, wc.workflow, wc.Scheme()); err != nil {
+			wc.Error(err, "unable to set ApplicationGroup as owner of Argo Workflow object")
 			return fmt.Errorf("unable to set ApplicationGroup as owner of Argo Workflow: %w", err)
 		}
 		// If the argo Workflow object is NotFound and not AlreadyExists on the cluster
 		// create a new object and submit it to the cluster
-		if err := engine.Create(ctx, engine.workflow); err != nil {
-			engine.Error(err, "failed to CREATE argo workflow object")
+		if err := wc.Create(ctx, wc.workflow); err != nil {
+			wc.Error(err, "failed to CREATE argo workflow object")
 			return fmt.Errorf("failed to CREATE argo workflow object : %w", err)
 		}
 	}
 	return nil
 }
 
-func (engine *ForwardEngine) generateTemplates() (*v1alpha12.Template, []v1alpha12.Template, error) {
-	if engine.appGroup == nil {
+func (wc *ForwardWorkflowClient) generateTemplates() (*v1alpha12.Template, []v1alpha12.Template, error) {
+	if wc.appGroup == nil {
 		return nil, nil, fmt.Errorf("applicationGroup cannot be nil")
 	}
 
 	entryTemplate := &v1alpha12.Template{
 		Name: EntrypointTemplateName,
 		DAG: &v1alpha12.DAGTemplate{
-			Tasks: make([]v1alpha12.DAGTask, len(engine.appGroup.Spec.Applications)),
+			Tasks: make([]v1alpha12.DAGTask, len(wc.appGroup.Spec.Applications)),
 			// TBD (nitishm): Do we need to failfast?
 			// FailFast: true
 		},
-		Parallelism: engine.parallelism,
+		Parallelism: wc.parallelism,
 	}
 
-	templates, err := engine.generateAppDAGTemplates()
+	templates, err := wc.generateAppDAGTemplates()
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to generate application DAG templates : %w", err)
 	}
 	return entryTemplate, templates, nil
 }
 
-func (engine *ForwardEngine) generateAppDAGTemplates() ([]v1alpha12.Template, error) {
+func (wc *ForwardWorkflowClient) generateAppDAGTemplates() ([]v1alpha12.Template, error) {
 	ts := make([]v1alpha12.Template, 0)
 
-	for i, app := range engine.appGroup.Spec.Applications {
+	for i, app := range wc.appGroup.Spec.Applications {
 		var hasSubcharts bool
-		scStatus := engine.appGroup.Status.Applications[i].Subcharts
+		scStatus := wc.appGroup.Status.Applications[i].Subcharts
 
 		// Create Subchart DAG only when the application chart has dependencies
 		if len(app.Spec.Subcharts) > 0 {
 			hasSubcharts = true
 			t := v1alpha12.Template{
 				Name:        utils.ConvertToDNS1123(app.Name),
-				Parallelism: engine.parallelism,
+				Parallelism: wc.parallelism,
 			}
 
 			t.DAG = &v1alpha12.DAGTemplate{}
-			tasks, err := engine.generateSubchartAndAppDAGTasks(&app, scStatus)
+			tasks, err := wc.generateSubchartAndAppDAGTasks(&app, scStatus)
 			if err != nil {
 				return nil, fmt.Errorf("failed to generate Application Template DAG tasks : %w", err)
 			}
@@ -192,7 +204,7 @@ func (engine *ForwardEngine) generateAppDAGTemplates() ([]v1alpha12.Template, er
 							SourceRef: fluxhelmv2beta1.CrossNamespaceObjectReference{
 								Kind:      fluxsourcev1beta1.HelmRepositoryKind,
 								Name:      ChartMuseumName,
-								Namespace: workflowNamespace(),
+								Namespace: wc.namespace,
 							},
 						},
 					},
@@ -209,13 +221,13 @@ func (engine *ForwardEngine) generateAppDAGTemplates() ([]v1alpha12.Template, er
 			}
 			hr.Labels = map[string]string{
 				ChartLabelKey:  app.Name,
-				OwnershipLabel: engine.appGroup.Name,
+				OwnershipLabel: wc.appGroup.Name,
 				HeritageLabel:  Project,
 			}
 
 			tApp := v1alpha12.Template{
 				Name:        utils.ConvertToDNS1123(app.Name),
-				Parallelism: engine.parallelism,
+				Parallelism: wc.parallelism,
 				DAG: &v1alpha12.DAGTemplate{
 					Tasks: []v1alpha12.DAGTask{
 						{
@@ -244,8 +256,8 @@ func (engine *ForwardEngine) generateAppDAGTemplates() ([]v1alpha12.Template, er
 	return ts, nil
 }
 
-func (engine *ForwardEngine) generateSubchartAndAppDAGTasks(app *v1alpha1.Application, subchartsStatus map[string]v1alpha1.ChartStatus) ([]v1alpha12.DAGTask, error) {
-	if engine.stagingRepo == "" {
+func (wc *ForwardWorkflowClient) generateSubchartAndAppDAGTasks(app *v1alpha1.Application, subchartsStatus map[string]v1alpha1.ChartStatus) ([]v1alpha12.DAGTask, error) {
+	if wc.stagingRepo == "" {
 		return nil, fmt.Errorf("repo arg must be a valid non-empty string")
 	}
 
@@ -256,7 +268,7 @@ func (engine *ForwardEngine) generateSubchartAndAppDAGTasks(app *v1alpha1.Applic
 		subchartName := sc.Name
 		subchartVersion := subchartsStatus[subchartName].Version
 
-		hr, err := generateSubchartHelmRelease(*app, subchartName, subchartVersion)
+		hr, err := wc.generateSubchartHelmRelease(*app, subchartName, subchartVersion)
 		if err != nil {
 			return nil, err
 		}
@@ -265,7 +277,7 @@ func (engine *ForwardEngine) generateSubchartAndAppDAGTasks(app *v1alpha1.Applic
 		}
 		hr.Labels = map[string]string{
 			ChartLabelKey:  app.Name,
-			OwnershipLabel: engine.appGroup.Name,
+			OwnershipLabel: wc.appGroup.Name,
 			HeritageLabel:  Project,
 		}
 
@@ -307,7 +319,7 @@ func (engine *ForwardEngine) generateSubchartAndAppDAGTasks(app *v1alpha1.Applic
 					SourceRef: fluxhelmv2beta1.CrossNamespaceObjectReference{
 						Kind:      fluxsourcev1beta1.HelmRepositoryKind,
 						Name:      ChartMuseumName,
-						Namespace: workflowNamespace(),
+						Namespace: wc.namespace,
 					},
 				},
 			},
@@ -324,7 +336,7 @@ func (engine *ForwardEngine) generateSubchartAndAppDAGTasks(app *v1alpha1.Applic
 	}
 	hr.Labels = map[string]string{
 		ChartLabelKey:  app.Name,
-		OwnershipLabel: engine.appGroup.Name,
+		OwnershipLabel: wc.appGroup.Name,
 		HeritageLabel:  Project,
 	}
 
@@ -370,7 +382,7 @@ func (engine *ForwardEngine) generateSubchartAndAppDAGTasks(app *v1alpha1.Applic
 	return tasks, nil
 }
 
-func generateSubchartHelmRelease(a v1alpha1.Application, subchartName, version string) (*fluxhelmv2beta1.HelmRelease, error) {
+func (wc *ForwardWorkflowClient) generateSubchartHelmRelease(a v1alpha1.Application, subchartName, version string) (*fluxhelmv2beta1.HelmRelease, error) {
 	chName := utils.GetSubchartName(a.Spec.Chart.Name, subchartName)
 	hr := &fluxhelmv2beta1.HelmRelease{
 		TypeMeta: v1.TypeMeta{
@@ -389,7 +401,7 @@ func generateSubchartHelmRelease(a v1alpha1.Application, subchartName, version s
 					SourceRef: fluxhelmv2beta1.CrossNamespaceObjectReference{
 						Kind:      fluxsourcev1beta1.HelmRepositoryKind,
 						Name:      ChartMuseumName,
-						Namespace: workflowNamespace(),
+						Namespace: wc.namespace,
 					},
 				},
 			},

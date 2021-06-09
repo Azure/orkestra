@@ -17,10 +17,10 @@ const (
 // ExecutorAction defines the set of executor actions which can be performed on a helmrelease object
 type ExecutorAction string
 
-func defaultExecutor(tplName string, action ExecutorAction) v1alpha12.Template {
+func defaultExecutor(templateName string, action ExecutorAction) v1alpha12.Template {
 	executorArgs := []string{"--spec", "{{inputs.parameters.helmrelease}}", "--action", string(action), "--timeout", "{{inputs.parameters.timeout}}", "--interval", "10s"}
 	return v1alpha12.Template{
-		Name:               tplName,
+		Name:               templateName,
 		ServiceAccountName: workflowServiceAccountName(),
 		Inputs: v1alpha12.Inputs{
 			Parameters: []v1alpha12.Parameter{

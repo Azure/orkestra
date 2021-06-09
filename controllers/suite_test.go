@@ -109,7 +109,7 @@ var _ = BeforeSuite(func() {
 		Scheme:                  k8sManager.GetScheme(),
 		RegistryClient:          rc,
 		StagingRepoName:         "staging",
-		EngineBuilder:           workflow.NewEngineBuilder(k8sManager.GetClient(), baseLogger).WithStagingRepo(inClusterstagingRepoURL).WithParallelism(10),
+		WorkflowClientBuilder:   workflow.NewBuilder(k8sManager.GetClient(), baseLogger).WithStagingRepo(inClusterstagingRepoURL).WithParallelism(10).InNamespace("orkestra"),
 		TargetDir:               tempChartStoreTargetDir,
 		Recorder:                k8sManager.GetEventRecorderFor("appgroup-controller"),
 		DisableRemediation:      false,

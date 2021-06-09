@@ -5,6 +5,8 @@ import (
 	"encoding/base64"
 	"fmt"
 
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	"github.com/Azure/Orkestra/pkg/utils"
 	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
 	fluxhelmv2beta1 "github.com/fluxcd/helm-controller/api/v2beta1"
@@ -14,64 +16,77 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func (engine *ReverseEngine) GetLogger() logr.Logger {
-	return engine.Logger
+func (wc *ReverseWorkflowClient) GetLogger() logr.Logger {
+	return wc.Logger
 }
 
-func (engine *ReverseEngine) Generate() error {
-	if engine.forwardWorkflow == nil {
-		engine.Error(nil, "forward workflow object cannot be nil")
+func (wc *ReverseWorkflowClient) GetClient() client.Client {
+	return wc.Client
+}
+
+func (wc *ReverseWorkflowClient) GetWorkflow(ctx context.Context) (*v1alpha12.Workflow, error) {
+	reverseWorkflow := &v1alpha12.Workflow{}
+
+	rwfName := fmt.Sprintf("%s-reverse", wc.forwardWorkflow.Name)
+	rwfNamespace := wc.forwardWorkflow.Namespace
+	err := wc.Get(ctx, types.NamespacedName{Namespace: rwfNamespace, Name: rwfName}, reverseWorkflow)
+	return reverseWorkflow, err
+}
+
+func (wc *ReverseWorkflowClient) Generate() error {
+	if wc.forwardWorkflow == nil {
+		wc.Error(nil, "forward workflow object cannot be nil")
 		return fmt.Errorf("forward workflow object cannot be nil")
 	}
 
-	engine.reverseWorkflow = initWorkflowObject(engine.parallelism)
+	wc.reverseWorkflow = initWorkflowObject(wc.parallelism)
 
 	// Set name and namespace based on the forward workflow
-	engine.reverseWorkflow.Name = fmt.Sprintf("%s-reverse", engine.forwardWorkflow.Name)
-	engine.reverseWorkflow.Namespace = workflowNamespace()
+	wc.reverseWorkflow.Name = fmt.Sprintf("%s-reverse", wc.forwardWorkflow.Name)
+	wc.reverseWorkflow.Namespace = wc.namespace
 
-	entry, err := generateWorkflow(engine, engine.nodes, engine.forwardWorkflow)
+	entry, err := generateWorkflow(wc, wc.nodes, wc.forwardWorkflow)
 	if err != nil {
-		engine.Error(err, "failed to generate reverse workflow")
+		wc.Error(err, "failed to generate reverse workflow")
 		return fmt.Errorf("failed to generate argo reverse workflow : %w", err)
 	}
 
-	updateWorkflowTemplates(engine.reverseWorkflow, *entry, defaultExecutor(HelmReleaseReverseExecutorName, Delete))
+	updateWorkflowTemplates(wc.reverseWorkflow, *entry, wc.executor(HelmReleaseReverseExecutorName, Delete))
 	return nil
 }
 
-func (engine *ReverseEngine) Submit(ctx context.Context) error {
-	if engine.reverseWorkflow == nil {
-		engine.Error(nil, "reverse workflow object cannot be nil")
+func (wc *ReverseWorkflowClient) Submit(ctx context.Context) error {
+	if wc.reverseWorkflow == nil {
+		wc.Error(nil, "reverse workflow object cannot be nil")
 		return fmt.Errorf("reverse workflow object cannot be nil")
 	}
 
-	if engine.forwardWorkflow == nil {
-		engine.Error(nil, "forward workflow object cannot be nil")
+	if wc.forwardWorkflow == nil {
+		wc.Error(nil, "forward workflow object cannot be nil")
 		return fmt.Errorf("forward workflow object cannot be nil")
 	}
 
 	obj := &v1alpha12.Workflow{}
 
-	err := engine.Get(ctx, types.NamespacedName{Namespace: engine.reverseWorkflow.Namespace, Name: engine.reverseWorkflow.Name}, obj)
+	err := wc.Get(ctx, types.NamespacedName{Namespace: wc.reverseWorkflow.Namespace, Name: wc.reverseWorkflow.Name}, obj)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Add OwnershipReference
-			err = controllerutil.SetControllerReference(engine.forwardWorkflow, engine.reverseWorkflow, engine.Scheme())
+			err = controllerutil.SetControllerReference(wc.forwardWorkflow, wc.reverseWorkflow, wc.Scheme())
 			if err != nil {
-				engine.Error(err, "unable to set forward workflow as owner of Argo reverse Workflow object")
+				wc.Error(err, "unable to set forward workflow as owner of Argo reverse Workflow object")
 				return fmt.Errorf("unable to set forward workflow as owner of Argo reverse Workflow: %w", err)
 			}
 
 			// If the argo Workflow object is NotFound and not AlreadyExists on the cluster
 			// create a new object and submit it to the cluster
-			err = engine.Create(ctx, engine.reverseWorkflow)
+			err = wc.Create(ctx, wc.reverseWorkflow)
 			if err != nil {
-				engine.Error(err, "failed to CREATE argo workflow object")
+				wc.Error(err, "failed to CREATE argo workflow object")
 				return fmt.Errorf("failed to CREATE argo workflow object : %w", err)
 			}
 		} else {
-			engine.Error(err, "failed to GET workflow object with an unrecoverable error")
+			wc.Error(err, "failed to GET workflow object with an unrecoverable error")
 			return fmt.Errorf("failed to GET workflow object with an unrecoverable error : %w", err)
 		}
 	}
