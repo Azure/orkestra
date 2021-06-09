@@ -317,6 +317,10 @@ spec:
                   - type
                   type: object
                 type: array
+              lastSucceededGeneration:
+                description: LastSucceededGeneration captures the last generation that has successfully completed a full workflow rollout of the application group
+                format: int64
+                type: integer
               observedGeneration:
                 description: ObservedGeneration captures the last generation that was captured and completed by the reconciler
                 format: int64
