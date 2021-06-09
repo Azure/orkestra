@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"strings"
 
@@ -13,20 +15,24 @@ func ConvertToDNS1123(in string) string {
 	return strings.ReplaceAll(in, "_", "-")
 }
 
-func ToInitials(in string) (out string) {
-	in = ConvertToDNS1123(in)
-	parts := strings.Split(in, "-")
-
-	for _, part := range parts {
-		out += string(part[0])
-	}
-	return out
-}
-
 func ConvertSliceToDNS1123(in []string) []string {
 	out := []string{}
 	for _, s := range in {
 		out = append(out, ConvertToDNS1123(s))
+	}
+	return out
+}
+
+func GetHash(in string) string {
+	h := sha256.New()
+	h.Write([]byte(in))
+	return hex.EncodeToString(h.Sum(nil))
+}
+
+func TruncateString(in string, num int) string {
+	out := in
+	if len(in) > num {
+		out = in[0:num]
 	}
 	return out
 }

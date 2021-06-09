@@ -237,7 +237,7 @@ func (helper *ReconcileHelper) reconcileApplications() error {
 					}
 				}
 
-				scc.Metadata.Name = utils.ConvertToDNS1123(utils.ToInitials(appCh.Metadata.Name) + "-" + scc.Metadata.Name)
+				scc.Metadata.Name = utils.GetSubchartName(appCh.Metadata.Name, scc.Metadata.Name)
 				path, err := registry.SaveChartPackage(scc, helper.getStagingDirectory())
 				if err != nil {
 					ll.Error(err, "failed to save subchart package as tgz")
