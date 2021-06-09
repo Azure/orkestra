@@ -5,7 +5,7 @@ nav_order: 5
 ---
 # Guide for contributors and developers
 
-## Prerequisites
+## Install prerequisites
 
 For getting started, you will need:
 
@@ -23,51 +23,41 @@ For getting started, you will need:
 - `helm` *v3.5.2* or higher - see this [Getting started](https://helm.sh/docs/intro/install/) guide for `helm`.
 - `kubebuilder` *v2.3.1* or higher - Install using `make setup-kubebuilder`.
 - `controller-gen` *v0.5.0* or higher - Install using `make controller-gen`. This is required to generate the ApplicationGroup CRDS.
-  
+
   > **NOTE**: `controller-gen` versions *< v0.5.0* will generate an incompatible CRD type.
 
 ## Build & Run
 
-🚧 🚨 Run the following `make` targets everytime the types are changed (`api/xxx_types.go`)
+- 🚧 🚨 Run the following `make` targets everytime the types are changed (`api/xxx_types.go`)
 
 ```shell
 $ make generate
-/usr/local/bin/controller-gen object:headerFile="hack/boilerplate.go.txt" paths="./..."
+/Users/local/bin/controller-gen object:headerFile="hack/boilerplate.go.txt" paths="./..."
 ```
 
 ```shell
 $ make manifests
-/usr/local/bin/controller-gen "crd:trivialVersions=true" rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
-/Users/nitish_malhotra/bin/controller-gen "crd:trivialVersions=true" rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=chart/orkestra/crds
+/Users/local/bin/controller-gen "crd:trivialVersions=true" rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+/Users/local/bin/controller-gen "crd:trivialVersions=true" rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=chart/orkestra/crds
 ```
 
-Build the docker image and push it to (your own) docker registry
+- Build the docker image and push it to local docker registry
 
 ```shell
 docker build . -t <your-registry>/orkestra:<your-tag>
 docker push <your-registry>/orkestra:<your-tag>
 ```
 
-*Example*
-
-If you're using docker and want to build and push the image to your local docker registry, run the following command.
-
-```shell
-docker build . -t localhost:5000/orkestra:dev
-```
-
-Update the orkestra deployment with your own `registry/image:tag`
+- Update the orkestra deployment with your own `registry/image:tag`
 
 ```shell
 helm upgrade orkestra chart/orkestra -n orkestra --create-namespace --set image.repository=<your-registry> --set image.tag=<your-tag> [--disable-remediation]
 ```
 
-*Example*
-
-If you have build and pushed an image to your local docker registery using the above example, then the follwing command will update the orkestra deployment with your own `registery/image:tag`.
+### Example
 
 ```shell
-helm upgrade --install orkestra chart/orkestra -n orkestra --create-namespace --set image.repository=localhost:5000/orkestra --set image.tag=dev [--disable-remediation]
+helm upgrade orkestra chart/orkestra -n orkestra --create-namespace --set image.repository=azureorkestra/orkestra --set image.tag=my-tag [--disable-remediation]
 ```
 
 ---
