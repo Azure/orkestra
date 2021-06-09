@@ -14,6 +14,8 @@ endif
 
 all: manager
 
+update-types: generate manifests
+
 dev:
 	-kind create cluster --config .kind-cluster.yaml --name orkestra
 	helm upgrade --install orkestra chart/orkestra --wait --atomic -n orkestra --create-namespace --values ${CI_VALUES}
