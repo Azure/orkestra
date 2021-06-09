@@ -34,14 +34,6 @@ clean:
 debug: dev
 	go run main.go --debug --log-level ${DEBUG_LEVEL}
 
-# Build the docker image and push it to local docker registry
-local-build:
-	docker build . -t localhost:5000/orkestra:dev
-
-# Update the Orkestra deployment with `localhost:5000/orkestra:dev`
-local-deploy:
-	helm upgrade orkestra chart/orkestra -n orkestra --create-namespace --set image.repository=localhost:5000/orkestra --set image.tag=dev
-
 ginkgo-test: install
 	go get github.com/onsi/ginkgo/ginkgo
 	ginkgo ./... -cover -coverprofile coverage.txt
