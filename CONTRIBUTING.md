@@ -36,7 +36,7 @@ Follow the [Developer's Guide][dev-guide] for a full set of instructions to get 
 
 ### Running tests
 
-For a full set of instructions to run tests, follow the [Developer's Guide][dev-guide-tests]. For some tips, you can run tests with the following `make` target.
+For a full set of instructions to run tests, follow the testing & debugging section of [Developer's Guide][dev-guide-tests]. For some tips, you can run tests with the following `make` target.
 
 ```shell
 make clean && make dev && make test
