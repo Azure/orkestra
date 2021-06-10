@@ -12,12 +12,6 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-const (
-	DNS1123NameMaximumLength    = 63
-	DNS1123NotAllowedChars      = "[^-a-z0-9]"
-	DNS1123NotAllowedStartChars = "^[^a-z0-9]+"
-)
-
 func ConvertToDNS1123(in string) string {
 	name := strings.ToLower(in)
 
