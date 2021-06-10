@@ -8,6 +8,13 @@ Here is how you can help:
 - Add or propose new features.
 - Improve our documentation.
 
+## Resources
+
+- Website: https://azure.github.io/orkestra/
+- Documentation: https://azure.github.io/orkestra/api.html
+- Developer's Guide: https://azure.github.io/orkestra/developers.html
+- Discussion forum: https://github.com/Azure/orkestra/discussions
+
 ## Pull Request Checklist
 
 Before sending your pull requests, make sure you do the following:
