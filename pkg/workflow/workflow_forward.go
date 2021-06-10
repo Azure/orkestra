@@ -40,11 +40,7 @@ func (wc *ForwardWorkflowClient) Generate() error {
 		return fmt.Errorf("applicationGroup object cannot be nil")
 	}
 
-	wc.workflow = initWorkflowObject(wc.parallelism)
-
-	// Set name and namespace based on the input application group
-	wc.workflow.Name = wc.appGroup.Name
-	wc.workflow.Namespace = wc.namespace
+	wc.workflow = initWorkflowObject(wc.appGroup.Name, wc.namespace, wc.parallelism)
 
 	entryTemplate, templates, err := wc.generateTemplates()
 	if err != nil {
@@ -52,17 +48,9 @@ func (wc *ForwardWorkflowClient) Generate() error {
 		return fmt.Errorf("failed to generate argo workflow : %w", err)
 	}
 
+	// Update with the app dag templates, entry template, and executor template
 	updateWorkflowTemplates(wc.workflow, templates...)
-
-	err = updateAppGroupDAG(wc.appGroup, entryTemplate, templates)
-	if err != nil {
-		return fmt.Errorf("failed to generate Application Group DAG : %w", err)
-	}
-	updateWorkflowTemplates(wc.workflow, *entryTemplate)
-
-	// TODO: Add the executor template
-	// This should eventually be configurable
-	updateWorkflowTemplates(wc.workflow, wc.executor(HelmReleaseExecutorName, Install))
+	updateWorkflowTemplates(wc.workflow, *entryTemplate, wc.executor(HelmReleaseExecutorName, Install))
 
 	return nil
 }
@@ -72,7 +60,6 @@ func (wc *ForwardWorkflowClient) Submit(ctx context.Context) error {
 		wc.Error(nil, "workflow object cannot be nil")
 		return fmt.Errorf("workflow object cannot be nil")
 	}
-
 	if wc.appGroup == nil {
 		wc.Error(nil, "applicationGroup object cannot be nil")
 		return fmt.Errorf("applicationGroup object cannot be nil")
@@ -143,19 +130,25 @@ func (wc *ForwardWorkflowClient) generateTemplates() (*v1alpha12.Template, []v1a
 		return nil, nil, fmt.Errorf("applicationGroup cannot be nil")
 	}
 
+	templates, err := wc.generateAppDAGTemplates()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to generate application DAG templates : %w", err)
+	}
+
+	// Create the entry template from the app dag templates
 	entryTemplate := &v1alpha12.Template{
 		Name: EntrypointTemplateName,
 		DAG: &v1alpha12.DAGTemplate{
 			Tasks: make([]v1alpha12.DAGTask, len(wc.appGroup.Spec.Applications)),
-			// TBD (nitishm): Do we need to failfast?
-			// FailFast: true
 		},
 		Parallelism: wc.parallelism,
 	}
-
-	templates, err := wc.generateAppDAGTemplates()
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to generate application DAG templates : %w", err)
+	for i, tpl := range templates {
+		entryTemplate.DAG.Tasks[i] = v1alpha12.DAGTask{
+			Name:         utils.ConvertToDNS1123(tpl.Name),
+			Template:     utils.ConvertToDNS1123(tpl.Name),
+			Dependencies: utils.ConvertSliceToDNS1123(wc.appGroup.Spec.Applications[i].Dependencies),
+		}
 	}
 	return entryTemplate, templates, nil
 }
@@ -449,24 +442,4 @@ func getTaskNamesFromHelmReleases(bucket []fluxhelmv2beta1.HelmRelease) []string
 		out = append(out, utils.ConvertToDNS1123(hr.GetReleaseName()+"-"+(hr.Namespace)))
 	}
 	return out
-}
-
-func updateAppGroupDAG(g *v1alpha1.ApplicationGroup, entry *v1alpha12.Template, tpls []v1alpha12.Template) error {
-	if entry == nil {
-		return fmt.Errorf("entry template cannot be nil")
-	}
-
-	entry.DAG = &v1alpha12.DAGTemplate{
-		Tasks: make([]v1alpha12.DAGTask, len(tpls), len(tpls)),
-	}
-
-	for i, tpl := range tpls {
-		entry.DAG.Tasks[i] = v1alpha12.DAGTask{
-			Name:         utils.ConvertToDNS1123(tpl.Name),
-			Template:     utils.ConvertToDNS1123(tpl.Name),
-			Dependencies: utils.ConvertSliceToDNS1123(g.Spec.Applications[i].Dependencies),
-		}
-	}
-
-	return nil
 }

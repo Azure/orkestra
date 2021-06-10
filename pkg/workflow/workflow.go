@@ -166,14 +166,15 @@ func Suspend(ctx context.Context, engine Client) error {
 	if client.IgnoreNotFound(err) != nil {
 		return err
 	} else if err != nil || !workflow.Status.FinishedAt.IsZero() {
+		engine.GetLogger().Info("forward workflow not found, no need to suspend")
 		return nil
 	}
 	if workflow.Spec.Suspend == nil || !*workflow.Spec.Suspend {
+		engine.GetLogger().Info("suspending the workflow")
 		wfPatch := client.MergeFrom(workflow.DeepCopy())
 		suspend := true
 		workflow.Spec.Suspend = &suspend
-		err := engine.GetClient().Patch(ctx, workflow, wfPatch)
-		if err != nil {
+		if err := engine.GetClient().Patch(ctx, workflow, wfPatch); err != nil {
 			engine.GetLogger().Error(err, "failed to patch workflow")
 			return err
 		}
@@ -189,10 +190,12 @@ func GetNodes(wf *v1alpha12.Workflow) map[string]v1alpha12.NodeStatus {
 	return nodes
 }
 
-func initWorkflowObject(parallelism *int64) *v1alpha12.Workflow {
+func initWorkflowObject(name, namespace string, parallelism *int64) *v1alpha12.Workflow {
 	return &v1alpha12.Workflow{
 		ObjectMeta: v1.ObjectMeta{
-			Labels: map[string]string{HeritageLabel: Project},
+			Name:      name,
+			Namespace: namespace,
+			Labels:    map[string]string{HeritageLabel: Project},
 		},
 		TypeMeta: v1.TypeMeta{
 			APIVersion: v1alpha12.WorkflowSchemaGroupVersionKind.GroupVersion().String(),

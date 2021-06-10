@@ -5,13 +5,14 @@ import (
 	"encoding/base64"
 	"fmt"
 
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/Azure/Orkestra/pkg/utils"
 	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
 	fluxhelmv2beta1 "github.com/fluxcd/helm-controller/api/v2beta1"
 	"github.com/go-logr/logr"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
@@ -39,13 +40,9 @@ func (wc *ReverseWorkflowClient) Generate() error {
 		return fmt.Errorf("forward workflow object cannot be nil")
 	}
 
-	wc.reverseWorkflow = initWorkflowObject(wc.parallelism)
+	wc.reverseWorkflow = initWorkflowObject(wc.getReverseName(), wc.namespace, wc.parallelism)
 
-	// Set name and namespace based on the forward workflow
-	wc.reverseWorkflow.Name = fmt.Sprintf("%s-reverse", wc.forwardWorkflow.Name)
-	wc.reverseWorkflow.Namespace = wc.namespace
-
-	entry, err := generateWorkflow(wc, wc.nodes, wc.forwardWorkflow)
+	entry, err := wc.generateWorkflow()
 	if err != nil {
 		wc.Error(err, "failed to generate reverse workflow")
 		return fmt.Errorf("failed to generate argo reverse workflow : %w", err)
@@ -56,48 +53,37 @@ func (wc *ReverseWorkflowClient) Generate() error {
 }
 
 func (wc *ReverseWorkflowClient) Submit(ctx context.Context) error {
-	if wc.reverseWorkflow == nil {
-		wc.Error(nil, "reverse workflow object cannot be nil")
-		return fmt.Errorf("reverse workflow object cannot be nil")
+	if err := wc.validate(); err != nil {
+		return err
 	}
-
-	if wc.forwardWorkflow == nil {
-		wc.Error(nil, "forward workflow object cannot be nil")
-		return fmt.Errorf("forward workflow object cannot be nil")
+	obj := &v1alpha12.Workflow{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      wc.reverseWorkflow.Name,
+			Namespace: wc.reverseWorkflow.Namespace,
+		},
 	}
-
-	obj := &v1alpha12.Workflow{}
-
-	err := wc.Get(ctx, types.NamespacedName{Namespace: wc.reverseWorkflow.Namespace, Name: wc.reverseWorkflow.Name}, obj)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			// Add OwnershipReference
-			err = controllerutil.SetControllerReference(wc.forwardWorkflow, wc.reverseWorkflow, wc.Scheme())
-			if err != nil {
-				wc.Error(err, "unable to set forward workflow as owner of Argo reverse Workflow object")
-				return fmt.Errorf("unable to set forward workflow as owner of Argo reverse Workflow: %w", err)
-			}
-
-			// If the argo Workflow object is NotFound and not AlreadyExists on the cluster
-			// create a new object and submit it to the cluster
-			err = wc.Create(ctx, wc.reverseWorkflow)
-			if err != nil {
-				wc.Error(err, "failed to CREATE argo workflow object")
-				return fmt.Errorf("failed to CREATE argo workflow object : %w", err)
-			}
-		} else {
-			wc.Error(err, "failed to GET workflow object with an unrecoverable error")
-			return fmt.Errorf("failed to GET workflow object with an unrecoverable error : %w", err)
+	if err := wc.Get(ctx, client.ObjectKeyFromObject(obj), obj); client.IgnoreNotFound(err) != nil {
+		wc.Error(err, "failed to GET workflow object with an unrecoverable error")
+		return fmt.Errorf("failed to GET workflow object with an unrecoverable error : %w", err)
+	} else if err != nil {
+		if err := controllerutil.SetControllerReference(wc.forwardWorkflow, wc.reverseWorkflow, wc.Scheme()); err != nil {
+			wc.Error(err, "unable to set forward workflow as owner of Argo reverse Workflow object")
+			return fmt.Errorf("unable to set forward workflow as owner of Argo reverse Workflow: %w", err)
+		}
+		// If the argo Workflow object is NotFound and not AlreadyExists on the cluster
+		// create a new object and submit it to the cluster
+		if err = wc.Create(ctx, wc.reverseWorkflow); err != nil {
+			wc.Error(err, "failed to CREATE argo workflow object")
+			return fmt.Errorf("failed to CREATE argo workflow object : %w", err)
 		}
 	}
-
 	return nil
 }
 
-func generateWorkflow(l logr.Logger, nodes map[string]v1alpha12.NodeStatus, forward *v1alpha12.Workflow) (*v1alpha12.Template, error) {
-	graph, err := Build(forward.Name, nodes)
+func (wc *ReverseWorkflowClient) generateWorkflow() (*v1alpha12.Template, error) {
+	graph, err := Build(wc.forwardWorkflow.Name, wc.nodes)
 	if err != nil {
-		l.Error(err, "failed to build the wf status DAG")
+		wc.Error(err, "failed to build the wf status DAG")
 		return nil, fmt.Errorf("failed to build the wf status DAG : %w", err)
 	}
 
@@ -137,4 +123,16 @@ func generateWorkflow(l logr.Logger, nodes map[string]v1alpha12.NodeStatus, forw
 	}
 
 	return entry, nil
+}
+
+func (wc *ReverseWorkflowClient) validate() error {
+	if wc.forwardWorkflow == nil {
+		wc.Error(nil, "forward workflow object cannot be nil")
+		return fmt.Errorf("forward workflow object cannot be nil")
+	}
+	return nil
+}
+
+func (wc *ReverseWorkflowClient) getReverseName() string {
+	return fmt.Sprintf("%s-reverse", wc.forwardWorkflow.Name)
 }

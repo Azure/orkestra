@@ -136,14 +136,10 @@ func (helper *ReconcileHelper) Reverse(ctx context.Context) (ctrl.Result, error)
 		return ctrl.Result{}, nil
 	}
 	helper.Info("cleaning up the workflow object")
-	shouldRequeue, err := helper.Cleanup(ctx, workflow)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	return ctrl.Result{Requeue: shouldRequeue}, nil
+	return helper.Cleanup(ctx, workflow)
 }
 
-func (helper *ReconcileHelper) Cleanup(ctx context.Context, wf *v1alpha12.Workflow) (shouldRequeue bool, err error) {
+func (helper *ReconcileHelper) Cleanup(ctx context.Context, wf *v1alpha12.Workflow) (ctrl.Result, error) {
 	nodes := workflow.GetNodes(wf)
 
 	forwardClient, _ := helper.WorkflowClientBuilder.Forward(helper.Instance).Build()
@@ -151,7 +147,7 @@ func (helper *ReconcileHelper) Cleanup(ctx context.Context, wf *v1alpha12.Workfl
 
 	if err := workflow.Suspend(ctx, forwardClient); err != nil {
 		helper.Error(err, "failed to suspend forward workflow")
-		return false, err
+		return ctrl.Result{}, err
 	}
 
 	if rwf, err := reverseClient.GetWorkflow(ctx); kerrors.IsNotFound(err) {
@@ -161,25 +157,26 @@ func (helper *ReconcileHelper) Cleanup(ctx context.Context, wf *v1alpha12.Workfl
 			// if generation of reverse workflow failed, delete the forward workflow and return
 			if err := helper.Delete(ctx, wf); err != nil {
 				helper.Error(err, "failed to delete workflow CRO")
-				return false, err
+				return ctrl.Result{}, err
 			}
-			return false, err
+			return ctrl.Result{}, err
 		}
+		return ctrl.Result{Requeue: true}, nil
 	} else if err != nil {
 		helper.Error(err, "failed to GET workflow object with an unrecoverable error")
-		return false, err
+		return ctrl.Result{}, err
 	} else {
 		if !rwf.Status.FinishedAt.IsZero() {
 			helper.Info("reverse workflow is finished")
 			if err := helper.Delete(ctx, wf); err != nil {
 				helper.Error(err, "failed to delete workflow CRO - continuing with cleanup")
-				return false, err
+				return ctrl.Result{}, err
 			}
 		} else {
-			return true, nil
+			return ctrl.Result{Requeue: true}, nil
 		}
 	}
-	return false, nil
+	return ctrl.Result{}, nil
 }
 
 func (helper *ReconcileHelper) reconcileApplications() error {

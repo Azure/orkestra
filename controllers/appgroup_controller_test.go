@@ -414,7 +414,11 @@ var _ = Describe("ApplicationGroup Controller", func() {
 				if err := k8sClient.Get(ctx, types.NamespacedName{Name: ambassador, Namespace: name}, helmRelease); err != nil {
 					return false
 				}
-				return meta.GetResourceCondition(helmRelease, meta.ReadyCondition).Reason == meta2.ReconciliationSucceededReason
+				readyCondition := meta.GetResourceCondition(helmRelease, meta.ReadyCondition)
+				if readyCondition == nil {
+					return false
+				}
+				return readyCondition.Reason == meta2.ReconciliationSucceededReason
 			}, time.Minute*2, time.Second).Should(BeTrue())
 
 			// Wait for all the HelmReleases to delete
