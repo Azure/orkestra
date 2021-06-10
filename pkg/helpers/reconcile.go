@@ -129,15 +129,18 @@ func (helper *ReconcileHelper) Rollback(ctx context.Context, patch client.Patch,
 
 func (helper *ReconcileHelper) Reverse(ctx context.Context) (ctrl.Result, error) {
 	forwardClient, _ := helper.WorkflowClientBuilder.Forward(helper.Instance).Build()
-	if workflow, _ := forwardClient.GetWorkflow(ctx); workflow != nil {
-		helper.Info("cleaning up the workflow object")
-		shouldRequeue, err := helper.Cleanup(ctx, workflow)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		return ctrl.Result{Requeue: shouldRequeue}, nil
+	workflow, err := forwardClient.GetWorkflow(ctx)
+	if client.IgnoreNotFound(err) != nil {
+		return ctrl.Result{}, err
+	} else if err != nil {
+		return ctrl.Result{}, nil
 	}
-	return reconcile.Result{}, nil
+	helper.Info("cleaning up the workflow object")
+	shouldRequeue, err := helper.Cleanup(ctx, workflow)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	return ctrl.Result{Requeue: shouldRequeue}, nil
 }
 
 func (helper *ReconcileHelper) Cleanup(ctx context.Context, wf *v1alpha12.Workflow) (shouldRequeue bool, err error) {

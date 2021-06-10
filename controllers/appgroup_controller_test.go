@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/errors"
+
 	meta2 "github.com/fluxcd/pkg/apis/meta"
 
 	"github.com/Azure/Orkestra/api/v1alpha1"
@@ -444,6 +446,52 @@ var _ = Describe("ApplicationGroup Controller", func() {
 				}
 				return len(workflowList.Items) == 0
 			}, time.Minute, time.Second).Should(BeTrue())
+		})
+
+		It("should delete the application group if reverse workflow is removed", func() {
+			applicationGroup := smallAppGroup(name)
+			applicationGroup.Name = name
+			applicationGroup.Namespace = DefaultNamespace
+			key := client.ObjectKeyFromObject(applicationGroup)
+
+			By("Applying the bookinfo object to the cluster")
+			err := k8sClient.Create(ctx, applicationGroup)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Defer the cleanup so that we delete the appGroup after creation
+			defer func() {
+				By("Deleting the bookinfo object from the cluster")
+				patch := client.MergeFrom(applicationGroup.DeepCopy())
+				controllerutil.RemoveFinalizer(applicationGroup, v1alpha1.AppGroupFinalizer)
+				_ = k8sClient.Patch(ctx, applicationGroup, patch)
+				_ = k8sClient.Delete(ctx, applicationGroup)
+			}()
+
+			By("Waiting for the bookinfo object to reach a succeeded reason")
+			Eventually(func() bool {
+				applicationGroup = &v1alpha1.ApplicationGroup{}
+				if err := k8sClient.Get(ctx, key, applicationGroup); err != nil {
+					return false
+				}
+				return applicationGroup.GetReadyCondition() == meta.SucceededReason
+			}, DefaultTimeout, time.Second).Should(BeTrue())
+
+			By("Deleting the application group and deleting the workflow")
+			err = k8sClient.Delete(ctx, applicationGroup)
+			Expect(err).To(BeNil())
+			wf := &v1alpha12.Workflow{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: DefaultNamespace,
+				},
+			}
+			err = k8sClient.Delete(ctx, wf)
+			Expect(err).To(BeNil())
+
+			Eventually(func() bool {
+				applicationGroup = &v1alpha1.ApplicationGroup{}
+				return errors.IsNotFound(k8sClient.Get(ctx, key, applicationGroup))
+			}, time.Second*30, time.Second).Should(BeTrue())
 		})
 	})
 })

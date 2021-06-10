@@ -40,6 +40,7 @@ type Client interface {
 type ClientOptions struct {
 	parallelism *int64
 	stagingRepo string
+	namespace   string
 }
 
 type Builder struct {
@@ -106,6 +107,11 @@ func (builder *Builder) WithStagingRepo(stagingURL string) *Builder {
 	return builder
 }
 
+func (builder *Builder) InNamespace(namespace string) *Builder {
+	builder.options.namespace = namespace
+	return builder
+}
+
 func (builder *Builder) WithExecutor(executor ExecutorFunc) *Builder {
 	builder.executor = executor
 	return builder
@@ -157,10 +163,9 @@ func Run(ctx context.Context, engine Client) error {
 func Suspend(ctx context.Context, engine Client) error {
 	// suspend a workflow if it is not already finished or suspended
 	workflow, err := engine.GetWorkflow(ctx)
-	if err != nil {
+	if client.IgnoreNotFound(err) != nil {
 		return err
-	}
-	if !workflow.Status.FinishedAt.IsZero() {
+	} else if err != nil || !workflow.Status.FinishedAt.IsZero() {
 		return nil
 	}
 	if workflow.Spec.Suspend == nil || !*workflow.Spec.Suspend {

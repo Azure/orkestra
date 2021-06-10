@@ -163,7 +163,7 @@ func main() {
 		Scheme:                  mgr.GetScheme(),
 		RegistryClient:          rc,
 		StagingRepoName:         "staging",
-		WorkflowClientBuilder:   workflow.NewBuilder(mgr.GetClient(), baseLogger).WithStagingRepo(workflowHelmURL).WithParallelism(workflowParallelism),
+		WorkflowClientBuilder:   workflow.NewBuilder(mgr.GetClient(), baseLogger).WithStagingRepo(workflowHelmURL).WithParallelism(workflowParallelism).InNamespace(workflow.GetNamespace()),
 		TargetDir:               tempChartStoreTargetDir,
 		Recorder:                mgr.GetEventRecorderFor("appgroup-controller"),
 		DisableRemediation:      disableRemediation,
