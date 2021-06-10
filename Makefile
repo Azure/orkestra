@@ -5,6 +5,13 @@ IMG ?= azureorkestra/orkestra:latest
 CRD_OPTIONS ?= "crd:trivialVersions=true"
 DEBUG_LEVEL ?= 1
 CI_VALUES ?= "chart/orkestra/values-ci.yaml"
+
+# Directories
+ROOT_DIR := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
+BIN_DIR := $(abspath $(ROOT_DIR)/bin)
+
+reg_name='kind-registry'
+
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
 GOBIN=$(shell go env GOPATH)/bin
@@ -14,18 +21,13 @@ endif
 
 all: manager
 
-# Create a local docker registry, start kinD cluster, and install Orkestra
+# Create a local docker registry, start kind cluster, and install Orkestra
 dev:
-	bash hack/kind-with-registry.sh
+	make kind-create
 	helm upgrade --install orkestra chart/orkestra --wait --atomic -n orkestra --create-namespace --values ${CI_VALUES}
 
 debug: dev
 	go run main.go --debug --log-level ${DEBUG_LEVEL}
-
-# Delete the Orkestra installation, local docker registry, and the kinD cluster
-clean:
-	helm delete orkestra -n orkestra 2>&1
-	bash hack/teardown-kind-with-registry.sh
 
 ginkgo-test: install
 	go get github.com/onsi/ginkgo/ginkgo
@@ -125,3 +127,24 @@ API_REF_GEN=$(GOBIN)/gen-crd-api-reference-docs
 else
 API_REF_GEN=$(shell which gen-crd-api-reference-docs)
 endif
+## --------------------------------------
+## Kind
+## --------------------------------------
+KIND_CLUSTER_NAME ?= orkestra
+
+kind-create:
+	./scripts/create-kind-cluster.sh
+	kind load docker-image $(IMG) --name $(KIND_CLUSTER_NAME)
+
+kind-delete: 
+	kind delete cluster --name=$(KIND_CLUSTER_NAME) || true
+
+## --------------------------------------
+## Cleanup
+## --------------------------------------
+
+clean:
+	docker stop $(reg_name) && docker rm $(reg_name) || true
+	helm delete orkestra -n orkestra || true
+	kind delete cluster --name $(KIND_CLUSTER_NAME) || true
+	@rm -rf $(BIN_DIR)
