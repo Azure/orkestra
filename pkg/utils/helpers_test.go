@@ -4,6 +4,60 @@ import (
 	"testing"
 )
 
+func TestConvertToDNS1123(t *testing.T) {
+	type args struct {
+		in string
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "testing valid name",
+			args: args{
+				in: "good-small-name",
+			},
+			want: "good-small-name",
+		},
+		{
+			name: "testing invalid name",
+			args: args{
+				in: "tOk3_??ofTHE-Runner",
+			},
+			want: "tok3---ofthe-runner",
+		},
+		{
+			name: "testing all characters are invalid",
+			args: args{
+				in: "?.?&^%#$@_??",
+			},
+			want: GetHash("?.?&^%#$@_??")[0:63],
+		},
+		{
+			name: "testing invalid start chars",
+			args: args{
+				in: "----??tOk3_??ofTHE-Runner",
+			},
+			want: "tok3---ofthe-runner",
+		},
+		{
+			name: "testing very long name",
+			args: args{
+				in: "very-long-name------------------------------------------------end",
+			},
+			want: "very-long-name------------------------------------------------e",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := ConvertToDNS1123(tt.args.in); got != tt.want {
+				t.Errorf("ConvertDNS1123() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestTruncateString(t *testing.T) {
 	type args struct {
 		in  string

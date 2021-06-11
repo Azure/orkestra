@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"regexp"
 	"strings"
 
 	fluxhelmv2beta1 "github.com/fluxcd/helm-controller/api/v2beta1"
@@ -12,7 +13,18 @@ import (
 )
 
 func ConvertToDNS1123(in string) string {
-	return strings.ReplaceAll(in, "_", "-")
+	name := strings.ToLower(in)
+
+	notAllowedChars := regexp.MustCompile(DNS1123NotAllowedChars)
+	name = notAllowedChars.ReplaceAllString(name, "-")
+
+	notAllowedStartChars := regexp.MustCompile(DNS1123NotAllowedStartChars)
+	name = notAllowedStartChars.ReplaceAllString(name, "")
+
+	if name == "" {
+		name = GetHash(in)
+	}
+	return TruncateString(name, DNS1123NameMaximumLength)
 }
 
 func ConvertSliceToDNS1123(in []string) []string {
