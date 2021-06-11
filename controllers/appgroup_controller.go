@@ -29,18 +29,19 @@ type ApplicationGroupReconciler struct {
 	Log    logr.Logger
 	Scheme *runtime.Scheme
 
-	Engine workflow.Engine
-
 	// RegistryClient interacts with the helm registries to pull and push charts
 	RegistryClient *registry.Client
-
-	Recorder record.EventRecorder
 
 	// StagingRepoName is the nickname for the repository used for staging artifacts before being deployed using the HelmRelease object
 	StagingRepoName string
 
+	WorkflowClientBuilder *workflow.Builder
+
 	// TargetDir to stage the charts before pushing
 	TargetDir string
+
+	// Recorder generates kubernetes events
+	Recorder record.EventRecorder
 
 	// DisableRemediation for debugging purposes
 	// The object and associated Workflow, HelmReleases will
@@ -77,11 +78,11 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		Recorder:  r.Recorder,
 	}
 	reconcileHelper := helpers.ReconcileHelper{
-		Client:         r.Client,
-		Logger:         logr,
-		Instance:       appGroup,
-		Engine:         r.Engine,
-		RegistryClient: r.RegistryClient,
+		Client:                r.Client,
+		Logger:                logr,
+		Instance:              appGroup,
+		WorkflowClientBuilder: r.WorkflowClientBuilder,
+		RegistryClient:        r.RegistryClient,
 		RegistryOptions: helpers.RegistryClientOptions{
 			StagingRepoName:         r.StagingRepoName,
 			TargetDir:               r.TargetDir,
@@ -95,7 +96,7 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			return statusHelper.Failed(ctx, appGroup, err)
 		}
 		result, err := reconcileHelper.Reverse(ctx)
-		if !result.Requeue && err != nil {
+		if !result.Requeue && err == nil {
 			// Remove the finalizer because we have finished reversing
 			controllerutil.RemoveFinalizer(appGroup, v1alpha1.AppGroupFinalizer)
 			if err := r.Patch(ctx, appGroup, patch); err != nil {
@@ -163,9 +164,8 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 }
 
 func (r *ApplicationGroupReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	pred := predicate.GenerationChangedPredicate{}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.ApplicationGroup{}).
-		WithEventFilter(pred).
+		WithEventFilter(predicate.GenerationChangedPredicate{}).
 		Complete(r)
 }

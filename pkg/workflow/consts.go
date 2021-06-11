@@ -18,4 +18,8 @@ const (
 	ExecutorImageTag = "v0.3.0"
 
 	ChartMuseumName = "chartmuseum"
+
+	Project        = "orkestra"
+	OwnershipLabel = "owner"
+	HeritageLabel  = "heritage"
 )
