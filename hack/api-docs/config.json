@@ -28,7 +28,7 @@
     "k8s.io/api/": "Kubernetes ",
     "k8s.io/apimachinery/pkg/apis/": "Kubernetes ",
     "k8s.io/apiextensions-apiserver/": "Kubernetes ",
-    "github.com/fluxcd/helm-controller/api/": "helm-conntroler "
+    "github.com/fluxcd/helm-controller/api/": "helm-controller "
   },
   "markdownDisabled": false
 }
