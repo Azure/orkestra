@@ -43,6 +43,17 @@ func defaultAppGroup(targetNamespace string) *v1alpha1.ApplicationGroup {
 	return g
 }
 
+func smallAppGroup(targetNamespace string) *v1alpha1.ApplicationGroup {
+	g := &v1alpha1.ApplicationGroup{
+		ObjectMeta: v1.ObjectMeta{
+			Name: targetNamespace,
+		},
+	}
+	g.Spec.Applications = make([]v1alpha1.Application, 0)
+	g.Spec.Applications = append(g.Spec.Applications, podinfoApplication(targetNamespace))
+	return g
+}
+
 func ambassadorApplication(targetNamespace string) v1alpha1.Application {
 	values := []byte(fmt.Sprintf(`{
        "nameOverride": "%s",
