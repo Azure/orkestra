@@ -1,0 +1,24 @@
+name: Generate API Docs
+on:
+  push:
+    branches: [main]
+
+jobs:
+  gen-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: gen-crd-api-reference-docs
+        run: make api-docs
+      - name: Commit api.md file
+        run: |
+          echo ${{ github.ref }}
+          git add ./docs/api.md
+          git config --local user.name "github-actions[bot]"
+          git config --local user.email "<>"
+          git status
+          git commit -m "CI: Generate api docs" || true | exit 0
+      - name: Push changes
+        if: github.ref == 'refs/heads/main'
+        run: git push origin main
