@@ -15,7 +15,7 @@ func getTimeout(t *v1.Duration) *string {
 	return &tm
 }
 
-func workflowNamespace() string {
+func GetNamespace() string {
 	if ns, ok := os.LookupEnv("WORKFLOW_NAMESPACE"); ok {
 		return ns
 	}

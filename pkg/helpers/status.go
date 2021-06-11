@@ -28,7 +28,6 @@ type StatusHelper struct {
 func (helper *StatusHelper) UpdateStatusWithWorkflow(ctx context.Context, instance *v1alpha1.ApplicationGroup) (shouldRemediate bool, requeueTime time.Duration, err error) {
 	workflowStatus, err := helper.getWorkflowStatus(ctx, instance.Name)
 	if err != nil {
-		_, err = helper.Failed(ctx, instance, err)
 		return false, time.Duration(0), err
 	}
 	requeueTime = v1alpha1.DefaultProgressingRequeue
@@ -71,7 +70,10 @@ func (helper *StatusHelper) Failed(ctx context.Context, instance *v1alpha1.Appli
 	instance.ReadyFailed(err.Error())
 	instance.DeployFailed(err.Error())
 
-	return ctrl.Result{}, helper.patchStatus(ctx, instance)
+	// We don't care if this call fails because we will retry anyways
+	_ = helper.patchStatus(ctx, instance)
+
+	return ctrl.Result{}, err
 }
 
 func (helper *StatusHelper) Succeeded(ctx context.Context, instance *v1alpha1.ApplicationGroup) (ctrl.Result, error) {

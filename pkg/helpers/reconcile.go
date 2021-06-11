@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
+
 	"github.com/Azure/Orkestra/api/v1alpha1"
 	"github.com/Azure/Orkestra/pkg/meta"
 	"github.com/Azure/Orkestra/pkg/registry"
@@ -43,9 +45,9 @@ data:
 type ReconcileHelper struct {
 	client.Client
 	logr.Logger
-	Instance       *v1alpha1.ApplicationGroup
-	Engine         workflow.Engine
-	RegistryClient *registry.Client
+	Instance              *v1alpha1.ApplicationGroup
+	WorkflowClientBuilder *workflow.Builder
+	RegistryClient        *registry.Client
 
 	RegistryOptions RegistryClientOptions
 }
@@ -73,7 +75,8 @@ func (helper *ReconcileHelper) CreateOrUpdate(ctx context.Context) error {
 		return err
 	}
 	// Generate the Workflow object to submit to Argo
-	if err := helper.generateWorkflow(ctx, helper.Logger, helper.Instance); err != nil {
+	engine, _ := helper.WorkflowClientBuilder.Forward(helper.Instance).Build()
+	if err := workflow.Run(ctx, engine); err != nil {
 		helper.Error(err, "failed to reconcile ApplicationGroup instance")
 		return err
 	}
@@ -125,28 +128,52 @@ func (helper *ReconcileHelper) Rollback(ctx context.Context, patch client.Patch,
 }
 
 func (helper *ReconcileHelper) Reverse(ctx context.Context) (ctrl.Result, error) {
-	if workflow := helper.GetWorkflow(ctx); workflow != nil {
-		helper.Info("cleaning up the workflow object")
-		if err := helper.cleanupWorkflow(ctx, helper.Logger, workflow); err != nil {
+	forwardClient, _ := helper.WorkflowClientBuilder.Forward(helper.Instance).Build()
+	wf, err := forwardClient.GetWorkflow(ctx)
+	if client.IgnoreNotFound(err) != nil {
+		return ctrl.Result{}, err
+	} else if err != nil {
+		return ctrl.Result{}, nil
+	}
+	if err := workflow.Suspend(ctx, forwardClient); err != nil {
+		helper.Error(err, "failed to suspend forward workflow")
+		return ctrl.Result{}, err
+	}
+	helper.Info("cleaning up the workflow object")
+	return helper.Cleanup(ctx, wf)
+}
+
+func (helper *ReconcileHelper) Cleanup(ctx context.Context, wf *v1alpha12.Workflow) (ctrl.Result, error) {
+	nodes := workflow.GetNodes(wf)
+	reverseClient, _ := helper.WorkflowClientBuilder.Reverse(wf, nodes).Build()
+
+	if rwf, err := reverseClient.GetWorkflow(ctx); kerrors.IsNotFound(err) {
+		helper.Info("Reversing the workflow")
+		if err := workflow.Run(ctx, reverseClient); err != nil {
+			helper.Error(err, "failed to generate reverse workflow")
+			// if generation of reverse workflow failed, delete the forward workflow and return
+			if err := helper.Delete(ctx, wf); err != nil {
+				helper.Error(err, "failed to delete workflow CRO")
+				return ctrl.Result{}, err
+			}
 			return ctrl.Result{}, err
 		}
 		return ctrl.Result{Requeue: true}, nil
+	} else if err != nil {
+		helper.Error(err, "failed to GET workflow object with an unrecoverable error")
+		return ctrl.Result{}, err
+	} else {
+		if !rwf.Status.FinishedAt.IsZero() {
+			helper.Info("reverse workflow is finished")
+			if err := helper.Delete(ctx, wf); err != nil {
+				helper.Error(err, "failed to delete workflow CRO - continuing with cleanup")
+				return ctrl.Result{}, err
+			}
+		} else {
+			return ctrl.Result{Requeue: true}, nil
+		}
 	}
-	return reconcile.Result{}, nil
-}
-
-func (helper *ReconcileHelper) GetWorkflow(ctx context.Context) *v1alpha12.Workflow {
-	wfs := v1alpha12.WorkflowList{}
-	listOption := client.MatchingLabels{
-		workflow.OwnershipLabel: helper.Instance.Name,
-		workflow.HeritageLabel:  workflow.Project,
-	}
-	_ = helper.List(ctx, &wfs, listOption)
-
-	if len(wfs.Items) != 0 {
-		return &wfs.Items[0]
-	}
-	return nil
+	return ctrl.Result{}, nil
 }
 
 func (helper *ReconcileHelper) reconcileApplications() error {

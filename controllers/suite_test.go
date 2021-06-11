@@ -101,13 +101,15 @@ var _ = BeforeSuite(func() {
 
 	Expect(err).NotTo(HaveOccurred())
 
+	baseLogger := ctrl.Log.WithName("controllers").WithName("ApplicationGroup")
+
 	err = (&ApplicationGroupReconciler{
 		Client:                  k8sManager.GetClient(),
-		Log:                     ctrl.Log.WithName("controllers").WithName("ApplicationGroup"),
+		Log:                     baseLogger,
 		Scheme:                  k8sManager.GetScheme(),
 		RegistryClient:          rc,
 		StagingRepoName:         "staging",
-		Engine:                  workflow.Argo(scheme.Scheme, k8sManager.GetClient(), inClusterstagingRepoURL, 10),
+		WorkflowClientBuilder:   workflow.NewBuilder(k8sManager.GetClient(), baseLogger).WithStagingRepo(inClusterstagingRepoURL).WithParallelism(10).InNamespace("orkestra"),
 		TargetDir:               tempChartStoreTargetDir,
 		Recorder:                k8sManager.GetEventRecorderFor("appgroup-controller"),
 		DisableRemediation:      false,
