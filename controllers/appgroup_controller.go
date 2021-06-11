@@ -5,7 +5,6 @@ package controllers
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/Azure/Orkestra/pkg/helpers"
@@ -22,11 +21,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
-)
-
-var (
-	ErrWorkflowInFailureStatus    = errors.New("workflow in failure status")
-	ErrHelmReleaseInFailureStatus = errors.New("helmrelease in failure status")
 )
 
 // ApplicationGroupReconciler reconciles a ApplicationGroup object

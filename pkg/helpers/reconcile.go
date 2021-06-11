@@ -129,26 +129,23 @@ func (helper *ReconcileHelper) Rollback(ctx context.Context, patch client.Patch,
 
 func (helper *ReconcileHelper) Reverse(ctx context.Context) (ctrl.Result, error) {
 	forwardClient, _ := helper.WorkflowClientBuilder.Forward(helper.Instance).Build()
-	workflow, err := forwardClient.GetWorkflow(ctx)
+	wf, err := forwardClient.GetWorkflow(ctx)
 	if client.IgnoreNotFound(err) != nil {
 		return ctrl.Result{}, err
 	} else if err != nil {
 		return ctrl.Result{}, nil
 	}
-	helper.Info("cleaning up the workflow object")
-	return helper.Cleanup(ctx, workflow)
-}
-
-func (helper *ReconcileHelper) Cleanup(ctx context.Context, wf *v1alpha12.Workflow) (ctrl.Result, error) {
-	nodes := workflow.GetNodes(wf)
-
-	forwardClient, _ := helper.WorkflowClientBuilder.Forward(helper.Instance).Build()
-	reverseClient, _ := helper.WorkflowClientBuilder.Reverse(wf, nodes).Build()
-
 	if err := workflow.Suspend(ctx, forwardClient); err != nil {
 		helper.Error(err, "failed to suspend forward workflow")
 		return ctrl.Result{}, err
 	}
+	helper.Info("cleaning up the workflow object")
+	return helper.Cleanup(ctx, wf)
+}
+
+func (helper *ReconcileHelper) Cleanup(ctx context.Context, wf *v1alpha12.Workflow) (ctrl.Result, error) {
+	nodes := workflow.GetNodes(wf)
+	reverseClient, _ := helper.WorkflowClientBuilder.Reverse(wf, nodes).Build()
 
 	if rwf, err := reverseClient.GetWorkflow(ctx); kerrors.IsNotFound(err) {
 		helper.Info("Reversing the workflow")

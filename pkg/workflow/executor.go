@@ -8,14 +8,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-const (
-	// The set of executor actions which can be performed on a helmrelease object
-	Install ExecutorAction = "install"
-	Delete  ExecutorAction = "delete"
-)
-
 // ExecutorAction defines the set of executor actions which can be performed on a helmrelease object
 type ExecutorAction string
+
+const (
+	install ExecutorAction = "install"
+	delete  ExecutorAction = "delete"
+)
 
 func defaultExecutor(templateName string, action ExecutorAction) v1alpha12.Template {
 	executorArgs := []string{"--spec", "{{inputs.parameters.helmrelease}}", "--action", string(action), "--timeout", "{{inputs.parameters.timeout}}", "--interval", "10s"}
