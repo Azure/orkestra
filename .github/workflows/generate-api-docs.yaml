@@ -18,7 +18,7 @@ jobs:
           git config --local user.name "github-actions[bot]"
           git config --local user.email "<>"
           git status
-          git commit -m "CI: Generate api docs" || true | exit 0
+          git commit -m "CI: Update api docs" || true | exit 0
       - name: Push changes
         if: github.ref == 'refs/heads/main'
         run: git push origin main
