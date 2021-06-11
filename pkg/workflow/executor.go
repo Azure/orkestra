@@ -12,8 +12,8 @@ import (
 type ExecutorAction string
 
 const (
-	install ExecutorAction = "install"
-	delete  ExecutorAction = "delete"
+	Install ExecutorAction = "install"
+	Delete  ExecutorAction = "delete"
 )
 
 func defaultExecutor(templateName string, action ExecutorAction) v1alpha12.Template {

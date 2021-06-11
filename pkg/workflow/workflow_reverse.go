@@ -48,7 +48,7 @@ func (wc *ReverseWorkflowClient) Generate() error {
 		return fmt.Errorf("failed to generate argo reverse workflow : %w", err)
 	}
 
-	updateWorkflowTemplates(wc.reverseWorkflow, *entry, wc.executor(HelmReleaseReverseExecutorName, delete))
+	updateWorkflowTemplates(wc.reverseWorkflow, *entry, wc.executor(HelmReleaseReverseExecutorName, Delete))
 	return nil
 }
 
