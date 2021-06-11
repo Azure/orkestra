@@ -720,7 +720,7 @@ Kubernetes pkg/apis/apiextensions/v1.JSON
 <code>install</code><br>
 <em>
 <a href="https://pkg.go.dev/github.com/fluxcd/helm-controller/api/v2beta1#Install">
-helm-conntroler v2beta1.Install
+helm-controller v2beta1.Install
 </a>
 </em>
 </td>
@@ -734,7 +734,7 @@ helm-conntroler v2beta1.Install
 <code>upgrade</code><br>
 <em>
 <a href="https://pkg.go.dev/github.com/fluxcd/helm-controller/api/v2beta1#Upgrade">
-helm-conntroler v2beta1.Upgrade
+helm-controller v2beta1.Upgrade
 </a>
 </em>
 </td>
@@ -748,7 +748,7 @@ helm-conntroler v2beta1.Upgrade
 <code>rollback</code><br>
 <em>
 <a href="https://pkg.go.dev/github.com/fluxcd/helm-controller/api/v2beta1#Rollback">
-helm-conntroler v2beta1.Rollback
+helm-controller v2beta1.Rollback
 </a>
 </em>
 </td>
@@ -762,7 +762,7 @@ helm-conntroler v2beta1.Rollback
 <code>uninstall</code><br>
 <em>
 <a href="https://pkg.go.dev/github.com/fluxcd/helm-controller/api/v2beta1#Uninstall">
-helm-conntroler v2beta1.Uninstall
+helm-controller v2beta1.Uninstall
 </a>
 </em>
 </td>
