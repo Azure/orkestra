@@ -4,7 +4,8 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-
+	"github.com/Azure/Orkestra/api/v1alpha1"
+	"github.com/Azure/Orkestra/pkg/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -25,19 +26,43 @@ func (wc *ReverseWorkflowClient) GetClient() client.Client {
 	return wc.Client
 }
 
+func (wc *ReverseWorkflowClient) GetType() ClientType {
+	return Reverse
+}
+
+func (wc *ReverseWorkflowClient) GetAppGroup() *v1alpha1.ApplicationGroup {
+	return wc.appGroup
+}
+
+func (wc *ReverseWorkflowClient) GetOptions() ClientOptions {
+	return wc.ClientOptions
+}
+
+func (wc *ReverseWorkflowClient) GetNamespace() string {
+	return wc.namespace
+}
+
 func (wc *ReverseWorkflowClient) GetWorkflow(ctx context.Context) (*v1alpha12.Workflow, error) {
 	reverseWorkflow := &v1alpha12.Workflow{}
 
-	rwfName := fmt.Sprintf("%s-reverse", wc.forwardWorkflow.Name)
-	rwfNamespace := wc.forwardWorkflow.Namespace
-	err := wc.Get(ctx, types.NamespacedName{Namespace: rwfNamespace, Name: rwfName}, reverseWorkflow)
+	rwfName := fmt.Sprintf("%s-reverse", wc.appGroup.Name)
+	err := wc.Get(ctx, types.NamespacedName{Namespace: wc.namespace, Name: rwfName}, reverseWorkflow)
 	return reverseWorkflow, err
 }
 
-func (wc *ReverseWorkflowClient) Generate() error {
-	if wc.forwardWorkflow == nil {
-		wc.Error(nil, "forward workflow object cannot be nil")
-		return fmt.Errorf("forward workflow object cannot be nil")
+func (wc *ReverseWorkflowClient) Generate(ctx context.Context) error {
+	var err error
+
+	// Get the forward workflow from the server and suspend it if it's still running
+	wc.forwardWorkflow, err = wc.forwardClient.GetWorkflow(ctx)
+	if client.IgnoreNotFound(err) != nil {
+		return err
+	} else if err != nil {
+		return meta.ForwardWorkflowNotFound
+	}
+	if err := Suspend(ctx, wc.forwardClient); err != nil {
+		wc.Error(err, "failed to suspend forward workflow")
+		return err
 	}
 
 	wc.reverseWorkflow = initWorkflowObject(wc.getReverseName(), wc.namespace, wc.parallelism)
@@ -81,7 +106,7 @@ func (wc *ReverseWorkflowClient) Submit(ctx context.Context) error {
 }
 
 func (wc *ReverseWorkflowClient) generateWorkflow() (*v1alpha12.Template, error) {
-	graph, err := Build(wc.forwardWorkflow.Name, wc.nodes)
+	graph, err := Build(wc.forwardWorkflow.Name, getNodes(wc.forwardWorkflow))
 	if err != nil {
 		wc.Error(err, "failed to build the wf status DAG")
 		return nil, fmt.Errorf("failed to build the wf status DAG : %w", err)

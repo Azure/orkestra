@@ -52,7 +52,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 			_ = k8sClient.DeleteAllOf(ctx, &v1alpha12.Workflow{}, client.InNamespace(name))
 		})
 
-		It("Should create Bookinfo spec successfully", func() {
+		FIt("Should create Bookinfo spec successfully", func() {
 			applicationGroup := defaultAppGroup(name)
 			applicationGroup.Name = name
 			applicationGroup.Namespace = DefaultNamespace
@@ -145,11 +145,10 @@ var _ = Describe("ApplicationGroup Controller", func() {
 					return false
 				}
 				readyCondition := meta.GetResourceCondition(applicationGroup, meta.ReadyCondition)
-				deployCondition := meta.GetResourceCondition(applicationGroup, meta.DeployCondition)
-				if readyCondition == nil || deployCondition == nil {
+				if readyCondition == nil {
 					return false
 				}
-				return readyCondition.Reason == meta.FailedReason && deployCondition.Reason == meta.FailedReason
+				return readyCondition.Reason == meta.FailedReason
 			}, time.Second*30, time.Second).Should(BeTrue())
 		})
 
@@ -221,11 +220,10 @@ var _ = Describe("ApplicationGroup Controller", func() {
 					return false
 				}
 				readyCondition := meta.GetResourceCondition(applicationGroup, meta.ReadyCondition)
-				deployCondition := meta.GetResourceCondition(applicationGroup, meta.DeployCondition)
-				if readyCondition == nil || deployCondition == nil {
+				if readyCondition == nil {
 					return false
 				}
-				return readyCondition.Reason == meta.FailedReason && deployCondition.Reason == meta.FailedReason
+				return readyCondition.Reason == meta.FailedReason
 			}, time.Second*30, time.Second).Should(BeTrue())
 
 			patch := client.MergeFrom(applicationGroup.DeepCopy())
@@ -238,8 +236,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 				if err := k8sClient.Get(ctx, client.ObjectKeyFromObject(applicationGroup), applicationGroup); err != nil {
 					return false
 				}
-				return applicationGroup.GetDeployCondition() == meta.SucceededReason &&
-					applicationGroup.GetReadyCondition() == meta.ProgressingReason
+				return applicationGroup.GetReadyCondition() == meta.ProgressingReason
 			}, time.Minute*2, time.Second).Should(BeTrue())
 		})
 

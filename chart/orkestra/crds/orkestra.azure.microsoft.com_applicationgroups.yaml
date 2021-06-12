@@ -19,11 +19,11 @@ spec:
   scope: Cluster
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .status.conditions[?(@.type=="Deploy")].reason
-      name: Deploy
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
       type: string
     - jsonPath: .status.conditions[?(@.type=="Ready")].reason
-      name: Ready
+      name: Reason
       type: string
     - jsonPath: .status.conditions[?(@.type=="Ready")].message
       name: Message
@@ -265,6 +265,7 @@ spec:
                   required:
                   - name
                   type: object
+                minItems: 1
                 type: array
               interval:
                 description: Interval specifies the between reconciliations of the ApplicationGroup Defaults to 5s for short requeue and 30s for long requeue

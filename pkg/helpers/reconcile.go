@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 
@@ -13,7 +14,6 @@ import (
 	"github.com/Azure/Orkestra/pkg/registry"
 	"github.com/Azure/Orkestra/pkg/utils"
 	"github.com/Azure/Orkestra/pkg/workflow"
-	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
 	fluxhelmv2beta1 "github.com/fluxcd/helm-controller/api/v2beta1"
 	"github.com/go-logr/logr"
 	"github.com/jinzhu/copier"
@@ -24,12 +24,6 @@ import (
 )
 
 var (
-	ErrInvalidSpec = fmt.Errorf("custom resource spec is invalid")
-	// ErrRequeue describes error while requeuing
-	ErrRequeue                    = fmt.Errorf("(transitory error) Requeue-ing resource to try again")
-	ErrWorkflowInFailureStatus    = errors.New("workflow in failure status")
-	ErrHelmReleaseInFailureStatus = errors.New("helmrelease in failure status")
-
 	dummyConfigmapYAMLSpec = `apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -48,6 +42,7 @@ type ReconcileHelper struct {
 	Instance              *v1alpha1.ApplicationGroup
 	WorkflowClientBuilder *workflow.Builder
 	RegistryClient        *registry.Client
+	StatusHelper          *StatusHelper
 
 	RegistryOptions RegistryClientOptions
 }
@@ -62,12 +57,6 @@ type RegistryClientOptions struct {
 func (helper *ReconcileHelper) CreateOrUpdate(ctx context.Context) error {
 	helper.Logger = helper.Logger.WithValues(v1alpha1.AppGroupNameKey, helper.Instance.Name)
 	helper.V(3).Info("Reconciling ApplicationGroup object")
-
-	if len(helper.Instance.Spec.Applications) == 0 {
-		helper.Error(ErrInvalidSpec, "ApplicationGroup must list atleast one Application")
-		err := fmt.Errorf("application group must list atleast one Application : %w", ErrInvalidSpec)
-		return err
-	}
 
 	if err := helper.reconcileApplications(); err != nil {
 		helper.Error(err, "failed to reconcile the applications")
@@ -87,7 +76,7 @@ func (helper *ReconcileHelper) CreateOrUpdate(ctx context.Context) error {
 func (helper *ReconcileHelper) Rollback(ctx context.Context, patch client.Patch, err error) (ctrl.Result, error) {
 	// If this is a HelmRelease failure then we must remediate by cleaning up
 	// all the helm releases deployed by the workflow and helm operator
-	if errors.Is(err, ErrHelmReleaseInFailureStatus) {
+	if errors.Is(err, meta.HelmReleaseFailureStatusError) {
 		// Delete the HelmRelease(s) - parent and subchart(s)
 		// Lookup charts using the label selector.
 		// Example: chart=kafka-dev,heritage=orkestra,owner=dev, where chart=<top-level-chart>
@@ -115,48 +104,31 @@ func (helper *ReconcileHelper) Rollback(ctx context.Context, patch client.Patch,
 			}
 		}
 	}
-	// mark the object as requiring rollback so that we can rollback
-	// to the previous versions of all the applications in the ApplicationGroup
-	// using the last successful spec
+
 	helper.Info("Rolling back to last successful application group spec")
 	helper.Instance.Spec = *helper.Instance.GetLastSuccessful()
-	if err := helper.Patch(ctx, helper.Instance, patch); err != nil {
-		helper.Error(err, "failed to update ApplicationGroup instance while rolling back")
-		return ctrl.Result{}, err
-	}
+	rollbackClient, _ := helper.WorkflowClientBuilder.Rollback(helper.Instance).Build()
+	workflow.Run(ctx, rollbackClient)
+
 	return reconcile.Result{RequeueAfter: v1alpha1.DefaultProgressingRequeue}, nil
 }
 
 func (helper *ReconcileHelper) Reverse(ctx context.Context) (ctrl.Result, error) {
+	reverseClient, _ := helper.WorkflowClientBuilder.Reverse(helper.Instance).Build()
 	forwardClient, _ := helper.WorkflowClientBuilder.Forward(helper.Instance).Build()
-	wf, err := forwardClient.GetWorkflow(ctx)
-	if client.IgnoreNotFound(err) != nil {
-		return ctrl.Result{}, err
-	} else if err != nil {
-		return ctrl.Result{}, nil
-	}
-	if err := workflow.Suspend(ctx, forwardClient); err != nil {
-		helper.Error(err, "failed to suspend forward workflow")
-		return ctrl.Result{}, err
-	}
-	helper.Info("cleaning up the workflow object")
-	return helper.Cleanup(ctx, wf)
-}
-
-func (helper *ReconcileHelper) Cleanup(ctx context.Context, wf *v1alpha12.Workflow) (ctrl.Result, error) {
-	nodes := workflow.GetNodes(wf)
-	reverseClient, _ := helper.WorkflowClientBuilder.Reverse(wf, nodes).Build()
-
 	if rwf, err := reverseClient.GetWorkflow(ctx); kerrors.IsNotFound(err) {
 		helper.Info("Reversing the workflow")
-		if err := workflow.Run(ctx, reverseClient); err != nil {
+		if err := workflow.Run(ctx, reverseClient); strings.Contains(err.Error(), meta.ForwardWorkflowNotFound.Error()) {
+			// Forward workflow wasn't found so we just return
+			return ctrl.Result{}, nil
+		} else if err != nil {
 			helper.Error(err, "failed to generate reverse workflow")
 			// if generation of reverse workflow failed, delete the forward workflow and return
-			if err := helper.Delete(ctx, wf); err != nil {
+			if err := workflow.DeleteWorkflow(ctx, forwardClient); err != nil {
 				helper.Error(err, "failed to delete workflow CRO")
 				return ctrl.Result{}, err
 			}
-			return ctrl.Result{}, err
+			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{Requeue: true}, nil
 	} else if err != nil {
@@ -165,8 +137,8 @@ func (helper *ReconcileHelper) Cleanup(ctx context.Context, wf *v1alpha12.Workfl
 	} else {
 		if !rwf.Status.FinishedAt.IsZero() {
 			helper.Info("reverse workflow is finished")
-			if err := helper.Delete(ctx, wf); err != nil {
-				helper.Error(err, "failed to delete workflow CRO - continuing with cleanup")
+			if err := workflow.DeleteWorkflow(ctx, reverseClient); err != nil {
+				helper.Error(err, "failed to delete workflow CRO")
 				return ctrl.Result{}, err
 			}
 		} else {

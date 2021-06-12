@@ -14,6 +14,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+type WorkflowType string
+
 const (
 	DefaultProgressingRequeue = 5 * time.Second
 	DefaultSucceededRequeue   = 5 * time.Minute
@@ -23,6 +25,10 @@ const (
 
 	LastSuccessfulAnnotation = "orkestra/last-successful-applicationgroup"
 	ParentChartAnnotation    = "orkestra/parent-chart"
+
+	ForwardWorkflow  WorkflowType = "forward"
+	ReverseWorkflow  WorkflowType = "reverse"
+	RollbackWorkflow WorkflowType = "rollback"
 )
 
 // GetInterval returns the interval if specified in the application group
@@ -133,6 +139,8 @@ type ChartStatus struct {
 // ApplicationGroupSpec defines the desired state of ApplicationGroup
 type ApplicationGroupSpec struct {
 	// Applications that make up the application group
+	// +kubebuilder:validation:MinItems:=1
+	// +required
 	Applications []Application `json:"applications,omitempty"`
 
 	// Interval specifies the between reconciliations of the ApplicationGroup
@@ -244,32 +252,10 @@ func (in *ApplicationGroup) ReadyFailed(message string) {
 	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionTrue, meta.FailedReason, message)
 }
 
-// DeploySucceeded sets the meta.DeployCondition to 'True', with the given
-// meta.Succeeded reason and message
-func (in *ApplicationGroup) DeploySucceeded() {
-	meta.SetResourceCondition(in, meta.DeployCondition, metav1.ConditionTrue, meta.SucceededReason, "application group reconciliation succeeded")
-}
-
-// DeployFailed sets the meta.DeployCondition to 'True' and
-// meta.FailedReason reason and message
-func (in *ApplicationGroup) DeployFailed(message string) {
-	meta.SetResourceCondition(in, meta.DeployCondition, metav1.ConditionTrue, meta.FailedReason, message)
-}
-
 // GetReadyCondition gets the string condition.Reason of the
 // meta.ReadyCondition type
 func (in *ApplicationGroup) GetReadyCondition() string {
 	condition := meta.GetResourceCondition(in, meta.ReadyCondition)
-	if condition == nil {
-		return meta.ProgressingReason
-	}
-	return condition.Reason
-}
-
-// GetDeployCondition gets the string condition.Reason of the
-// meta.ReadyCondition type
-func (in *ApplicationGroup) GetDeployCondition() string {
-	condition := meta.GetResourceCondition(in, meta.DeployCondition)
 	if condition == nil {
 		return meta.ProgressingReason
 	}
@@ -308,8 +294,8 @@ func (in *ApplicationGroup) SetLastSuccessful() {
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:path=applicationgroups,scope=Cluster,shortName=ag
 // +kubebuilder:subresource:status
-// +kubebuilder:printcolumn:name="Deploy",type="string",JSONPath=".status.conditions[?(@.type==\"Deploy\")].reason"
-// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].reason"
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].status"
+// +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].reason"
 // +kubebuilder:printcolumn:name="Message",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].message"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 

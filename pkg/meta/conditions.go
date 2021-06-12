@@ -24,32 +24,37 @@ const (
 	// This captures the status of the entire ApplicationGroup
 	ReadyCondition string = "Ready"
 
-	// DeployCondition is the name of the Deploy condition
-	// This captures the state of receiving and reacting to the spec by the reconciler
-	DeployCondition string = "Deploy"
+	ForwardWorkflowSucceededCondition string = "ForwardWorkflowSucceeded"
 
-	// ReleasedCondition represents the status of the last release attempt
-	// (install/upgrade/test) against the latest desired state.
-	ReleasedCondition string = "Released"
+	ReverseWorkflowSucceededCondition string = "ReverseWorkflowSucceeded"
+
+	RollbackWorkflowSucceededCondition string = "RollbackWorkflowSucceeded"
 )
 
 const (
-	// SucceededReason represents the fact that the reconciliation succeeded
+	// SucceededReason represents the condition succeeding
 	SucceededReason string = "Succeeded"
 
 	// FailedReason represents the fact that the the reconciliation failed
 	FailedReason string = "Failed"
 
-	// ProgressingReason represents the fact that the workflow is in a starting
-	// or running state, we have not reached a terminal state yet
+	InvalidApplicationGroupReason string = "InvalidApplicationGroup"
+
+	// ProgressingReason represents the fact that the application group reconciler
+	// is reconciling the app group and the forward workflow has not completed
 	ProgressingReason string = "Progressing"
 
-	// RollbackReason represents the fact that we are entering a rollback state
-	// and is transitioning into a non-terminal state
-	RollingBackReason string = "RollingBack"
+	// DeletingReason represents that the application group is deleting
+	// and waiting for the reverse workflow to complete
+	DeletingReason string = "Deleting"
 
-	// ReversingReason represents the fact that we are reversing the workflow
-	ReversingReason string = "Reversing"
+	SuspendedReason string = "Suspended"
+
+	ChartPullFailedReason string = "ChartPullFailed"
+
+	WorkflowStepFailedReason string = "WorkflowStepFailed"
+
+	TemplateGenerationFailedReason string = "TemplateGenerationFailed"
 )
 
 // ObjectWithStatusConditions is an interface that describes kubernetes resource
@@ -63,14 +68,12 @@ type ObjectWithStatusConditions interface {
 // reason and message on a resource.
 func SetResourceCondition(obj ObjectWithStatusConditions, condition string, status metav1.ConditionStatus, reason, message string) {
 	conditions := obj.GetStatusConditions()
-
 	newCondition := metav1.Condition{
 		Type:    condition,
 		Status:  status,
 		Reason:  reason,
 		Message: message,
 	}
-
 	apimeta.SetStatusCondition(conditions, newCondition)
 }
 
