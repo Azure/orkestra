@@ -77,7 +77,7 @@ func (helper *ReconcileHelper) CreateOrUpdate(ctx context.Context) error {
 func (helper *ReconcileHelper) Rollback(ctx context.Context, patch client.Patch, err error) (ctrl.Result, error) {
 	// If this is a HelmRelease failure then we must remediate by cleaning up
 	// all the helm releases deployed by the workflow and helm operator
-	if errors.Is(err, meta.HelmReleaseFailureStatusError) {
+	if errors.Is(err, meta.ErrHelmReleaseStatusFailure) {
 		// Delete the HelmRelease(s) - parent and subchart(s)
 		// Lookup charts using the label selector.
 		// Example: chart=kafka-dev,heritage=orkestra,owner=dev, where chart=<top-level-chart>
@@ -107,9 +107,13 @@ func (helper *ReconcileHelper) Rollback(ctx context.Context, patch client.Patch,
 	}
 
 	helper.Info("Rolling back to last successful application group spec")
-	helper.Instance.Spec = *helper.Instance.GetLastSuccessful()
-	rollbackClient, _ := helper.WorkflowClientBuilder.Rollback(helper.Instance).Build()
-	workflow.Run(ctx, rollbackClient)
+	rollbackInstance := helper.Instance.DeepCopy()
+	rollbackInstance.Spec = *helper.Instance.GetLastSuccessful()
+	rollbackClient, _ := helper.WorkflowClientBuilder.Rollback(rollbackInstance).Build()
+	if err := workflow.Run(ctx, rollbackClient); err != nil {
+		helper.Error(err, "failed to create the workflow for rollback")
+		return ctrl.Result{}, err
+	}
 
 	return reconcile.Result{RequeueAfter: v1alpha1.DefaultProgressingRequeue}, nil
 }
@@ -119,7 +123,7 @@ func (helper *ReconcileHelper) Reverse(ctx context.Context) (ctrl.Result, error)
 	forwardClient, _ := helper.WorkflowClientBuilder.Forward(helper.Instance).Build()
 	if rwf, err := reverseClient.GetWorkflow(ctx); kerrors.IsNotFound(err) {
 		helper.Info("Reversing the workflow")
-		if err := workflow.Run(ctx, reverseClient); err != nil && strings.Contains(err.Error(), meta.ForwardWorkflowNotFound.Error()) {
+		if err := workflow.Run(ctx, reverseClient); err != nil && strings.Contains(err.Error(), meta.ErrForwardWorkflowNotFound.Error()) {
 			// Forward workflow wasn't found so we just return
 			return ctrl.Result{}, nil
 		} else if err != nil {

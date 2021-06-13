@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+
 	"github.com/Azure/Orkestra/api/v1alpha1"
 	"github.com/Azure/Orkestra/pkg/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -58,7 +59,7 @@ func (wc *ReverseWorkflowClient) Generate(ctx context.Context) error {
 	if client.IgnoreNotFound(err) != nil {
 		return err
 	} else if err != nil {
-		return meta.ForwardWorkflowNotFound
+		return meta.ErrForwardWorkflowNotFound
 	}
 	if err := Suspend(ctx, wc.forwardClient); err != nil {
 		wc.Error(err, "failed to suspend forward workflow")
