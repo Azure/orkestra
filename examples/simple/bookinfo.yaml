@@ -8,7 +8,7 @@ spec:
       dependencies: []
       spec:
         chart:
-          url: "https://www.getambassador.io/helm"
+          url: "https://nitishm.github.io/charts"
           name: ambassador 
           version: 6.6.0
           # Authorization Object Reference (Kind: Secret)
