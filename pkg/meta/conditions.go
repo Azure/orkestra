@@ -38,22 +38,27 @@ const (
 	// FailedReason represents the fact that the the reconciliation failed
 	FailedReason string = "Failed"
 
-	InvalidApplicationGroupReason string = "InvalidApplicationGroup"
-
 	// ProgressingReason represents the fact that the application group reconciler
 	// is reconciling the app group and the forward workflow has not completed
 	ProgressingReason string = "Progressing"
 
-	// DeletingReason represents that the application group is deleting
+	// TerminatingReason represents that the application group is deleting
 	// and waiting for the reverse workflow to complete
-	DeletingReason string = "Deleting"
+	TerminatingReason string = "Terminating"
 
+	// SuspendedReason represents that the workflow is in a suspended state
 	SuspendedReason string = "Suspended"
 
+	// ChartPullFailedReason represents the fact that the application group reconcile
+	// was unable to pull from the chart repo specified
 	ChartPullFailedReason string = "ChartPullFailed"
 
+	// WorkflowStepFailedReason represents the fact that a workflow step failed and is the reason
+	// why the application group was unable to successfully reconcile
 	WorkflowStepFailedReason string = "WorkflowStepFailed"
 
+	// TemplateGenerationFailedReason represents the fact that the application group was unable
+	// to generate the templates for the workflow reconciliation
 	TemplateGenerationFailedReason string = "TemplateGenerationFailed"
 )
 

@@ -17,7 +17,7 @@ const (
 	ambassador = "ambassador"
 	podinfo    = "podinfo"
 
-	ambassadorChartURL        = "https://www.getambassador.io"
+	ambassadorChartURL        = "https://nitishm.github.io/charts"
 	ambassadorOldChartVersion = "6.6.0"
 	ambassadorChartVersion    = "6.7.9"
 
@@ -39,7 +39,7 @@ func defaultAppGroup(targetNamespace string) *v1alpha1.ApplicationGroup {
 		},
 	}
 	g.Spec.Applications = make([]v1alpha1.Application, 0)
-	g.Spec.Applications = append(g.Spec.Applications, bookinfoApplication(targetNamespace))
+	g.Spec.Applications = append(g.Spec.Applications, ambassadorApplication(targetNamespace), bookinfoApplication(targetNamespace))
 	return g
 }
 
@@ -105,6 +105,7 @@ func bookinfoApplication(targetNamespace string) v1alpha1.Application {
 		DAG: v1alpha1.DAG{
 			Name: bookinfo,
 			Dependencies: []string{
+				ambassador,
 			},
 		},
 		Spec: v1alpha1.ApplicationSpec{

@@ -59,13 +59,14 @@ func (helper *ReconcileHelper) CreateOrUpdate(ctx context.Context) error {
 	helper.V(3).Info("Reconciling ApplicationGroup object")
 
 	if err := helper.reconcileApplications(); err != nil {
+		helper.StatusHelper.MarkChartPullFailed(helper.Instance, err)
 		helper.Error(err, "failed to reconcile the applications")
-		err = fmt.Errorf("failed to reconcile the applications : %w", err)
-		return err
+		return fmt.Errorf("failed to reconcile the applications : %w", err)
 	}
 	// Generate the Workflow object to submit to Argo
 	engine, _ := helper.WorkflowClientBuilder.Forward(helper.Instance).Build()
 	if err := workflow.Run(ctx, engine); err != nil {
+		helper.StatusHelper.MarkTemplateGenerationFailed(helper.Instance, err)
 		helper.Error(err, "failed to reconcile ApplicationGroup instance")
 		return err
 	}
@@ -118,7 +119,7 @@ func (helper *ReconcileHelper) Reverse(ctx context.Context) (ctrl.Result, error)
 	forwardClient, _ := helper.WorkflowClientBuilder.Forward(helper.Instance).Build()
 	if rwf, err := reverseClient.GetWorkflow(ctx); kerrors.IsNotFound(err) {
 		helper.Info("Reversing the workflow")
-		if err := workflow.Run(ctx, reverseClient); strings.Contains(err.Error(), meta.ForwardWorkflowNotFound.Error()) {
+		if err := workflow.Run(ctx, reverseClient); err != nil && strings.Contains(err.Error(), meta.ForwardWorkflowNotFound.Error()) {
 			// Forward workflow wasn't found so we just return
 			return ctrl.Result{}, nil
 		} else if err != nil {
@@ -142,7 +143,7 @@ func (helper *ReconcileHelper) Reverse(ctx context.Context) (ctrl.Result, error)
 				return ctrl.Result{}, err
 			}
 		} else {
-			return ctrl.Result{Requeue: true}, nil
+			return ctrl.Result{RequeueAfter: v1alpha1.DefaultProgressingRequeue}, nil
 		}
 	}
 	return ctrl.Result{}, nil

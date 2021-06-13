@@ -52,7 +52,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 			_ = k8sClient.DeleteAllOf(ctx, &v1alpha12.Workflow{}, client.InNamespace(name))
 		})
 
-		FIt("Should create Bookinfo spec successfully", func() {
+		It("Should create Bookinfo spec successfully", func() {
 			applicationGroup := defaultAppGroup(name)
 			applicationGroup.Name = name
 			applicationGroup.Namespace = DefaultNamespace

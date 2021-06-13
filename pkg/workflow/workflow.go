@@ -3,6 +3,7 @@ package workflow
 import (
 	"context"
 	"fmt"
+
 	"github.com/Azure/Orkestra/pkg/meta"
 	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -278,7 +279,7 @@ func toConditionReason(nodePhase v1alpha12.NodePhase) string {
 // SetProgressing sets one of the workflow conditions in the progressing state
 func SetProgressing(wfClient Client) {
 	if condition, ok := conditionMap[wfClient.GetType()]; ok {
-		meta.SetResourceCondition(wfClient.GetAppGroup(), condition, metav1.ConditionFalse, meta.ProgressingReason, "workflow is progressing...")
+		meta.SetResourceCondition(wfClient.GetAppGroup(), condition, metav1.ConditionUnknown, meta.ProgressingReason, "workflow is progressing...")
 	}
 }
 

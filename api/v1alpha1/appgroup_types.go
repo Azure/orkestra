@@ -246,10 +246,22 @@ func (in *ApplicationGroup) ReadySucceeded() {
 	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionTrue, meta.SucceededReason, "workflow and reconciliation succeeded")
 }
 
-// ReadyFailed sets the meta.ReadyCondition to 'True' and
-// meta.FailedReason reason and message
-func (in *ApplicationGroup) ReadyFailed(message string) {
-	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionTrue, meta.FailedReason, message)
+// WorkflowFailed sets the meta.ReadyCondition to 'False' and
+// meta.ReadyWorkflowFailed reason and message
+func (in *ApplicationGroup) WorkflowFailed(message string) {
+	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionFalse, meta.WorkflowStepFailedReason, message)
+}
+
+// ChartPullFailed sets the meta.ReadyCondition to 'False' and
+// meta.ChartPullFailedReason reason and message
+func (in *ApplicationGroup) ChartPullFailed(message string) {
+	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionFalse, meta.ChartPullFailedReason, message)
+}
+
+// TemplateGenerationFailed sets the meta.ReadyCondition to 'False' and
+// meta.TemplateGenerationFailed reason and message
+func (in *ApplicationGroup) TemplateGenerationFailed(message string) {
+	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionFalse, meta.TemplateGenerationFailedReason, message)
 }
 
 // GetReadyCondition gets the string condition.Reason of the

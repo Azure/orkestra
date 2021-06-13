@@ -3,6 +3,7 @@ package helpers
 import (
 	"context"
 	"fmt"
+
 	"github.com/Azure/Orkestra/api/v1alpha1"
 	"github.com/Azure/Orkestra/pkg/meta"
 	"github.com/Azure/Orkestra/pkg/workflow"
@@ -35,7 +36,7 @@ func (helper *StatusHelper) UpdateStatus(ctx context.Context, instance *v1alpha1
 	if err != nil {
 		return result, err
 	}
-	return result, helper.patchStatus(ctx, instance)
+	return result, nil
 }
 
 func (helper *StatusHelper) updateWorkflowStatus(ctx context.Context, instance *v1alpha1.ApplicationGroup) (ctrl.Result, error) {
@@ -50,73 +51,64 @@ func (helper *StatusHelper) updateWorkflowStatus(ctx context.Context, instance *
 	if isFailed, err := workflow.IsFailed(ctx, forwardClient); err != nil {
 		return ctrl.Result{}, err
 	} else if isFailed {
-		helper.Failed(ctx, instance, fmt.Errorf(""))
+		helper.MarkFailed(instance, fmt.Errorf(""))
 		return ctrl.Result{RequeueAfter: v1alpha1.GetInterval(instance)}, nil
 	}
 	if isSucceeded, err := workflow.IsSucceeded(ctx, forwardClient); err != nil {
 		return ctrl.Result{}, err
 	} else if isSucceeded {
-		helper.Succeeded(ctx, instance)
+		if err := helper.MarkSucceeded(ctx, instance); err != nil {
+			return ctrl.Result{}, err
+		}
 		return ctrl.Result{RequeueAfter: v1alpha1.GetInterval(instance)}, nil
 	}
 	return ctrl.Result{RequeueAfter: v1alpha1.DefaultProgressingRequeue}, nil
 }
 
-func (helper *StatusHelper) Failed(ctx context.Context, instance *v1alpha1.ApplicationGroup, err error) (ctrl.Result, error) {
-	helper.Recorder.Event(instance, "Warning", "ReconcileError", fmt.Sprintf("Failed to reconcile ApplicationGroup %v with Error : %v", instance.Name, err))
-	instance.ReadyFailed(err.Error())
+func (helper *StatusHelper) MarkSucceeded(ctx context.Context, instance *v1alpha1.ApplicationGroup) error {
+	// Set the last successful annotation for rollback scenarios
+	instanceCopy := instance.DeepCopy()
+	instanceCopy.SetLastSuccessful()
+	if err := helper.Patch(ctx, instanceCopy, helper.PatchFrom); err != nil {
+		helper.V(1).Error(err, "failed to patch the application group annotations")
+		return err
+	}
 
-	// We don't care if this call fails because we will retry anyways
-	_ = helper.patchStatus(ctx, instance)
-
-	return ctrl.Result{}, err
-}
-
-func (helper *StatusHelper) Succeeded(ctx context.Context, instance *v1alpha1.ApplicationGroup) (ctrl.Result, error) {
 	// Set the status conditions into a succeeding state
 	instance.ReadySucceeded()
-	if err := helper.patchStatus(ctx, instance); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	// Set the last successful annotation for rollback scenarios
-	instance.SetLastSuccessful()
-	if err := helper.Patch(ctx, instance, helper.PatchFrom); err != nil {
-		helper.V(1).Error(err, "failed to patch the application group annotations")
-		return ctrl.Result{}, err
-	}
 	helper.Recorder.Event(instance, "Normal", "ReconcileSuccess", fmt.Sprintf("Successfully reconciled ApplicationGroup %s", instance.Name))
-	return ctrl.Result{}, nil
+	return nil
 }
 
-func (helper *StatusHelper) Remediating(ctx context.Context, instance *v1alpha1.ApplicationGroup) error {
-	instance.ReadyFailed("workflow in failed state, starting rollback...")
-
-	return helper.patchStatus(ctx, instance)
-}
-
-// RollingBack sets the meta.ReadyCondition to 'True' and
-// meta.RollingBack reason and message
-func (helper *StatusHelper) RollingBack(ctx context.Context, instance *v1alpha1.ApplicationGroup) error {
-	meta.SetResourceCondition(instance, meta.ReadyCondition, metav1.ConditionTrue, meta.FailedReason, "rolling back because of failed workflow during upgrade...")
-
-	return helper.patchStatus(ctx, instance)
-}
-
-// Progressing resets the conditions of the ApplicationGroup to
+// MarkProgressing resets the conditions of the ApplicationGroup to
 // metav1.Condition of type meta.ReadyCondition with status 'Unknown' and
 // meta.StartingReason reason and message.
-func (helper *StatusHelper) Progressing(ctx context.Context, instance *v1alpha1.ApplicationGroup) error {
+func (helper *StatusHelper) MarkProgressing(ctx context.Context, instance *v1alpha1.ApplicationGroup) error {
 	instance.Status.Conditions = []metav1.Condition{}
 	meta.SetResourceCondition(instance, meta.ReadyCondition, metav1.ConditionUnknown, meta.ProgressingReason, "workflow is reconciling...")
-	return helper.patchStatus(ctx, instance)
+
+	return helper.PatchStatus(ctx, instance)
 }
 
-// MarkReversing sets the meta.ReadyCondition to 'False', with the given
-// meta.Reversing reason and message
-func (helper *StatusHelper) MarkReversing(ctx context.Context, instance *v1alpha1.ApplicationGroup) error {
-	meta.SetResourceCondition(instance, meta.ReadyCondition, metav1.ConditionFalse, meta.DeletingReason, "application group is deleting...")
-	return helper.patchStatus(ctx, instance)
+// MarkTerminating sets the meta.ReadyCondition to 'False', with the given
+// meta.Terminating reason and message
+func (helper *StatusHelper) MarkTerminating(instance *v1alpha1.ApplicationGroup) {
+	meta.SetResourceCondition(instance, meta.ReadyCondition, metav1.ConditionFalse, meta.TerminatingReason, "application group is terminating...")
+}
+
+func (helper *StatusHelper) MarkFailed(instance *v1alpha1.ApplicationGroup, err error) {
+	helper.Recorder.Event(instance, "Warning", "ReconcileError", fmt.Sprintf("Failed to reconcile ApplicationGroup %v with Error : %v", instance.Name, err))
+	instance.WorkflowFailed(err.Error())
+}
+
+func (helper *StatusHelper) MarkChartPullFailed(instance *v1alpha1.ApplicationGroup, err error) {
+	helper.Recorder.Event(instance, "Warning", "ReconcileError", fmt.Sprintf("Failed to reconcile ApplicationGroup %v with Error : %v", instance.Name, err))
+	instance.ChartPullFailed(err.Error())
+}
+
+func (helper *StatusHelper) MarkTemplateGenerationFailed(instance *v1alpha1.ApplicationGroup, err error) {
+	helper.Recorder.Event(instance, "Warning", "ReconcileError", fmt.Sprintf("Failed to reconcile ApplicationGroup %v with Error : %v", instance.Name, err))
+	instance.ChartPullFailed(err.Error())
 }
 
 func initAppStatus(appGroup *v1alpha1.ApplicationGroup) {
@@ -212,7 +204,7 @@ func getAppStatus(appGroup *v1alpha1.ApplicationGroup, chartConditionMap map[str
 	return v
 }
 
-func (helper *StatusHelper) patchStatus(ctx context.Context, instance *v1alpha1.ApplicationGroup) error {
+func (helper *StatusHelper) PatchStatus(ctx context.Context, instance *v1alpha1.ApplicationGroup) error {
 	if err := helper.Status().Patch(ctx, instance, helper.PatchFrom); err != nil {
 		helper.V(1).Error(err, "failed to patch the application group status")
 		return err
