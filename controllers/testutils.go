@@ -17,7 +17,7 @@ const (
 	ambassador = "ambassador"
 	podinfo    = "podinfo"
 
-	ambassadorChartURL        = "https://www.getambassador.io/helm"
+	ambassadorChartURL        = "https://nitishm.github.io/charts"
 	ambassadorOldChartVersion = "6.6.0"
 	ambassadorChartVersion    = "6.7.9"
 
