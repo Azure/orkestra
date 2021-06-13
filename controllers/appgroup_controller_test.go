@@ -299,7 +299,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 			}, DefaultTimeout, time.Second).Should(BeTrue())
 		})
 
-		It("should succeed to rollback helm chart versions on failure", func() {
+		FIt("should succeed to rollback helm chart versions on failure", func() {
 			applicationGroup := defaultAppGroup(name)
 			applicationGroup.Namespace = DefaultNamespace
 			applicationGroup.Spec.Applications[1].Spec.Chart.Version = ambassadorOldChartVersion
@@ -366,7 +366,8 @@ var _ = Describe("ApplicationGroup Controller", func() {
 				}
 				return ambassadorHelmRelease.Spec.Chart.Spec.Version == ambassadorOldChartVersion &&
 					meta.GetResourceCondition(ambassadorHelmRelease, meta.ReadyCondition).Reason == meta2.ReconciliationSucceededReason &&
-					applicationGroup.GetReadyCondition() == meta.SucceededReason
+					applicationGroup.GetReadyCondition() == meta.WorkflowFailedReason &&
+					applicationGroup.GetWorkflowCondition(v1alpha1.Rollback) == meta.SucceededReason
 			}, DefaultTimeout, time.Second).Should(BeTrue())
 		})
 

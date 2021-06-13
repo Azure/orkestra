@@ -40,10 +40,11 @@ func (helper *StatusHelper) UpdateStatus(ctx context.Context, instance *v1alpha1
 }
 
 func (helper *StatusHelper) updateWorkflowStatus(ctx context.Context, instance *v1alpha1.ApplicationGroup) (ctrl.Result, error) {
-	forwardClient, _ := helper.WorkflowClientBuilder.Forward(instance).Build()
-	reverseClient, _ := helper.WorkflowClientBuilder.Reverse(instance).Build()
+	forwardClient := helper.WorkflowClientBuilder.Forward(instance).Build()
+	reverseClient := helper.WorkflowClientBuilder.Reverse(instance).Build()
+	rollbackClient := helper.WorkflowClientBuilder.Rollback(instance).Build()
 
-	for _, wfClient := range []workflow.Client{forwardClient, reverseClient} {
+	for _, wfClient := range []workflow.Client{forwardClient, reverseClient, rollbackClient} {
 		if err := workflow.UpdateStatus(ctx, wfClient); err != nil {
 			return ctrl.Result{}, err
 		}

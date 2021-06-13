@@ -3,6 +3,7 @@ package workflow
 import (
 	"encoding/base64"
 	"fmt"
+
 	"github.com/Azure/Orkestra/api/v1alpha1"
 	"github.com/Azure/Orkestra/pkg/utils"
 	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
@@ -12,13 +13,11 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func generateTemplates(wfClient Client) (*v1alpha12.Template, []v1alpha12.Template, error) {
-	options := wfClient.GetOptions()
-	if wfClient.GetAppGroup() == nil {
+func generateTemplates(instance *v1alpha1.ApplicationGroup, options ClientOptions) (*v1alpha12.Template, []v1alpha12.Template, error) {
+	if instance == nil {
 		return nil, nil, fmt.Errorf("applicationGroup cannot be nil")
 	}
-
-	templates, err := generateAppDAGTemplates(wfClient.GetAppGroup(), wfClient.GetNamespace(), options.parallelism)
+	templates, err := generateAppDAGTemplates(instance, options.namespace, options.parallelism)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to generate application DAG templates : %w", err)
 	}
@@ -27,7 +26,7 @@ func generateTemplates(wfClient Client) (*v1alpha12.Template, []v1alpha12.Templa
 	entryTemplate := &v1alpha12.Template{
 		Name: EntrypointTemplateName,
 		DAG: &v1alpha12.DAGTemplate{
-			Tasks: make([]v1alpha12.DAGTask, len(wfClient.GetAppGroup().Spec.Applications)),
+			Tasks: make([]v1alpha12.DAGTask, len(instance.Spec.Applications)),
 		},
 		Parallelism: options.parallelism,
 	}
@@ -35,7 +34,7 @@ func generateTemplates(wfClient Client) (*v1alpha12.Template, []v1alpha12.Templa
 		entryTemplate.DAG.Tasks[i] = v1alpha12.DAGTask{
 			Name:         utils.ConvertToDNS1123(tpl.Name),
 			Template:     utils.ConvertToDNS1123(tpl.Name),
-			Dependencies: utils.ConvertSliceToDNS1123(wfClient.GetAppGroup().Spec.Applications[i].Dependencies),
+			Dependencies: utils.ConvertSliceToDNS1123(instance.Spec.Applications[i].Dependencies),
 		}
 	}
 	return entryTemplate, templates, nil

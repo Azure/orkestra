@@ -39,7 +39,7 @@ func defaultAppGroup(targetNamespace string) *v1alpha1.ApplicationGroup {
 		},
 	}
 	g.Spec.Applications = make([]v1alpha1.Application, 0)
-	g.Spec.Applications = append(g.Spec.Applications, ambassadorApplication(targetNamespace), bookinfoApplication(targetNamespace))
+	g.Spec.Applications = append(g.Spec.Applications, bookinfoApplication(targetNamespace), ambassadorApplication(targetNamespace))
 	return g
 }
 

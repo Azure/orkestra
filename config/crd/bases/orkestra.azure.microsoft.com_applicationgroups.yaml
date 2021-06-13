@@ -15,6 +15,7 @@ spec:
     plural: applicationgroups
     shortNames:
     - ag
+    - appgroup
     singular: applicationgroup
   scope: Cluster
   versions:

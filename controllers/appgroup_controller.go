@@ -6,6 +6,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+
 	"github.com/Azure/Orkestra/pkg/helpers"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -161,7 +162,7 @@ func (r *ApplicationGroupReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *ApplicationGroupReconciler) ShouldRemediate(ctx context.Context, instance *v1alpha1.ApplicationGroup) (bool, error) {
-	forwardClient, _ := r.WorkflowClientBuilder.Forward(instance).Build()
+	forwardClient := r.WorkflowClientBuilder.Forward(instance).Build()
 
 	isFailed, err := workflow.IsFailed(ctx, forwardClient)
 	if err != nil {

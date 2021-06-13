@@ -17,6 +17,18 @@ import (
 type WorkflowType string
 
 const (
+	Forward  WorkflowType = "forward"
+	Reverse  WorkflowType = "reverse"
+	Rollback WorkflowType = "rollback"
+)
+
+var WorkflowConditionMap = map[WorkflowType]string{
+	Forward:  meta.ForwardWorkflowSucceededCondition,
+	Reverse:  meta.ReverseWorkflowSucceededCondition,
+	Rollback: meta.RollbackWorkflowSucceededCondition,
+}
+
+const (
 	DefaultProgressingRequeue = 5 * time.Second
 	DefaultSucceededRequeue   = 5 * time.Minute
 
@@ -270,6 +282,17 @@ func (in *ApplicationGroup) GetReadyCondition() string {
 	return condition.Reason
 }
 
+func (in *ApplicationGroup) GetWorkflowCondition(wfType WorkflowType) string {
+	var condition *metav1.Condition
+	if wfCondition, ok := WorkflowConditionMap[wfType]; ok {
+		condition = meta.GetResourceCondition(in, wfCondition)
+	}
+	if condition == nil {
+		return meta.ProgressingReason
+	}
+	return condition.Reason
+}
+
 // GetStatusConditions gets the status conditions from the
 // ApplicationGroup status
 func (in *ApplicationGroup) GetStatusConditions() *[]metav1.Condition {
@@ -300,7 +323,7 @@ func (in *ApplicationGroup) SetLastSuccessful() {
 }
 
 // +kubebuilder:object:root=true
-// +kubebuilder:resource:path=applicationgroups,scope=Cluster,shortName=ag
+// +kubebuilder:resource:path=applicationgroups,scope=Cluster,shortName={"ag","appgroup"}
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].status"
 // +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].reason"

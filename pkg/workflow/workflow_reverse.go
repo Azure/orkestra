@@ -27,8 +27,8 @@ func (wc *ReverseWorkflowClient) GetClient() client.Client {
 	return wc.Client
 }
 
-func (wc *ReverseWorkflowClient) GetType() ClientType {
-	return Reverse
+func (wc *ReverseWorkflowClient) GetType() v1alpha1.WorkflowType {
+	return v1alpha1.Rollback
 }
 
 func (wc *ReverseWorkflowClient) GetAppGroup() *v1alpha1.ApplicationGroup {
@@ -54,20 +54,21 @@ func (wc *ReverseWorkflowClient) GetWorkflow(ctx context.Context) (*v1alpha12.Wo
 func (wc *ReverseWorkflowClient) Generate(ctx context.Context) error {
 	var err error
 
+	forwardClient := NewBuilderFromClient(wc).Forward(wc.appGroup).Build()
+
 	// Get the forward workflow from the server and suspend it if it's still running
-	wc.forwardWorkflow, err = wc.forwardClient.GetWorkflow(ctx)
+	wc.forwardWorkflow, err = forwardClient.GetWorkflow(ctx)
 	if client.IgnoreNotFound(err) != nil {
 		return err
 	} else if err != nil {
 		return meta.ErrForwardWorkflowNotFound
 	}
-	if err := Suspend(ctx, wc.forwardClient); err != nil {
+	if err := Suspend(ctx, forwardClient); err != nil {
 		wc.Error(err, "failed to suspend forward workflow")
 		return err
 	}
 
 	wc.reverseWorkflow = initWorkflowObject(wc.getReverseName(), wc.namespace, wc.parallelism)
-
 	entry, err := wc.generateWorkflow()
 	if err != nil {
 		wc.Error(err, "failed to generate reverse workflow")
@@ -79,9 +80,11 @@ func (wc *ReverseWorkflowClient) Generate(ctx context.Context) error {
 }
 
 func (wc *ReverseWorkflowClient) Submit(ctx context.Context) error {
-	if err := wc.validate(); err != nil {
-		return err
+	if wc.forwardWorkflow == nil {
+		wc.Error(nil, "forward workflow object cannot be nil")
+		return fmt.Errorf("forward workflow object cannot be nil")
 	}
+
 	obj := &v1alpha12.Workflow{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      wc.reverseWorkflow.Name,
@@ -149,14 +152,6 @@ func (wc *ReverseWorkflowClient) generateWorkflow() (*v1alpha12.Template, error)
 	}
 
 	return entry, nil
-}
-
-func (wc *ReverseWorkflowClient) validate() error {
-	if wc.forwardWorkflow == nil {
-		wc.Error(nil, "forward workflow object cannot be nil")
-		return fmt.Errorf("forward workflow object cannot be nil")
-	}
-	return nil
 }
 
 func (wc *ReverseWorkflowClient) getReverseName() string {

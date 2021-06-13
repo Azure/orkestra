@@ -23,8 +23,8 @@ func (wc *ForwardWorkflowClient) GetClient() client.Client {
 	return wc.Client
 }
 
-func (wc *ForwardWorkflowClient) GetType() ClientType {
-	return Forward
+func (wc *ForwardWorkflowClient) GetType() v1alpha1.WorkflowType {
+	return v1alpha1.Forward
 }
 
 func (wc *ForwardWorkflowClient) GetNamespace() string {
@@ -51,9 +51,20 @@ func (wc *ForwardWorkflowClient) Generate(ctx context.Context) error {
 		return fmt.Errorf("applicationGroup object cannot be nil")
 	}
 
-	wc.workflow = initWorkflowObject(wc.appGroup.Name, wc.namespace, wc.parallelism)
+	// Suspend the rollback or reverse workflows if they are running
+	reverseClient := NewBuilderFromClient(wc).Reverse(wc.appGroup).Build()
+	rollbackClient := NewBuilderFromClient(wc).Rollback(wc.appGroup).Build()
+	if err := Suspend(ctx, reverseClient); err != nil {
+		wc.Error(err, "failed to suspend reverse workflow")
+		return err
+	}
+	if err := Suspend(ctx, rollbackClient); err != nil {
+		wc.Error(err, "failed to suspend rollback workflow")
+		return err
+	}
 
-	entryTemplate, templates, err := generateTemplates(wc)
+	wc.workflow = initWorkflowObject(wc.appGroup.Name, wc.namespace, wc.parallelism)
+	entryTemplate, templates, err := generateTemplates(wc.GetAppGroup(), wc.GetOptions())
 	if err != nil {
 		wc.Error(err, "failed to generate workflow")
 		return fmt.Errorf("failed to generate argo workflow : %w", err)
@@ -76,34 +87,9 @@ func (wc *ForwardWorkflowClient) Submit(ctx context.Context) error {
 		return fmt.Errorf("applicationGroup object cannot be nil")
 	}
 
-	namespaces := []string{}
-	// Add namespaces we need to create while removing duplicates
-	for _, app := range wc.appGroup.Spec.Applications {
-		found := false
-		for _, namespace := range namespaces {
-			if app.Spec.Release.TargetNamespace == namespace {
-				found = true
-				break
-			}
-		}
-		if !found {
-			namespaces = append(namespaces, app.Spec.Release.TargetNamespace)
-		}
-	}
-
-	// Create any of the target namespaces
-	for _, namespace := range namespaces {
-		ns := &corev1.Namespace{
-			ObjectMeta: v1.ObjectMeta{
-				Name: namespace,
-			},
-		}
-		if err := controllerutil.SetControllerReference(wc.appGroup, ns, wc.Scheme()); err != nil {
-			return fmt.Errorf("failed to set OwnerReference for Namespace %s : %w", ns.Name, err)
-		}
-		if err := wc.Create(ctx, ns); !errors.IsAlreadyExists(err) && err != nil {
-			return fmt.Errorf("failed to CREATE namespace %s object : %w", ns.Name, err)
-		}
+	if err := wc.createTargetNamespaces(ctx); err != nil {
+		wc.Error(err, "failed to create the target namespaces")
+		return err
 	}
 
 	// Create the Workflow
@@ -131,6 +117,39 @@ func (wc *ForwardWorkflowClient) Submit(ctx context.Context) error {
 		if err := wc.Create(ctx, wc.workflow); err != nil {
 			wc.Error(err, "failed to CREATE argo workflow object")
 			return fmt.Errorf("failed to CREATE argo workflow object : %w", err)
+		}
+	}
+	return nil
+}
+
+func (wc *ForwardWorkflowClient) createTargetNamespaces(ctx context.Context) error {
+	namespaces := []string{}
+	// Add namespaces we need to create while removing duplicates
+	for _, app := range wc.appGroup.Spec.Applications {
+		found := false
+		for _, namespace := range namespaces {
+			if app.Spec.Release.TargetNamespace == namespace {
+				found = true
+				break
+			}
+		}
+		if !found {
+			namespaces = append(namespaces, app.Spec.Release.TargetNamespace)
+		}
+	}
+
+	// Create any of the target namespaces
+	for _, namespace := range namespaces {
+		ns := &corev1.Namespace{
+			ObjectMeta: v1.ObjectMeta{
+				Name: namespace,
+			},
+		}
+		if err := controllerutil.SetControllerReference(wc.appGroup, ns, wc.Scheme()); err != nil {
+			return fmt.Errorf("failed to set OwnerReference for Namespace %s : %w", ns.Name, err)
+		}
+		if err := wc.Create(ctx, ns); !errors.IsAlreadyExists(err) && err != nil {
+			return fmt.Errorf("failed to CREATE namespace %s object : %w", ns.Name, err)
 		}
 	}
 	return nil

@@ -18,18 +18,6 @@ type ClientType string
 
 type ExecutorFunc func(string, ExecutorAction) v1alpha12.Template
 
-const (
-	Forward  ClientType = "forward"
-	Reverse  ClientType = "reverse"
-	Rollback ClientType = "rollback"
-)
-
-var conditionMap = map[ClientType]string{
-	Forward:  meta.ForwardWorkflowSucceededCondition,
-	Reverse:  meta.ReverseWorkflowSucceededCondition,
-	Rollback: meta.RollbackWorkflowSucceededCondition,
-}
-
 var _ = ForwardWorkflowClient{}
 var _ = ReverseWorkflowClient{}
 var _ = RollbackWorkflowClient{}
@@ -42,10 +30,12 @@ type Client interface {
 	Submit(ctx context.Context) error
 
 	// GetType returns the workflow client type
-	GetType() ClientType
+	GetType() v1alpha1.WorkflowType
 
+	// GetNamespace returns the namespace that the workflow should run in
 	GetNamespace() string
 
+	// GetOptions returns the client options used with the workflow client
 	GetOptions() ClientOptions
 
 	// GetLogger returns the logger associated with the workflow client
@@ -70,7 +60,7 @@ type ClientOptions struct {
 type Builder struct {
 	client     client.Client
 	logger     logr.Logger
-	clientType ClientType
+	clientType v1alpha1.WorkflowType
 	options    ClientOptions
 	executor   ExecutorFunc
 
@@ -104,12 +94,9 @@ type ReverseWorkflowClient struct {
 	ClientOptions
 	executor ExecutorFunc
 
-	nodes           map[string]v1alpha12.NodeStatus
 	forwardWorkflow *v1alpha12.Workflow
 	reverseWorkflow *v1alpha12.Workflow
 	appGroup        *v1alpha1.ApplicationGroup
-
-	forwardClient *ForwardWorkflowClient
 }
 
 func NewBuilder(client client.Client, logger logr.Logger) *Builder {
@@ -120,20 +107,29 @@ func NewBuilder(client client.Client, logger logr.Logger) *Builder {
 	}
 }
 
+func NewBuilderFromClient(client Client) *Builder {
+	return &Builder{
+		client:   client.GetClient(),
+		logger:   client.GetLogger(),
+		options:  client.GetOptions(),
+		appGroup: client.GetAppGroup(),
+	}
+}
+
 func (builder *Builder) Forward(appGroup *v1alpha1.ApplicationGroup) *Builder {
-	builder.clientType = Forward
+	builder.clientType = v1alpha1.Forward
 	builder.appGroup = appGroup
 	return builder
 }
 
 func (builder *Builder) Reverse(appGroup *v1alpha1.ApplicationGroup) *Builder {
-	builder.clientType = Reverse
+	builder.clientType = v1alpha1.Reverse
 	builder.appGroup = appGroup
 	return builder
 }
 
 func (builder *Builder) Rollback(appGroup *v1alpha1.ApplicationGroup) *Builder {
-	builder.clientType = Rollback
+	builder.clientType = v1alpha1.Rollback
 	builder.appGroup = appGroup
 	return builder
 }
@@ -158,35 +154,33 @@ func (builder *Builder) WithExecutor(executor ExecutorFunc) *Builder {
 	return builder
 }
 
-func (builder *Builder) Build() (Client, error) {
-	forwardClient := &ForwardWorkflowClient{
-		Client:        builder.client,
-		Logger:        builder.logger,
-		ClientOptions: builder.options,
-		appGroup:      builder.appGroup,
-		executor:      builder.executor,
-	}
-	if builder.executor == nil {
-		forwardClient.executor = defaultExecutor
-	}
-
+func (builder *Builder) Build() Client {
 	switch builder.clientType {
-	case Forward:
-		return forwardClient, nil
-	case Reverse:
+	case v1alpha1.Forward:
+		forwardClient := &ForwardWorkflowClient{
+			Client:        builder.client,
+			Logger:        builder.logger,
+			ClientOptions: builder.options,
+			appGroup:      builder.appGroup,
+			executor:      builder.executor,
+		}
+		if builder.executor == nil {
+			forwardClient.executor = defaultExecutor
+		}
+		return forwardClient
+	case v1alpha1.Reverse:
 		reverseClient := &ReverseWorkflowClient{
 			Client:        builder.client,
 			Logger:        builder.logger,
 			ClientOptions: builder.options,
 			appGroup:      builder.appGroup,
 			executor:      builder.executor,
-			forwardClient: forwardClient,
 		}
 		if builder.executor == nil {
 			reverseClient.executor = defaultExecutor
 		}
-		return reverseClient, nil
-	case Rollback:
+		return reverseClient
+	default:
 		rollbackClient := &RollbackWorkflowClient{
 			Client:        builder.client,
 			Logger:        builder.logger,
@@ -194,11 +188,14 @@ func (builder *Builder) Build() (Client, error) {
 			appGroup:      builder.appGroup,
 			executor:      builder.executor,
 		}
-		return rollbackClient, nil
+		if builder.executor == nil {
+			rollbackClient.executor = defaultExecutor
+		}
+		return rollbackClient
 	}
-	return nil, fmt.Errorf("failed to build engine because type wasn't specified")
 }
 
+// Run calls the generate and Submit commands of the workflow client
 func Run(ctx context.Context, wfClient Client) error {
 	if err := wfClient.Generate(ctx); err != nil {
 		wfClient.GetLogger().Error(err, "engine failed to generate workflow")
@@ -211,6 +208,8 @@ func Run(ctx context.Context, wfClient Client) error {
 	return nil
 }
 
+// Suspend sets the suspend flag on the workflow associated with the workflow client
+// if the workflow still exists on the cluster
 func Suspend(ctx context.Context, wfClient Client) error {
 	// suspend a workflow if it is not already finished or suspended
 	workflow, err := wfClient.GetWorkflow(ctx)
@@ -235,6 +234,8 @@ func Suspend(ctx context.Context, wfClient Client) error {
 	return nil
 }
 
+// DeleteWorkflow removes the workflow from the api server associated with
+// the workflow client
 func DeleteWorkflow(ctx context.Context, wfClient Client) error {
 	workflow, err := wfClient.GetWorkflow(ctx)
 	if client.IgnoreNotFound(err) != nil {
@@ -243,6 +244,8 @@ func DeleteWorkflow(ctx context.Context, wfClient Client) error {
 	return wfClient.GetClient().Delete(ctx, workflow)
 }
 
+// UpdateStatus updates the status of the owning appGroup with the workflow condition type
+// of the workflow client
 func UpdateStatus(ctx context.Context, wfClient Client) error {
 	wf, err := wfClient.GetWorkflow(ctx)
 	if client.IgnoreNotFound(err) != nil {
@@ -265,45 +268,35 @@ func UpdateStatus(ctx context.Context, wfClient Client) error {
 	return nil
 }
 
-func toConditionReason(nodePhase v1alpha12.NodePhase) string {
-	switch nodePhase {
-	case v1alpha12.NodeError, v1alpha12.NodeFailed:
-		return meta.FailedReason
-	case v1alpha12.NodeSucceeded:
-		return meta.SucceededReason
-	default:
-		return meta.ProgressingReason
-	}
-}
-
 // SetProgressing sets one of the workflow conditions in the progressing state
 func SetProgressing(wfClient Client) {
-	if condition, ok := conditionMap[wfClient.GetType()]; ok {
+	if condition, ok := v1alpha1.WorkflowConditionMap[wfClient.GetType()]; ok {
 		meta.SetResourceCondition(wfClient.GetAppGroup(), condition, metav1.ConditionUnknown, meta.ProgressingReason, "workflow is progressing...")
 	}
 }
 
 // SetSucceeded sets one of the workflow conditions in the succeeded state
 func SetSucceeded(wfClient Client) {
-	if condition, ok := conditionMap[wfClient.GetType()]; ok {
+	if condition, ok := v1alpha1.WorkflowConditionMap[wfClient.GetType()]; ok {
 		meta.SetResourceCondition(wfClient.GetAppGroup(), condition, metav1.ConditionTrue, meta.SucceededReason, "workflow succeeded")
 	}
 }
 
 // SetFailed sets one of the workflow conditions in the failed state
 func SetFailed(wfClient Client, message string) {
-	if condition, ok := conditionMap[wfClient.GetType()]; ok {
+	if condition, ok := v1alpha1.WorkflowConditionMap[wfClient.GetType()]; ok {
 		meta.SetResourceCondition(wfClient.GetAppGroup(), condition, metav1.ConditionFalse, meta.FailedReason, message)
 	}
 }
 
 // SetSuspended sets one of the workflow conditions in the suspended state
 func SetSuspended(wfClient Client) {
-	if condition, ok := conditionMap[wfClient.GetType()]; ok {
+	if condition, ok := v1alpha1.WorkflowConditionMap[wfClient.GetType()]; ok {
 		meta.SetResourceCondition(wfClient.GetAppGroup(), condition, metav1.ConditionFalse, meta.SuspendedReason, "workflow is suspended")
 	}
 }
 
+// IsFailed checks if the workflow created by the workflow client is in a failed state
 func IsFailed(ctx context.Context, wfClient Client) (bool, error) {
 	wf, err := wfClient.GetWorkflow(ctx)
 	if client.IgnoreNotFound(err) != nil {
@@ -315,6 +308,7 @@ func IsFailed(ctx context.Context, wfClient Client) (bool, error) {
 	return false, nil
 }
 
+// IsSucceeded checks if the workflow created by the workflow client is in a succeeded state
 func IsSucceeded(ctx context.Context, wfClient Client) (bool, error) {
 	wf, err := wfClient.GetWorkflow(ctx)
 	if client.IgnoreNotFound(err) != nil {
@@ -324,6 +318,17 @@ func IsSucceeded(ctx context.Context, wfClient Client) (bool, error) {
 		return true, nil
 	}
 	return false, nil
+}
+
+func toConditionReason(nodePhase v1alpha12.NodePhase) string {
+	switch nodePhase {
+	case v1alpha12.NodeError, v1alpha12.NodeFailed:
+		return meta.FailedReason
+	case v1alpha12.NodeSucceeded:
+		return meta.SucceededReason
+	default:
+		return meta.ProgressingReason
+	}
 }
 
 func getNodes(wf *v1alpha12.Workflow) map[string]v1alpha12.NodeStatus {
