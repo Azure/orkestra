@@ -188,11 +188,7 @@ type ApplicationStatus struct {
 type ApplicationGroupStatus struct {
 	// Applications status
 	// +optional
-	Applications []ApplicationStatus `json:"status,omitempty"`
-
-	// Phase is the reconciliation phase
-	// +optional
-	Update bool `json:"update,omitempty"`
+	Applications []ApplicationStatus `json:"applications,omitempty"`
 
 	// ObservedGeneration captures the last generation
 	// that was captured and completed by the reconciler
@@ -249,7 +245,7 @@ func (in *ApplicationGroup) ReadySucceeded() {
 // WorkflowFailed sets the meta.ReadyCondition to 'False' and
 // meta.ReadyWorkflowFailed reason and message
 func (in *ApplicationGroup) WorkflowFailed(message string) {
-	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionFalse, meta.WorkflowStepFailedReason, message)
+	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionFalse, meta.WorkflowFailedReason, message)
 }
 
 // ChartPullFailed sets the meta.ReadyCondition to 'False' and

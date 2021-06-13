@@ -53,9 +53,9 @@ const (
 	// was unable to pull from the chart repo specified
 	ChartPullFailedReason string = "ChartPullFailed"
 
-	// WorkflowStepFailedReason represents the fact that a workflow step failed and is the reason
+	// WorkflowFailedReason represents the fact that a workflow step failed and is the reason
 	// why the application group was unable to successfully reconcile
-	WorkflowStepFailedReason string = "WorkflowStepFailed"
+	WorkflowFailedReason string = "WorkflowFailed"
 
 	// TemplateGenerationFailedReason represents the fact that the application group was unable
 	// to generate the templates for the workflow reconciliation
