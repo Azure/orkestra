@@ -148,7 +148,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 				if readyCondition == nil {
 					return false
 				}
-				return readyCondition.Reason == meta.FailedReason
+				return readyCondition.Reason == meta.ChartPullFailedReason
 			}, time.Second*30, time.Second).Should(BeTrue())
 		})
 
@@ -223,7 +223,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 				if readyCondition == nil {
 					return false
 				}
-				return readyCondition.Reason == meta.FailedReason
+				return readyCondition.Reason == meta.ChartPullFailedReason
 			}, time.Second*30, time.Second).Should(BeTrue())
 
 			patch := client.MergeFrom(applicationGroup.DeepCopy())
@@ -299,7 +299,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 			}, DefaultTimeout, time.Second).Should(BeTrue())
 		})
 
-		FIt("should succeed to rollback helm chart versions on failure", func() {
+		It("should succeed to rollback helm chart versions on failure", func() {
 			applicationGroup := defaultAppGroup(name)
 			applicationGroup.Namespace = DefaultNamespace
 			applicationGroup.Spec.Applications[1].Spec.Chart.Version = ambassadorOldChartVersion
@@ -420,7 +420,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 			}, time.Minute*2, time.Second).Should(BeTrue())
 
 			// Wait for all the HelmReleases to delete
-			err = k8sClient.Delete(ctx, applicationGroup)
+			err = k8sClient.Delete(ctx, applicationGroup, client.PropagationPolicy(metav1.DeletePropagationForeground))
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Making sure that the workflow goes into a suspended state")
