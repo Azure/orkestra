@@ -6,19 +6,16 @@ nav_order: 4
 # Helm Values
 
 ```yaml
-# service account to be used by all orkestra components
-serviceAccount: orkestra
-# number of pod replicas to run (single leader is elected using leader-election)
+# namespace: &namespace orkestra
+serviceAccount: &serviceAccount orkestra
+
 replicaCount: 1
-# path of the directory used to store the pulled helm charts
+
 chartStorePath: "/etc/orkestra/charts/pull"
 
 image:
-  # image docker repository/registry
   repository: azureorkestra/orkestra
-  # image pull policy
   pullPolicy: Always 
-  # image docker tag
   tag: "latest"
 
 imagePullSecrets: []
@@ -29,6 +26,11 @@ serviceAccount:
   create: true
   annotations: {}
   name: *serviceAccount
+
+ci:
+  enabled: false
+  env:
+    chartmuseumURL: "http://127.0.0.1:8080"
 
 podAnnotations: {}
 
@@ -44,20 +46,21 @@ tolerations: []
 
 affinity: {}
 
-# Remediation settings on failure during installation or upgrades
 remediation:
-  # If set to true prevents the controller from deleting the failed resources
-  # For development use only!
   disabled: false
 
-# Cleanup the pulled helm charts from the local storage directory
+# set to dev mode until MVP
 cleanup:
   enabled: false
 
-# logging debug level
+# set to dev mode until MVP
 debug:
-  level: 5
+  enabled: false
 
+logLevel: 5
+
+
+# Dependency overlay values
 chartmuseum:
   extraArgs:
     # - --storage-timestamp-tolerance 1s
