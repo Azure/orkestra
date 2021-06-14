@@ -2,11 +2,11 @@ dependencies:
 - name: chartmuseum
   repository: https://chartmuseum.github.io/charts
   version: 2.15.0
-- name: argo
+- name: argo-workflows
   repository: https://argoproj.github.io/argo-helm
-  version: 1.0.0
+  version: 0.2.5
 - name: helm-controller
   repository: https://nitishm.github.io/charts
   version: 0.1.1
-digest: sha256:7f2f2e1f5efdec11d929472f4779a4ea014355570cf2294d6958b65765463cbb
-generated: "2021-05-14T12:59:31.637787-07:00"
+digest: sha256:a80ce307816cb3fe933327638e8fb094e1b69bc779157b0165ff5c9ca4cd7398
+generated: "2021-06-14T00:24:33.898916-07:00"

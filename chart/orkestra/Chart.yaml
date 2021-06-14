@@ -21,8 +21,8 @@ dependencies:
 - name: chartmuseum
   version: "2.15.0"
   repository: "https://chartmuseum.github.io/charts"
-- name: argo
-  version: "1.0.0"
+- name: argo-workflows
+  version: "0.2.5"
   repository: "https://argoproj.github.io/argo-helm"
 - name: helm-controller
   condition: helm-controller.enabled
