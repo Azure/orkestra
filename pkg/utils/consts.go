@@ -5,6 +5,6 @@ const (
 	DNS1123NotAllowedChars      = "[^-a-z0-9]"
 	DNS1123NotAllowedStartChars = "^[^a-z0-9]+"
 
-	// hashedAppNameMaxLen is the maximum length of applicaiton name hash that is
+	// hashedAppNameMaxLen is the maximum length of application name hash that is
 	hashedAppNameMaxLen = 10
 )
