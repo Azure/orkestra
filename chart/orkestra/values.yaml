@@ -60,7 +60,7 @@ chartmuseum:
     open:
       DISABLE_API: false
 
-argo:
+argo-workflows:
   images:
     pullPolicy: IfNotPresent
 
@@ -84,8 +84,9 @@ argo:
   server:
     enabled: true
     name: argo-server
-    serviceAccount: *serviceAccount
-    createServiceAccount: false
+    serviceAccount:
+      create: false
+      name: *serviceAccount
 
 helm-controller:
   concurrent: 5

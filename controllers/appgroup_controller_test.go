@@ -10,7 +10,7 @@ import (
 
 	"github.com/Azure/Orkestra/api/v1alpha1"
 	"github.com/Azure/Orkestra/pkg/meta"
-	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
+	v1alpha13 "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
 	fluxhelmv2beta1 "github.com/fluxcd/helm-controller/api/v2beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -49,7 +49,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 		AfterEach(func() {
 			// Call delete on the HelmReleases for cleanup
 			_ = k8sClient.DeleteAllOf(ctx, &fluxhelmv2beta1.HelmRelease{}, client.InNamespace(name))
-			_ = k8sClient.DeleteAllOf(ctx, &v1alpha12.Workflow{}, client.InNamespace(name))
+			_ = k8sClient.DeleteAllOf(ctx, &v1alpha13.Workflow{}, client.InNamespace(name))
 		})
 
 		It("Should create Bookinfo spec successfully", func() {
@@ -78,10 +78,10 @@ var _ = Describe("ApplicationGroup Controller", func() {
 
 			By("Making sure that the workflow goes into a running state")
 			Eventually(func() bool {
-				workflow := &v1alpha12.Workflow{}
+				workflow := &v1alpha13.Workflow{}
 				workflowKey := types.NamespacedName{Name: applicationGroup.Name, Namespace: applicationGroup.Namespace}
 				_ = k8sClient.Get(ctx, workflowKey, workflow)
-				return workflow.Status.Phase == v1alpha12.NodeRunning
+				return string(workflow.Status.Phase) == string(v1alpha13.NodeRunning)
 			}, time.Minute, time.Second).Should(BeTrue())
 
 			By("Waiting for the bookinfo object to reach a succeeded reason")
@@ -393,10 +393,10 @@ var _ = Describe("ApplicationGroup Controller", func() {
 
 			By("Making sure that the workflow goes into a running state")
 			Eventually(func() bool {
-				workflow := &v1alpha12.Workflow{}
+				workflow := &v1alpha13.Workflow{}
 				workflowKey := types.NamespacedName{Name: applicationGroup.Name, Namespace: DefaultNamespace}
 				_ = k8sClient.Get(ctx, workflowKey, workflow)
-				return workflow.Status.Phase == v1alpha12.NodeRunning
+				return string(workflow.Status.Phase) == string(v1alpha13.NodeRunning)
 			}, time.Minute, time.Second).Should(BeTrue())
 
 			By("Waiting for the bookinfo object to reach a progressing reason")
@@ -427,7 +427,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 
 			By("Making sure that the workflow goes into a suspended state")
 			Eventually(func() bool {
-				workflow := &v1alpha12.Workflow{}
+				workflow := &v1alpha13.Workflow{}
 				workflowKey := types.NamespacedName{Name: applicationGroup.Name, Namespace: DefaultNamespace}
 				_ = k8sClient.Get(ctx, workflowKey, workflow)
 				return workflow.Spec.Suspend != nil && *workflow.Spec.Suspend
@@ -444,7 +444,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 
 			By("waiting for all the Workflows to be cleaned up from the cluster")
 			Eventually(func() bool {
-				workflowList := &v1alpha12.WorkflowList{}
+				workflowList := &v1alpha13.WorkflowList{}
 				if err := k8sClient.List(ctx, workflowList, client.InNamespace(name)); err != nil {
 					return false
 				}
@@ -483,7 +483,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 			By("Deleting the application group and deleting the workflow")
 			err = k8sClient.Delete(ctx, applicationGroup)
 			Expect(err).To(BeNil())
-			wf := &v1alpha12.Workflow{
+			wf := &v1alpha13.Workflow{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      name,
 					Namespace: DefaultNamespace,
