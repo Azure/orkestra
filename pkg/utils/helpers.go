@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 
+	v1alpha13 "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
 	fluxhelmv2beta1 "github.com/fluxcd/helm-controller/api/v2beta1"
 	"helm.sh/helm/v3/pkg/chart"
 	"sigs.k8s.io/yaml"
@@ -49,8 +50,13 @@ func TruncateString(in string, num int) string {
 	return out
 }
 
-func ToStrPtr(in string) *string {
-	return &in
+func ToAnyString(in string) v1alpha13.AnyString {
+	return v1alpha13.AnyString(in)
+}
+
+func ToAnyStringPtr(in string) *v1alpha13.AnyString {
+	anystr := ToAnyString(in)
+	return &anystr
 }
 
 func HrToYaml(hr fluxhelmv2beta1.HelmRelease) string {
