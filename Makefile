@@ -16,7 +16,7 @@ all: manager
 
 # Create a local docker registry, start kinD cluster, and install Orkestra
 dev:
-	bash scripts/kind-with-registry.sh
+	bash hack/kind-with-registry.sh
 	helm upgrade --install orkestra chart/orkestra --wait --atomic -n orkestra --create-namespace --values ${CI_VALUES}
 
 debug: dev
@@ -25,7 +25,7 @@ debug: dev
 # Delete the Orkestra installation, local docker registry, and the kinD cluster
 clean:
 	helm delete orkestra -n orkestra 2>&1
-	bash scripts/teardown-kind-with-registry.sh
+	bash hack/teardown-kind-with-registry.sh
 
 ginkgo-test: install
 	go get github.com/onsi/ginkgo/ginkgo
@@ -87,8 +87,8 @@ docker-push:
 
 # setup kubebuilder
 setup-kubebuilder:
-	bash scripts/setup-envtest.sh;
-	bash scripts/setup-kubebuilder.sh
+	bash hack/setup-envtest.sh;
+	bash hack/setup-kubebuilder.sh
 
 # find or download controller-gen
 # download controller-gen if necessary
