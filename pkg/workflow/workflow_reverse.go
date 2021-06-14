@@ -10,7 +10,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/Azure/Orkestra/pkg/utils"
-	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
+	v1alpha13 "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
 	fluxhelmv2beta1 "github.com/fluxcd/helm-controller/api/v2beta1"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/types"
@@ -25,8 +25,8 @@ func (wc *ReverseWorkflowClient) GetClient() client.Client {
 	return wc.Client
 }
 
-func (wc *ReverseWorkflowClient) GetWorkflow(ctx context.Context) (*v1alpha12.Workflow, error) {
-	reverseWorkflow := &v1alpha12.Workflow{}
+func (wc *ReverseWorkflowClient) GetWorkflow(ctx context.Context) (*v1alpha13.Workflow, error) {
+	reverseWorkflow := &v1alpha13.Workflow{}
 
 	rwfName := fmt.Sprintf("%s-reverse", wc.forwardWorkflow.Name)
 	rwfNamespace := wc.forwardWorkflow.Namespace
@@ -56,7 +56,7 @@ func (wc *ReverseWorkflowClient) Submit(ctx context.Context) error {
 	if err := wc.validate(); err != nil {
 		return err
 	}
-	obj := &v1alpha12.Workflow{
+	obj := &v1alpha13.Workflow{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      wc.reverseWorkflow.Name,
 			Namespace: wc.reverseWorkflow.Namespace,
@@ -80,7 +80,7 @@ func (wc *ReverseWorkflowClient) Submit(ctx context.Context) error {
 	return nil
 }
 
-func (wc *ReverseWorkflowClient) generateWorkflow() (*v1alpha12.Template, error) {
+func (wc *ReverseWorkflowClient) generateWorkflow() (*v1alpha13.Template, error) {
 	graph, err := Build(wc.forwardWorkflow.Name, wc.nodes)
 	if err != nil {
 		wc.Error(err, "failed to build the wf status DAG")
@@ -89,24 +89,24 @@ func (wc *ReverseWorkflowClient) generateWorkflow() (*v1alpha12.Template, error)
 
 	rev := graph.Reverse()
 
-	entry := &v1alpha12.Template{
+	entry := &v1alpha13.Template{
 		Name: EntrypointTemplateName,
-		DAG: &v1alpha12.DAGTemplate{
-			Tasks: make([]v1alpha12.DAGTask, 0),
+		DAG: &v1alpha13.DAGTemplate{
+			Tasks: make([]v1alpha13.DAGTask, 0),
 		},
 	}
 
 	var prevbucket []fluxhelmv2beta1.HelmRelease
 	for _, bucket := range rev {
 		for _, hr := range bucket {
-			task := v1alpha12.DAGTask{
+			task := v1alpha13.DAGTask{
 				Name:     utils.ConvertToDNS1123(hr.GetReleaseName() + "-" + hr.Namespace),
 				Template: HelmReleaseReverseExecutorName,
-				Arguments: v1alpha12.Arguments{
-					Parameters: []v1alpha12.Parameter{
+				Arguments: v1alpha13.Arguments{
+					Parameters: []v1alpha13.Parameter{
 						{
 							Name:  HelmReleaseArg,
-							Value: utils.ToStrPtr(base64.StdEncoding.EncodeToString([]byte(utils.HrToYaml(hr)))),
+							Value: utils.ToAnyStringPtr(base64.StdEncoding.EncodeToString([]byte(utils.HrToYaml(hr)))),
 						},
 					},
 				},

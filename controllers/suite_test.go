@@ -15,7 +15,7 @@ import (
 	orkestrav1alpha1 "github.com/Azure/Orkestra/api/v1alpha1"
 	"github.com/Azure/Orkestra/pkg/registry"
 	"github.com/Azure/Orkestra/pkg/workflow"
-	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
+	v1alpha13 "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
 	fluxhelmv2beta1 "github.com/fluxcd/helm-controller/api/v2beta1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -73,7 +73,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	err = orkestrav1alpha1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
-	err = v1alpha12.AddToScheme(scheme.Scheme)
+	err = v1alpha13.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 	err = fluxhelmv2beta1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
