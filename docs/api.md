@@ -3,7 +3,6 @@ layout: default
 title: API Reference 
 nav_order: 3
 ---
-This line should be removed. API docs check CI should fail. I must run `make api-docs` before my changes are merged into the main branch.
 <h1>Orkestra API Reference</h1>
 <p>Packages:</p>
 <ul class="simple">
