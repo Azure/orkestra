@@ -9,7 +9,7 @@ import (
 
 	"github.com/Azure/Orkestra/api/v1alpha1"
 	"github.com/Azure/Orkestra/pkg/workflow"
-	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
+	v1alpha13 "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
 	fluxhelmv2beta1 "github.com/fluxcd/helm-controller/api/v2beta1"
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,12 +32,12 @@ func (helper *StatusHelper) UpdateStatusWithWorkflow(ctx context.Context, instan
 	}
 	requeueTime = v1alpha1.DefaultProgressingRequeue
 
-	switch workflowStatus.Phase {
-	case v1alpha12.NodeError, v1alpha12.NodeFailed:
+	switch string(workflowStatus.Phase) {
+	case string(v1alpha13.NodeError), string(v1alpha13.NodeFailed):
 		helper.Info("workflow node is in failed state")
 		err = helper.Remediating(ctx, instance)
 		return true, time.Duration(0), err
-	case v1alpha12.NodeSucceeded:
+	case string(v1alpha13.NodeSucceeded):
 		if _, err := helper.Succeeded(ctx, instance); err != nil {
 			return false, time.Duration(0), err
 		}
@@ -141,8 +141,8 @@ func initAppStatus(appGroup *v1alpha1.ApplicationGroup) {
 	}
 }
 
-func (helper *StatusHelper) getWorkflowStatus(ctx context.Context, appGroupName string) (*v1alpha12.WorkflowStatus, error) {
-	wfs := v1alpha12.WorkflowList{}
+func (helper *StatusHelper) getWorkflowStatus(ctx context.Context, appGroupName string) (*v1alpha13.WorkflowStatus, error) {
+	wfs := v1alpha13.WorkflowList{}
 	listOption := client.MatchingLabels{
 		workflow.OwnershipLabel: appGroupName,
 		workflow.HeritageLabel:  workflow.Project,
