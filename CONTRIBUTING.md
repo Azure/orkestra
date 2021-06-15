@@ -22,7 +22,7 @@ Before sending your pull requests, make sure you do the following:
 - Read this contributing guide.
 - Read the [Code of Conduct][code-conduct-link].
 - Run the [tests](#running-tests).
-- Run `make prepare-for-pr`. See [Prepare Code for PR](#prepare-code-for-pr) for more details.
+- Run `make prepare-for-pr`. For more details, see [Prepare Code for PR](#prepare-code-for-pr) section.
 
 ## How to become a contributor
 
