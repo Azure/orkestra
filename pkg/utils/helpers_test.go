@@ -117,3 +117,64 @@ func TestTruncateString(t *testing.T) {
 		})
 	}
 }
+
+func TestIsFileYaml(t *testing.T) {
+	type args struct {
+		f string
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "testing empty",
+			args: args{
+				f: "",
+			},
+			want: false,
+		},
+		{
+			name: "testing .yaml file",
+			args: args{
+				f: "templates/filename.yaml",
+			},
+			want: true,
+		},
+		{
+			name: "testing .yml file",
+			args: args{
+				f: "templates/bin/myfile.yml",
+			},
+			want: true,
+		},
+		{
+			name: "testing .yaml file",
+			args: args{
+				f: "templates/bin/myfile.txt",
+			},
+			want: false,
+		},
+		{
+			name: "testing filename extension that conatins yaml but not yaml file",
+			args: args{
+				f: "templates/bin/myfile.myyaml",
+			},
+			want: false,
+		},
+		{
+			name: "testing .txt file with name containing yaml substring.",
+			args: args{
+				f: "templates/bin/yamlFileGuide.txt",
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := IsFileYaml(tt.args.f); got != tt.want {
+				t.Errorf("IsFileYaml() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
