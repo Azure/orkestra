@@ -156,7 +156,7 @@ func TestIsFileYaml(t *testing.T) {
 			want: false,
 		},
 		{
-			name: "testing filename extension that conatins yaml but not yaml file",
+			name: "testing filename extension that contains yaml but not yaml file",
 			args: args{
 				f: "templates/bin/myfile.myyaml",
 			},
