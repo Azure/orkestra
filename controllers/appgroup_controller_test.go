@@ -31,9 +31,10 @@ var _ = Describe("ApplicationGroup Controller", func() {
 		)
 
 		const (
-			DefaultNamespace      = "orkestra"
-			DefaultTimeout        = time.Minute * 5
-			TotalHelmReleaseCount = 6
+			DefaultNamespace                 = "orkestra"
+			DefaultTimeout                   = time.Minute * 5
+			TotalHelmReleaseCount            = 6
+			OnlyApplicationsHelmReleaseCount = 2
 		)
 
 		BeforeEach(func() {
@@ -166,7 +167,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 			By("checking that the all the HelmReleases have come up and are in a ready state")
 			err = k8sClient.List(ctx, helmReleaseList, client.InNamespace(name))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(helmReleaseList.Items)).To(Equal(oldHelmReleaseCount + 2))
+			Expect(len(helmReleaseList.Items)).To(Equal(oldHelmReleaseCount + OnlyApplicationsHelmReleaseCount))
 			allReady := true
 			for _, release := range helmReleaseList.Items {
 				if condition := meta.GetResourceCondition(&release, meta.ReadyCondition); condition.Reason == meta.SucceededReason {
@@ -174,20 +175,6 @@ var _ = Describe("ApplicationGroup Controller", func() {
 				}
 			}
 			Expect(allReady).To(BeTrue())
-
-			// Wait for all the HelmReleases to delete
-			err = k8sClient.Delete(ctx, applicationGroup)
-			Expect(err).NotTo(HaveOccurred())
-
-			By("waiting for the Workflow to delete all the HelmReleases")
-			Eventually(func() bool {
-				helmReleases := &fluxhelmv2beta1.HelmReleaseList{}
-				if err := k8sClient.List(ctx, helmReleases, client.InNamespace(name)); err != nil {
-					return false
-				}
-				return len(helmReleases.Items) == 0
-			}, DefaultTimeout, time.Second).Should(BeTrue())
-
 		})
 
 		It("should fail to create and post a failed error state", func() {
