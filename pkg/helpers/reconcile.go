@@ -13,7 +13,7 @@ import (
 	"github.com/Azure/Orkestra/pkg/registry"
 	"github.com/Azure/Orkestra/pkg/utils"
 	"github.com/Azure/Orkestra/pkg/workflow"
-	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
+	v1alpha13 "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
 	fluxhelmv2beta1 "github.com/fluxcd/helm-controller/api/v2beta1"
 	"github.com/go-logr/logr"
 	"github.com/jinzhu/copier"
@@ -143,7 +143,7 @@ func (helper *ReconcileHelper) Reverse(ctx context.Context) (ctrl.Result, error)
 	return helper.Cleanup(ctx, wf)
 }
 
-func (helper *ReconcileHelper) Cleanup(ctx context.Context, wf *v1alpha12.Workflow) (ctrl.Result, error) {
+func (helper *ReconcileHelper) Cleanup(ctx context.Context, wf *v1alpha13.Workflow) (ctrl.Result, error) {
 	nodes := workflow.GetNodes(wf)
 	reverseClient, _ := helper.WorkflowClientBuilder.Reverse(wf, nodes).Build()
 

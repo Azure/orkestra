@@ -22,6 +22,7 @@ Before sending your pull requests, make sure you do the following:
 - Read this contributing guide.
 - Read the [Code of Conduct][code-conduct-link].
 - Run the [tests](#running-tests).
+- Run `make prepare-for-pr`. For details, see [Prepare Code for PR](#prepare-code-for-pr) section.
 
 ## How to become a contributor
 
@@ -48,6 +49,19 @@ For a full set of instructions to run tests, follow the testing & debugging sect
 ```shell
 make clean && make dev && make test
 ```
+
+### Prepare Code for PR
+
+Before submitting a PR, run the following `make` target.
+
+```shell
+make prepare-for-pr
+```
+
+This will perform following checks:
+- Examine Go source code and report suspicious constructs.
+- Format Go source code.
+- Update API docs if applicable.
 
 ## Security
 

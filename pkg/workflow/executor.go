@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/Azure/Orkestra/pkg/utils"
-	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
+	v1alpha13 "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -16,26 +16,26 @@ const (
 	Delete  ExecutorAction = "delete"
 )
 
-func defaultExecutor(templateName string, action ExecutorAction) v1alpha12.Template {
+func defaultExecutor(templateName string, action ExecutorAction) v1alpha13.Template {
 	executorArgs := []string{"--spec", "{{inputs.parameters.helmrelease}}", "--action", string(action), "--timeout", "{{inputs.parameters.timeout}}", "--interval", "10s"}
-	return v1alpha12.Template{
+	return v1alpha13.Template{
 		Name:               templateName,
 		ServiceAccountName: workflowServiceAccountName(),
-		Inputs: v1alpha12.Inputs{
-			Parameters: []v1alpha12.Parameter{
+		Inputs: v1alpha13.Inputs{
+			Parameters: []v1alpha13.Parameter{
 				{
 					Name: HelmReleaseArg,
 				},
 				{
 					Name:    TimeoutArg,
-					Default: utils.ToStrPtr(DefaultTimeout),
+					Default: utils.ToAnyStringPtr(DefaultTimeout),
 				},
 			},
 		},
-		Executor: &v1alpha12.ExecutorConfig{
+		Executor: &v1alpha13.ExecutorConfig{
 			ServiceAccountName: workflowServiceAccountName(),
 		},
-		Outputs: v1alpha12.Outputs{},
+		Outputs: v1alpha13.Outputs{},
 		Container: &corev1.Container{
 			Name:  ExecutorName,
 			Image: fmt.Sprintf("%s:%s", ExecutorImage, ExecutorImageTag),
