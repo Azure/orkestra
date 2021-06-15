@@ -57,9 +57,9 @@ const (
 	// why the application group was unable to successfully reconcile
 	WorkflowFailedReason string = "WorkflowFailed"
 
-	// TemplateGenerationFailedReason represents the fact that the application group was unable
+	// WorkflowTemplateGenerationFailedReason represents the fact that the application group was unable
 	// to generate the templates for the workflow reconciliation
-	TemplateGenerationFailedReason string = "TemplateGenerationFailed"
+	WorkflowTemplateGenerationFailedReason string = "WorkflowTemplateGenerationFailed"
 )
 
 // ObjectWithStatusConditions is an interface that describes kubernetes resource

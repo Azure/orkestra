@@ -108,7 +108,7 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			// Remove the finalizer because we have finished reversing
 			controllerutil.RemoveFinalizer(appGroup, v1alpha1.AppGroupFinalizer)
 			if err := r.Patch(ctx, appGroup, patch); err != nil {
-				return ctrl.Result{}, err
+				return result, err
 			}
 		}
 		return result, err

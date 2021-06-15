@@ -64,7 +64,7 @@ func (helper *ReconcileHelper) CreateOrUpdate(ctx context.Context) error {
 	// Generate the Workflow object to submit to Argo
 	forwardClient := helper.WorkflowClientBuilder.Forward(helper.Instance).Build()
 	if err := workflow.Run(ctx, forwardClient); err != nil {
-		helper.StatusHelper.MarkTemplateGenerationFailed(helper.Instance, err)
+		helper.StatusHelper.MarkWorkflowTemplateGenerationFailed(helper.Instance, err)
 		helper.Error(err, "failed to reconcile ApplicationGroup instance")
 		return err
 	}

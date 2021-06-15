@@ -97,19 +97,22 @@ func (helper *StatusHelper) MarkTerminating(instance *v1alpha1.ApplicationGroup)
 	meta.SetResourceCondition(instance, meta.ReadyCondition, metav1.ConditionFalse, meta.TerminatingReason, "application group is terminating...")
 }
 
+// MarkFailed sets the meta.ReadyCondition to 'False', with a failed reason
 func (helper *StatusHelper) MarkFailed(instance *v1alpha1.ApplicationGroup, err error) {
 	helper.Recorder.Event(instance, "Warning", "ReconcileError", fmt.Sprintf("Failed to reconcile ApplicationGroup %v with Error : %v", instance.Name, err))
 	instance.WorkflowFailed(err.Error())
 }
 
+// MarkChartPullFailed sets the meta.ReadyCondition to 'False', with a chart pull failed reason
 func (helper *StatusHelper) MarkChartPullFailed(instance *v1alpha1.ApplicationGroup, err error) {
 	helper.Recorder.Event(instance, "Warning", "ReconcileError", fmt.Sprintf("Failed to reconcile ApplicationGroup %v with Error : %v", instance.Name, err))
 	instance.ChartPullFailed(err.Error())
 }
 
-func (helper *StatusHelper) MarkTemplateGenerationFailed(instance *v1alpha1.ApplicationGroup, err error) {
+// MarkWorkflowTemplateGenerationFailed sets the meta.ReadyCondition to 'False', with a workflow template generation failed reason
+func (helper *StatusHelper) MarkWorkflowTemplateGenerationFailed(instance *v1alpha1.ApplicationGroup, err error) {
 	helper.Recorder.Event(instance, "Warning", "ReconcileError", fmt.Sprintf("Failed to reconcile ApplicationGroup %v with Error : %v", instance.Name, err))
-	instance.ChartPullFailed(err.Error())
+	instance.WorkflowTemplateGenerationFailed(err.Error())
 }
 
 func initAppStatus(appGroup *v1alpha1.ApplicationGroup) {
