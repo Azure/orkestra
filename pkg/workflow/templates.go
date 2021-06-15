@@ -3,17 +3,16 @@ package workflow
 import (
 	"encoding/base64"
 	"fmt"
-
 	"github.com/Azure/Orkestra/api/v1alpha1"
 	"github.com/Azure/Orkestra/pkg/utils"
-	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
+	v1alpha13 "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
 	fluxhelmv2beta1 "github.com/fluxcd/helm-controller/api/v2beta1"
 	fluxsourcev1beta1 "github.com/fluxcd/source-controller/api/v1beta1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func generateTemplates(instance *v1alpha1.ApplicationGroup, options ClientOptions) (*v1alpha12.Template, []v1alpha12.Template, error) {
+func generateTemplates(instance *v1alpha1.ApplicationGroup, options ClientOptions) (*v1alpha13.Template, []v1alpha13.Template, error) {
 	if instance == nil {
 		return nil, nil, fmt.Errorf("applicationGroup cannot be nil")
 	}
@@ -23,15 +22,15 @@ func generateTemplates(instance *v1alpha1.ApplicationGroup, options ClientOption
 	}
 
 	// Create the entry template from the app dag templates
-	entryTemplate := &v1alpha12.Template{
+	entryTemplate := &v1alpha13.Template{
 		Name: EntrypointTemplateName,
-		DAG: &v1alpha12.DAGTemplate{
-			Tasks: make([]v1alpha12.DAGTask, len(instance.Spec.Applications)),
+		DAG: &v1alpha13.DAGTemplate{
+			Tasks: make([]v1alpha13.DAGTask, len(instance.Spec.Applications)),
 		},
 		Parallelism: options.parallelism,
 	}
 	for i, tpl := range templates {
-		entryTemplate.DAG.Tasks[i] = v1alpha12.DAGTask{
+		entryTemplate.DAG.Tasks[i] = v1alpha13.DAGTask{
 			Name:         utils.ConvertToDNS1123(tpl.Name),
 			Template:     utils.ConvertToDNS1123(tpl.Name),
 			Dependencies: utils.ConvertSliceToDNS1123(instance.Spec.Applications[i].Dependencies),
@@ -40,8 +39,8 @@ func generateTemplates(instance *v1alpha1.ApplicationGroup, options ClientOption
 	return entryTemplate, templates, nil
 }
 
-func generateAppDAGTemplates(appGroup *v1alpha1.ApplicationGroup, namespace string, parallelism *int64) ([]v1alpha12.Template, error) {
-	ts := make([]v1alpha12.Template, 0)
+func generateAppDAGTemplates(appGroup *v1alpha1.ApplicationGroup, namespace string, parallelism *int64) ([]v1alpha13.Template, error) {
+	ts := make([]v1alpha13.Template, 0)
 
 	for i, app := range appGroup.Spec.Applications {
 		var hasSubcharts bool
@@ -50,12 +49,12 @@ func generateAppDAGTemplates(appGroup *v1alpha1.ApplicationGroup, namespace stri
 		// Create Subchart DAG only when the application chart has dependencies
 		if len(app.Spec.Subcharts) > 0 {
 			hasSubcharts = true
-			t := v1alpha12.Template{
+			t := v1alpha13.Template{
 				Name:        utils.ConvertToDNS1123(app.Name),
 				Parallelism: parallelism,
 			}
 
-			t.DAG = &v1alpha12.DAGTemplate{}
+			t.DAG = &v1alpha13.DAGTemplate{}
 			tasks, err := generateSubchartAndAppDAGTasks(appGroup, namespace, &app, scStatus)
 			if err != nil {
 				return nil, fmt.Errorf("failed to generate Application Template DAG tasks : %w", err)
@@ -105,19 +104,19 @@ func generateAppDAGTemplates(appGroup *v1alpha1.ApplicationGroup, namespace stri
 				HeritageLabel:  Project,
 			}
 
-			tApp := v1alpha12.Template{
+			tApp := v1alpha13.Template{
 				Name:        utils.ConvertToDNS1123(app.Name),
 				Parallelism: parallelism,
-				DAG: &v1alpha12.DAGTemplate{
-					Tasks: []v1alpha12.DAGTask{
+				DAG: &v1alpha13.DAGTemplate{
+					Tasks: []v1alpha13.DAGTask{
 						{
 							Name:     utils.ConvertToDNS1123(app.Name),
 							Template: HelmReleaseExecutorName,
-							Arguments: v1alpha12.Arguments{
-								Parameters: []v1alpha12.Parameter{
+							Arguments: v1alpha13.Arguments{
+								Parameters: []v1alpha13.Parameter{
 									{
 										Name:  HelmReleaseArg,
-										Value: utils.ToStrPtr(base64.StdEncoding.EncodeToString([]byte(utils.HrToYaml(hr)))),
+										Value: utils.ToAnyStringPtr(base64.StdEncoding.EncodeToString([]byte(utils.HrToYaml(hr)))),
 									},
 									{
 										Name:  TimeoutArg,
@@ -136,9 +135,9 @@ func generateAppDAGTemplates(appGroup *v1alpha1.ApplicationGroup, namespace stri
 	return ts, nil
 }
 
-func generateSubchartAndAppDAGTasks(appGroup *v1alpha1.ApplicationGroup, namespace string, app *v1alpha1.Application, subchartsStatus map[string]v1alpha1.ChartStatus) ([]v1alpha12.DAGTask, error) {
+func generateSubchartAndAppDAGTasks(appGroup *v1alpha1.ApplicationGroup, namespace string, app *v1alpha1.Application, subchartsStatus map[string]v1alpha1.ChartStatus) ([]v1alpha13.DAGTask, error) {
 	// XXX (nitishm) Should this be set to nil if no subcharts are found??
-	tasks := make([]v1alpha12.DAGTask, 0, len(app.Spec.Subcharts)+1)
+	tasks := make([]v1alpha13.DAGTask, 0, len(app.Spec.Subcharts)+1)
 
 	for _, sc := range app.Spec.Subcharts {
 		subchartName := sc.Name
@@ -157,14 +156,14 @@ func generateSubchartAndAppDAGTasks(appGroup *v1alpha1.ApplicationGroup, namespa
 			HeritageLabel:  Project,
 		}
 
-		task := v1alpha12.DAGTask{
+		task := v1alpha13.DAGTask{
 			Name:     utils.ConvertToDNS1123(subchartName),
 			Template: HelmReleaseExecutorName,
-			Arguments: v1alpha12.Arguments{
-				Parameters: []v1alpha12.Parameter{
+			Arguments: v1alpha13.Arguments{
+				Parameters: []v1alpha13.Parameter{
 					{
 						Name:  HelmReleaseArg,
-						Value: utils.ToStrPtr(base64.StdEncoding.EncodeToString([]byte(utils.HrToYaml(*hr)))),
+						Value: utils.ToAnyStringPtr(base64.StdEncoding.EncodeToString([]byte(utils.HrToYaml(*hr)))),
 					},
 					{
 						Name:  TimeoutArg,
@@ -231,14 +230,14 @@ func generateSubchartAndAppDAGTasks(appGroup *v1alpha1.ApplicationGroup, namespa
 		return nil, err
 	}
 
-	task := v1alpha12.DAGTask{
+	task := v1alpha13.DAGTask{
 		Name:     utils.ConvertToDNS1123(app.Name),
 		Template: HelmReleaseExecutorName,
-		Arguments: v1alpha12.Arguments{
-			Parameters: []v1alpha12.Parameter{
+		Arguments: v1alpha13.Arguments{
+			Parameters: []v1alpha13.Parameter{
 				{
 					Name:  HelmReleaseArg,
-					Value: utils.ToStrPtr(base64.StdEncoding.EncodeToString([]byte(utils.HrToYaml(hr)))),
+					Value: utils.ToAnyStringPtr(base64.StdEncoding.EncodeToString([]byte(utils.HrToYaml(hr)))),
 				},
 				{
 					Name:  TimeoutArg,

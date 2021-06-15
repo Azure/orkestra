@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/Azure/Orkestra/api/v1alpha1"
-	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
+	v1alpha13 "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -39,8 +39,8 @@ func (wc *ForwardWorkflowClient) GetAppGroup() *v1alpha1.ApplicationGroup {
 	return wc.appGroup
 }
 
-func (wc *ForwardWorkflowClient) GetWorkflow(ctx context.Context) (*v1alpha12.Workflow, error) {
-	workflow := &v1alpha12.Workflow{}
+func (wc *ForwardWorkflowClient) GetWorkflow(ctx context.Context) (*v1alpha13.Workflow, error) {
+	workflow := &v1alpha13.Workflow{}
 	err := wc.Get(ctx, types.NamespacedName{Namespace: wc.namespace, Name: wc.appGroup.Name}, workflow)
 	return workflow, err
 }

@@ -20,7 +20,7 @@ func TestGetSubchartName(t *testing.T) {
 				appName: "",
 				scName:  "",
 			},
-			want: GetHash("")[0:62] + "-",
+			want: GetHash("")[0:hashedAppNameMaxLen] + "-",
 		},
 		{
 			name: "testing empty subchart name",
@@ -28,7 +28,7 @@ func TestGetSubchartName(t *testing.T) {
 				appName: "10charhash",
 				scName:  "",
 			},
-			want: GetHash("10charhash")[0:62] + "-",
+			want: GetHash("10charhash")[0:hashedAppNameMaxLen] + "-",
 		},
 		{
 			name: "testing empty application name",
@@ -36,31 +36,23 @@ func TestGetSubchartName(t *testing.T) {
 				appName: "",
 				scName:  "myapp-name",
 			},
-			want: GetHash("")[0:52] + "-myapp-name",
+			want: GetHash("")[0:hashedAppNameMaxLen] + "-myapp-name",
 		},
 		{
-			name: "testing subchart name length < 53",
+			name: "testing subchart name length == 52",
 			args: args{
 				appName: "appHash",
-				scName:  "mychart",
+				scName:  "thisismychart-withbigname-equalto53chars000000000009",
 			},
-			want: GetHash("appHash")[0:55] + "-mychart",
+			want: GetHash("appHash")[0:hashedAppNameMaxLen] + "-thisismychart-withbigname-equalto53chars000000000009",
 		},
 		{
-			name: "testing subchart name length == 53",
-			args: args{
-				appName: "appHash",
-				scName:  "thisismychart-withbigname-equalto53chars0000000000000",
-			},
-			want: GetHash("appHash")[0:9] + "-thisismychart-withbigname-equalto53chars0000000000000",
-		},
-		{
-			name: "testing subchart name length > 53",
+			name: "testing subchart name length > 52",
 			args: args{
 				appName: "appHash",
 				scName:  "thisismychart-withbigname-greaterthan53chars0987654321abcde",
 			},
-			want: GetHash("appHash")[0:9] + "-thisismychart-withbigname-greaterthan53chars098765432",
+			want: GetHash("appHash")[0:hashedAppNameMaxLen] + "-thisismychart-withbigname-greaterthan53chars09876543",
 		},
 		{
 			name: "testing subchart name length > 63",
@@ -68,7 +60,7 @@ func TestGetSubchartName(t *testing.T) {
 				appName: "appHash",
 				scName:  "thisismyappchart-withbigname-greaterthan63chars0987654321abcde123456789",
 			},
-			want: GetHash("appHash")[0:9] + "-thisismyappchart-withbigname-greaterthan63chars098765",
+			want: GetHash("appHash")[0:hashedAppNameMaxLen] + "-thisismyappchart-withbigname-greaterthan63chars09876",
 		},
 		{
 			name: "testing DNS1123 incompatible subchart name",
@@ -76,7 +68,7 @@ func TestGetSubchartName(t *testing.T) {
 				appName: "appHash",
 				scName:  "thisismyappchart_withbigname_greaterthan63chars0987654321abcde123456789",
 			},
-			want: GetHash("appHash")[0:9] + "-thisismyappchart-withbigname-greaterthan63chars098765",
+			want: GetHash("appHash")[0:hashedAppNameMaxLen] + "-thisismyappchart-withbigname-greaterthan63chars09876",
 		},
 	}
 	for _, tt := range tests {

@@ -3,11 +3,11 @@ package workflow
 import (
 	"context"
 	"fmt"
+	v1alpha13 "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
 
 	"github.com/Azure/Orkestra/pkg/meta"
 
 	"github.com/Azure/Orkestra/api/v1alpha1"
-	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -39,8 +39,8 @@ func (wc *RollbackWorkflowClient) GetAppGroup() *v1alpha1.ApplicationGroup {
 	return wc.appGroup
 }
 
-func (wc *RollbackWorkflowClient) GetWorkflow(ctx context.Context) (*v1alpha12.Workflow, error) {
-	rollbackWorkflow := &v1alpha12.Workflow{}
+func (wc *RollbackWorkflowClient) GetWorkflow(ctx context.Context) (*v1alpha13.Workflow, error) {
+	rollbackWorkflow := &v1alpha13.Workflow{}
 	rollbackWorkflowName := fmt.Sprintf("%s-rollback", wc.appGroup.Name)
 	err := wc.Get(ctx, types.NamespacedName{Namespace: wc.namespace, Name: rollbackWorkflowName}, rollbackWorkflow)
 	return rollbackWorkflow, err

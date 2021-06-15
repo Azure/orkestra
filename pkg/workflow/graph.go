@@ -5,23 +5,23 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
+	v1alpha13 "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
 	fluxhelmv2beta1 "github.com/fluxcd/helm-controller/api/v2beta1"
 	k8Yaml "k8s.io/apimachinery/pkg/util/yaml"
 )
 
 type Graph struct {
-	nodes    map[string]v1alpha12.NodeStatus
+	nodes    map[string]v1alpha13.NodeStatus
 	releases map[int][]fluxhelmv2beta1.HelmRelease
 	maxLevel int
 }
 
 type Node struct {
-	Status v1alpha12.NodeStatus
+	Status v1alpha13.NodeStatus
 	Level  int
 }
 
-func Build(entry string, nodes map[string]v1alpha12.NodeStatus) (*Graph, error) {
+func Build(entry string, nodes map[string]v1alpha13.NodeStatus) (*Graph, error) {
 	if nodes == nil || len(nodes) == 0 {
 		return nil, fmt.Errorf("no nodes found in the graph")
 	}
@@ -45,10 +45,10 @@ func Build(entry string, nodes map[string]v1alpha12.NodeStatus) (*Graph, error) 
 }
 
 // bft performs the Breath First Traversal of the DAG
-func (g *Graph) bft(node v1alpha12.NodeStatus) error {
+func (g *Graph) bft(node v1alpha13.NodeStatus) error {
 	visited := make(map[string]*Node)
 	level := 0
-	q := []v1alpha12.NodeStatus{}
+	q := []v1alpha13.NodeStatus{}
 	q = append(q, node)
 
 	visited[node.ID] = &Node{
@@ -65,9 +65,9 @@ func (g *Graph) bft(node v1alpha12.NodeStatus) error {
 				// don't visit the child if it is reachable indirectly
 				if !g.isIndirectChild(ch.ID, n) {
 					// don't visit failed nodes
-					if ch.Phase != v1alpha12.NodeSkipped &&
-						ch.Phase != v1alpha12.NodeFailed &&
-						ch.Phase != v1alpha12.NodeError {
+					if ch.Phase != v1alpha13.NodeSkipped &&
+						ch.Phase != v1alpha13.NodeFailed &&
+						ch.Phase != v1alpha13.NodeError {
 						visited[ch.ID] = &Node{
 							Status: ch,
 							Level:  level,
@@ -81,11 +81,11 @@ func (g *Graph) bft(node v1alpha12.NodeStatus) error {
 	}
 
 	for _, v := range visited {
-		if v.Status.Type != v1alpha12.NodeTypePod {
+		if v.Status.Type != v1alpha13.NodeTypePod {
 			continue
 		}
 		hrStr := v.Status.Inputs.Parameters[0].Value
-		hrBytes, err := base64.StdEncoding.DecodeString(*hrStr)
+		hrBytes, err := base64.StdEncoding.DecodeString(string(*hrStr))
 		if err != nil {
 			return err
 		}
@@ -105,7 +105,7 @@ func (g *Graph) bft(node v1alpha12.NodeStatus) error {
 	return nil
 }
 
-func (g *Graph) isIndirectChild(nodeID string, node v1alpha12.NodeStatus) bool {
+func (g *Graph) isIndirectChild(nodeID string, node v1alpha13.NodeStatus) bool {
 	for _, c := range node.Children {
 		ch := g.nodes[c]
 		if ch.ID != nodeID && g.isChild(nodeID, ch) {
@@ -116,9 +116,9 @@ func (g *Graph) isIndirectChild(nodeID string, node v1alpha12.NodeStatus) bool {
 	return false
 }
 
-func (g *Graph) isChild(nodeID string, node v1alpha12.NodeStatus) bool {
+func (g *Graph) isChild(nodeID string, node v1alpha13.NodeStatus) bool {
 	visited := make(map[string]bool)
-	q := []v1alpha12.NodeStatus{}
+	q := []v1alpha13.NodeStatus{}
 	q = append(q, node)
 
 	visited[node.ID] = true

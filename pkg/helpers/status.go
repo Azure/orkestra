@@ -7,7 +7,7 @@ import (
 	"github.com/Azure/Orkestra/api/v1alpha1"
 	"github.com/Azure/Orkestra/pkg/meta"
 	"github.com/Azure/Orkestra/pkg/workflow"
-	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
+	v1alpha13 "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
 	fluxhelmv2beta1 "github.com/fluxcd/helm-controller/api/v2beta1"
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -125,8 +125,8 @@ func initAppStatus(appGroup *v1alpha1.ApplicationGroup) {
 	}
 }
 
-func (helper *StatusHelper) getWorkflowStatus(ctx context.Context, appGroupName string) (*v1alpha12.WorkflowStatus, error) {
-	wfs := v1alpha12.WorkflowList{}
+func (helper *StatusHelper) getWorkflowStatus(ctx context.Context, appGroupName string) (*v1alpha13.WorkflowStatus, error) {
+	wfs := v1alpha13.WorkflowList{}
 	listOption := client.MatchingLabels{
 		workflow.OwnershipLabel: appGroupName,
 		workflow.HeritageLabel:  workflow.Project,

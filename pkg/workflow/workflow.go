@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/Azure/Orkestra/pkg/meta"
-	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
+	v1alpha13 "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -16,7 +16,7 @@ import (
 
 type ClientType string
 
-type ExecutorFunc func(string, ExecutorAction) v1alpha12.Template
+type ExecutorFunc func(string, ExecutorAction) v1alpha13.Template
 
 var _ = ForwardWorkflowClient{}
 var _ = ReverseWorkflowClient{}
@@ -42,7 +42,7 @@ type Client interface {
 	GetLogger() logr.Logger
 
 	// GetWorkflow returns the workflow from the k8s apiserver associated with the workflow client
-	GetWorkflow(context.Context) (*v1alpha12.Workflow, error)
+	GetWorkflow(context.Context) (*v1alpha13.Workflow, error)
 
 	// GetClient returns the k8s client associated with the workflow
 	GetClient() client.Client
@@ -64,7 +64,7 @@ type Builder struct {
 	options    ClientOptions
 	executor   ExecutorFunc
 
-	forwardWorkflow *v1alpha12.Workflow
+	forwardWorkflow *v1alpha13.Workflow
 	appGroup        *v1alpha1.ApplicationGroup
 }
 
@@ -74,7 +74,7 @@ type ForwardWorkflowClient struct {
 	ClientOptions
 	executor ExecutorFunc
 
-	workflow *v1alpha12.Workflow
+	workflow *v1alpha13.Workflow
 	appGroup *v1alpha1.ApplicationGroup
 }
 
@@ -84,7 +84,7 @@ type RollbackWorkflowClient struct {
 	ClientOptions
 	executor ExecutorFunc
 
-	workflow *v1alpha12.Workflow
+	workflow *v1alpha13.Workflow
 	appGroup *v1alpha1.ApplicationGroup
 }
 
@@ -94,8 +94,8 @@ type ReverseWorkflowClient struct {
 	ClientOptions
 	executor ExecutorFunc
 
-	forwardWorkflow *v1alpha12.Workflow
-	reverseWorkflow *v1alpha12.Workflow
+	forwardWorkflow *v1alpha13.Workflow
+	reverseWorkflow *v1alpha13.Workflow
 	appGroup        *v1alpha1.ApplicationGroup
 }
 
@@ -320,47 +320,47 @@ func IsSucceeded(ctx context.Context, wfClient Client) (bool, error) {
 	return false, nil
 }
 
-func toConditionReason(nodePhase v1alpha12.NodePhase) string {
+func toConditionReason(nodePhase v1alpha13.WorkflowPhase) string {
 	switch nodePhase {
-	case v1alpha12.NodeError, v1alpha12.NodeFailed:
+	case v1alpha13.WorkflowFailed:
 		return meta.FailedReason
-	case v1alpha12.NodeSucceeded:
+	case v1alpha13.WorkflowSucceeded:
 		return meta.SucceededReason
 	default:
 		return meta.ProgressingReason
 	}
 }
 
-func getNodes(wf *v1alpha12.Workflow) map[string]v1alpha12.NodeStatus {
-	nodes := make(map[string]v1alpha12.NodeStatus)
+func getNodes(wf *v1alpha13.Workflow) map[string]v1alpha13.NodeStatus {
+	nodes := make(map[string]v1alpha13.NodeStatus)
 	for _, node := range wf.Status.Nodes {
 		nodes[node.ID] = node
 	}
 	return nodes
 }
 
-func initWorkflowObject(name, namespace string, parallelism *int64) *v1alpha12.Workflow {
-	return &v1alpha12.Workflow{
+func initWorkflowObject(name, namespace string, parallelism *int64) *v1alpha13.Workflow {
+	return &v1alpha13.Workflow{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 			Labels:    map[string]string{HeritageLabel: Project},
 		},
 		TypeMeta: v1.TypeMeta{
-			APIVersion: v1alpha12.WorkflowSchemaGroupVersionKind.GroupVersion().String(),
-			Kind:       v1alpha12.WorkflowSchemaGroupVersionKind.Kind,
+			APIVersion: v1alpha13.WorkflowSchemaGroupVersionKind.GroupVersion().String(),
+			Kind:       v1alpha13.WorkflowSchemaGroupVersionKind.Kind,
 		},
-		Spec: v1alpha12.WorkflowSpec{
+		Spec: v1alpha13.WorkflowSpec{
 			Entrypoint:  EntrypointTemplateName,
-			Templates:   make([]v1alpha12.Template, 0),
+			Templates:   make([]v1alpha13.Template, 0),
 			Parallelism: parallelism,
-			PodGC: &v1alpha12.PodGC{
-				Strategy: v1alpha12.PodGCOnWorkflowCompletion,
+			PodGC: &v1alpha13.PodGC{
+				Strategy: v1alpha13.PodGCOnWorkflowCompletion,
 			},
 		},
 	}
 }
 
-func updateWorkflowTemplates(wf *v1alpha12.Workflow, tpls ...v1alpha12.Template) {
+func updateWorkflowTemplates(wf *v1alpha13.Workflow, tpls ...v1alpha13.Template) {
 	wf.Spec.Templates = append(wf.Spec.Templates, tpls...)
 }

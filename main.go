@@ -21,7 +21,7 @@ import (
 
 	orkestrav1alpha1 "github.com/Azure/Orkestra/api/v1alpha1"
 	"github.com/Azure/Orkestra/controllers"
-	v1alpha12 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
+	v1alpha13 "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
 	fluxhelmv2beta1 "github.com/fluxcd/helm-controller/api/v2beta1"
 	// +kubebuilder:scaffold:imports
 )
@@ -42,7 +42,7 @@ func init() {
 	// +kubebuilder:scaffold:scheme
 
 	// Add Argo Workflow scheme to operator
-	_ = v1alpha12.AddToScheme(scheme)
+	_ = v1alpha13.AddToScheme(scheme)
 
 	// Add HelmRelease scheme to operator
 	_ = fluxhelmv2beta1.AddToScheme(scheme)
