@@ -107,6 +107,13 @@ INFO[2021-02-03T01:02:15.852Z] Argo UI is available at http://localhost:2746
 
 Follow the development [guide](./docs/developers.md) to get started with building and debugging Orkestra
 
+## Community 🧑‍🤝‍🧑
+
+Connect with the Azure Orkestra community:
+
+- GitHub [issues](https://github.com/Azure/orkestra/issues) and [pull requests](https://github.com/Azure/orkestra/pulls) in this repo
+- Azure Orkestra Slack: Join the Azure Orkestra [Slack](https://join.slack.com/t/azureorkestra/shared_invite/zt-rowzrite-Hm_eaih4GyjjZXWftuoqPQ)
+
 ## Contributing 🎁
 
 For instructions about setting up your environment to develop and extend the operator, please see
