@@ -83,7 +83,7 @@ func TemplateContainsYaml(ch *chart.Chart) (bool, error) {
 
 func IsFileYaml(f string) bool {
 	f = strings.ToLower(f)
-	if strings.HasSuffix(f, "yml") || strings.HasSuffix(f, "yaml") {
+	if strings.HasSuffix(f, ".yml") || strings.HasSuffix(f, ".yaml") {
 		return true
 	}
 	return false
