@@ -85,6 +85,9 @@ func (wc *ForwardWorkflowClient) Submit(ctx context.Context) error {
 		ns := &corev1.Namespace{
 			ObjectMeta: v1.ObjectMeta{
 				Name: namespace,
+				Labels: map[string]string{
+					"name": namespace,
+				},
 			},
 		}
 		if err := controllerutil.SetControllerReference(wc.appGroup, ns, wc.Scheme()); err != nil {

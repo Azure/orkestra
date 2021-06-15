@@ -300,7 +300,7 @@ func (helper *ReconcileHelper) reconcileApplications() error {
 		// provided in the charts directory.
 		// IMPORTANT: This expects charts to follow best practices to allow enabling and disabling subcharts
 		// See: https://helm.sh/docs/topics/charts/ #Chart Dependencies
-		if stageSubcharts {
+		if mustStageSubcharts {
 			for _, dep := range appCh.Metadata.Dependencies {
 				// Disable subchart through metadata
 				dep.Enabled = false
