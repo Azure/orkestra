@@ -263,7 +263,7 @@ Defaults to 5s for short requeue and 30s for long requeue</p>
 <tbody>
 <tr>
 <td>
-<code>status</code><br>
+<code>applications</code><br>
 <em>
 <a href="#orkestra.azure.microsoft.com/v1alpha1.ApplicationStatus">
 []ApplicationStatus
@@ -273,18 +273,6 @@ Defaults to 5s for short requeue and 30s for long requeue</p>
 <td>
 <em>(Optional)</em>
 <p>Applications status</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>update</code><br>
-<em>
-bool
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Phase is the reconciliation phase</p>
 </td>
 </tr>
 <tr>
@@ -775,4 +763,6 @@ helm-controller v2beta1.Uninstall
 </table>
 </div>
 </div>
+<h3 id="orkestra.azure.microsoft.com/v1alpha1.WorkflowType">WorkflowType
+(<code>string</code> alias)</h3>
 <p class="last">This page was automatically generated with <code>gen-crd-api-reference-docs</code></p>

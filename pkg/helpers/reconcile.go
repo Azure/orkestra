@@ -159,16 +159,14 @@ func (helper *ReconcileHelper) reconcileApplications() error {
 
 		repoCfg, err := registry.GetHelmRepoConfig(&application, helper.Client)
 		if err != nil {
-			err = fmt.Errorf("failed to get repo configuration for repo at URL %s: %w", application.Spec.Chart.URL, err)
-			ll.Error(err, "failed to add helm repo ")
-			return err
+			ll.Error(err, "failed to add helm repo")
+			return fmt.Errorf("failed to get repo configuration for repo at URL %s", application.Spec.Chart.URL)
 		}
 
 		err = helper.RegistryClient.AddRepo(repoCfg)
 		if err != nil {
-			err = fmt.Errorf("failed to add helm repo at URL %s: %w", application.Spec.Chart.URL, err)
 			ll.Error(err, "failed to add helm repo ")
-			return err
+			return fmt.Errorf("failed to add helm repo at URL %s", application.Spec.Chart.URL)
 		}
 
 		name := application.Spec.Chart.Name
@@ -182,9 +180,8 @@ func (helper *ReconcileHelper) reconcileApplications() error {
 			}
 		}()
 		if err != nil || appCh == nil {
-			err = fmt.Errorf("failed to pull application chart %s/%s:%s : %w", repoKey, name, version, err)
 			ll.Error(err, "failed to pull application chart")
-			return err
+			return fmt.Errorf("failed to pull application chart %s/%s:%s", repoKey, name, version)
 		}
 
 		if appCh.Dependencies() != nil {
@@ -220,7 +217,7 @@ func (helper *ReconcileHelper) reconcileApplications() error {
 
 				if err := scc.Validate(); err != nil {
 					ll.Error(err, "failed to validate application subchart for staging registry")
-					err = fmt.Errorf("failed to validate application subchart for staging registry : %w", err)
+					err = fmt.Errorf("failed to validate application subchart for staging registry")
 					chartStatus.Error = err.Error()
 					helper.Instance.Status.Applications[i].Subcharts[sc.Name()] = chartStatus
 					return err
@@ -240,7 +237,7 @@ func (helper *ReconcileHelper) reconcileApplications() error {
 				path, err := registry.SaveChartPackage(scc, helper.getStagingDirectory())
 				if err != nil {
 					ll.Error(err, "failed to save subchart package as tgz")
-					err = fmt.Errorf("failed to save subchart package as tgz at location %s : %w", path, err)
+					err = fmt.Errorf("failed to save subchart package as tgz at location %s", path)
 					chartStatus.Error = err.Error()
 					helper.Instance.Status.Applications[i].Subcharts[sc.Name()] = chartStatus
 					return err
@@ -249,7 +246,7 @@ func (helper *ReconcileHelper) reconcileApplications() error {
 				err = helper.RegistryClient.PushChart(ll, stagingRepoName, path, scc)
 				if err != nil {
 					ll.Error(err, "failed to push application subchart to staging registry")
-					err = fmt.Errorf("failed to push application subchart to staging registry : %w", err)
+					err = fmt.Errorf("failed to push application subchart to staging registry")
 					chartStatus.Error = err.Error()
 					helper.Instance.Status.Applications[i].Subcharts[sc.Name()] = chartStatus
 					return err
@@ -278,7 +275,7 @@ func (helper *ReconcileHelper) reconcileApplications() error {
 		templateHasYAML, err := utils.TemplateContainsYaml(appCh)
 		if err != nil {
 			ll.Error(err, "chart templates directory yaml check failed")
-			err = fmt.Errorf("chart templates directory yaml check failed : %w", err)
+			err = fmt.Errorf("chart templates directory yaml check failed")
 			helper.Instance.Status.Applications[i].ChartStatus.Error = err.Error()
 			return err
 		}
@@ -297,7 +294,7 @@ func (helper *ReconcileHelper) reconcileApplications() error {
 
 		if err := appCh.Validate(); err != nil {
 			ll.Error(err, "failed to validate application chart for staging registry")
-			err = fmt.Errorf("failed to validate application chart for staging registry : %w", err)
+			err = fmt.Errorf("failed to validate application chart for staging registry")
 			helper.Instance.Status.Applications[i].ChartStatus.Error = err.Error()
 			return err
 		}
@@ -307,7 +304,7 @@ func (helper *ReconcileHelper) reconcileApplications() error {
 		_, err = registry.SaveChartPackage(appCh, helper.getStagingDirectory())
 		if err != nil {
 			ll.Error(err, "failed to save modified app chart to filesystem")
-			err = fmt.Errorf("failed to save modified app chart to filesystem : %w", err)
+			err = fmt.Errorf("failed to save modified app chart to filesystem")
 			helper.Instance.Status.Applications[i].ChartStatus.Error = err.Error()
 			return err
 		}
@@ -322,7 +319,7 @@ func (helper *ReconcileHelper) reconcileApplications() error {
 		}()
 		if err != nil {
 			ll.Error(err, "failed to push modified application chart to staging registry")
-			err = fmt.Errorf("failed to push modified application chart to staging registry : %w", err)
+			err = fmt.Errorf("failed to push modified application chart to staging registry")
 			helper.Instance.Status.Applications[i].ChartStatus.Error = err.Error()
 			return err
 		}

@@ -52,7 +52,8 @@ func (helper *StatusHelper) updateWorkflowStatus(ctx context.Context, instance *
 	if isFailed, err := workflow.IsFailed(ctx, forwardClient); err != nil {
 		return ctrl.Result{}, err
 	} else if isFailed {
-		helper.MarkFailed(instance, fmt.Errorf(""))
+		// TODO: make this error come from the node itself
+		helper.MarkFailed(instance, fmt.Errorf("workflow in failed state"))
 		return ctrl.Result{RequeueAfter: v1alpha1.GetInterval(instance)}, nil
 	}
 	if isSucceeded, err := workflow.IsSucceeded(ctx, forwardClient); err != nil {
@@ -99,19 +100,19 @@ func (helper *StatusHelper) MarkTerminating(instance *v1alpha1.ApplicationGroup)
 
 // MarkFailed sets the meta.ReadyCondition to 'False', with a failed reason
 func (helper *StatusHelper) MarkFailed(instance *v1alpha1.ApplicationGroup, err error) {
-	helper.Recorder.Event(instance, "Warning", "ReconcileError", fmt.Sprintf("Failed to reconcile ApplicationGroup %v with Error : %v", instance.Name, err))
+	helper.Recorder.Event(instance, "Warning", "ReconcileError", err.Error())
 	instance.WorkflowFailed(err.Error())
 }
 
 // MarkChartPullFailed sets the meta.ReadyCondition to 'False', with a chart pull failed reason
 func (helper *StatusHelper) MarkChartPullFailed(instance *v1alpha1.ApplicationGroup, err error) {
-	helper.Recorder.Event(instance, "Warning", "ReconcileError", fmt.Sprintf("Failed to reconcile ApplicationGroup %v with Error : %v", instance.Name, err))
+	helper.Recorder.Event(instance, "Warning", "ReconcileError", err.Error())
 	instance.ChartPullFailed(err.Error())
 }
 
 // MarkWorkflowTemplateGenerationFailed sets the meta.ReadyCondition to 'False', with a workflow template generation failed reason
 func (helper *StatusHelper) MarkWorkflowTemplateGenerationFailed(instance *v1alpha1.ApplicationGroup, err error) {
-	helper.Recorder.Event(instance, "Warning", "ReconcileError", fmt.Sprintf("Failed to reconcile ApplicationGroup %v with Error : %v", instance.Name, err))
+	helper.Recorder.Event(instance, "Warning", "ReconcileError", err.Error())
 	instance.WorkflowTemplateGenerationFailed(err.Error())
 }
 
