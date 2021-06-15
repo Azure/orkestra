@@ -149,10 +149,10 @@ var _ = Describe("ApplicationGroup Controller", func() {
 
 			By("Making sure that the workflow goes into a running state")
 			Eventually(func() bool {
-				workflow := &v1alpha12.Workflow{}
+				workflow := &v1alpha13.Workflow{}
 				workflowKey := types.NamespacedName{Name: applicationGroup.Name, Namespace: applicationGroup.Namespace}
 				_ = k8sClient.Get(ctx, workflowKey, workflow)
-				return workflow.Status.Phase == v1alpha12.NodeRunning
+				return string(workflow.Status.Phase) == string(v1alpha13.NodeRunning)
 			}, time.Minute, time.Second).Should(BeTrue())
 
 			By("Waiting for the bookinfo object to reach a succeeded reason")
