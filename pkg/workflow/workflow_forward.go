@@ -131,6 +131,9 @@ func (wc *ForwardWorkflowClient) createTargetNamespaces(ctx context.Context) err
 		ns := &corev1.Namespace{
 			ObjectMeta: v1.ObjectMeta{
 				Name: namespace,
+				Labels: map[string]string{
+					"name": namespace,
+				},
 			},
 		}
 		if err := controllerutil.SetControllerReference(wc.appGroup, ns, wc.Scheme()); err != nil {
