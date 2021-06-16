@@ -5,8 +5,6 @@ package controllers
 
 import (
 	"context"
-	"fmt"
-
 	"github.com/Azure/Orkestra/pkg/helpers"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -147,7 +145,7 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	} else if shouldRemediate {
 		if lastSuccessfulSpec := appGroup.GetLastSuccessful(); lastSuccessfulSpec != nil {
-			return reconcileHelper.Rollback(ctx, patch, fmt.Errorf(""))
+			return reconcileHelper.Rollback(ctx, patch)
 		}
 		return reconcileHelper.Reverse(ctx)
 	}

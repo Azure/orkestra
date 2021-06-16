@@ -68,38 +68,7 @@ func (helper *ReconcileHelper) CreateOrUpdate(ctx context.Context) error {
 	return nil
 }
 
-func (helper *ReconcileHelper) Rollback(ctx context.Context, patch client.Patch, err error) (ctrl.Result, error) {
-	// If this is a HelmRelease failure then we must remediate by cleaning up
-	// all the helm releases deployed by the workflow and helm operator
-	if errors.Is(err, meta.ErrHelmReleaseStatusFailure) {
-		// Delete the HelmRelease(s) - parent and subchart(s)
-		// Lookup charts using the label selector.
-		// Example: chart=kafka-dev,heritage=orkestra,owner=dev, where chart=<top-level-chart>
-		helper.Info("Remediating the applicationgroup with helmrelease failure status")
-		for _, app := range helper.Instance.Status.Applications {
-			helmReleaseReason := meta.GetResourceCondition(&app.ChartStatus, meta.ReadyCondition).Reason
-			if meta.IsFailedHelmReason(helmReleaseReason) {
-				listOption := client.MatchingLabels{
-					workflow.OwnershipLabel: helper.Instance.Name,
-					workflow.HeritageLabel:  workflow.Project,
-					workflow.ChartLabelKey:  app.Name,
-				}
-				helmReleases := fluxhelmv2beta1.HelmReleaseList{}
-				err = helper.List(ctx, &helmReleases, listOption)
-				if err != nil {
-					helper.Error(err, "failed to find generated HelmRelease instances")
-					return reconcile.Result{}, nil
-				}
-
-				err = helper.rollbackFailedHelmReleases(ctx, helmReleases.Items)
-				if err != nil {
-					helper.Error(err, "failed to rollback failed HelmRelease instances")
-					return reconcile.Result{}, nil
-				}
-			}
-		}
-	}
-
+func (helper *ReconcileHelper) Rollback(ctx context.Context, patch client.Patch) (ctrl.Result, error) {
 	helper.Info("Rolling back to last successful application group spec")
 	rollbackClient := helper.WorkflowClientBuilder.Rollback(helper.Instance).Build()
 
