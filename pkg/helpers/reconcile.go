@@ -215,7 +215,13 @@ func (helper *ReconcileHelper) reconcileApplications() error {
 			return err
 		}
 
-		if appCh.Dependencies() != nil {
+		var mustStageSubcharts bool
+
+		if application.Spec.Subcharts != nil && len(application.Spec.Subcharts) > 0 && appCh.Dependencies() != nil {
+			mustStageSubcharts = true
+		}
+
+		if mustStageSubcharts {
 			// take account of all embedded subcharts found in the application chart
 			embeddedSubcharts := make(map[string]bool)
 			for _, d := range appCh.Dependencies() {
@@ -294,12 +300,14 @@ func (helper *ReconcileHelper) reconcileApplications() error {
 		// provided in the charts directory.
 		// IMPORTANT: This expects charts to follow best practices to allow enabling and disabling subcharts
 		// See: https://helm.sh/docs/topics/charts/ #Chart Dependencies
-		for _, dep := range appCh.Metadata.Dependencies {
-			// Disable subchart through metadata
-			dep.Enabled = false
-			// Precautionary - overwrite values with subcharts disabled
-			appCh.Values[dep.Name] = map[string]interface{}{
-				"enabled": false,
+		if mustStageSubcharts {
+			for _, dep := range appCh.Metadata.Dependencies {
+				// Disable subchart through metadata
+				dep.Enabled = false
+				// Precautionary - overwrite values with subcharts disabled
+				appCh.Values[dep.Name] = map[string]interface{}{
+					"enabled": false,
+				}
 			}
 		}
 

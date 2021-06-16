@@ -6,12 +6,11 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 
-	meta2 "github.com/fluxcd/pkg/apis/meta"
-
 	"github.com/Azure/Orkestra/api/v1alpha1"
 	"github.com/Azure/Orkestra/pkg/meta"
 	v1alpha13 "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
 	fluxhelmv2beta1 "github.com/fluxcd/helm-controller/api/v2beta1"
+	meta2 "github.com/fluxcd/pkg/apis/meta"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -32,9 +31,10 @@ var _ = Describe("ApplicationGroup Controller", func() {
 		)
 
 		const (
-			DefaultNamespace      = "orkestra"
-			DefaultTimeout        = time.Minute * 5
-			TotalHelmReleaseCount = 6
+			DefaultNamespace                 = "orkestra"
+			DefaultTimeout                   = time.Minute * 5
+			TotalHelmReleaseCount            = 6
+			OnlyApplicationsHelmReleaseCount = 2
 		)
 
 		BeforeEach(func() {
@@ -118,6 +118,63 @@ var _ = Describe("ApplicationGroup Controller", func() {
 				return len(helmReleases.Items) == 0
 			}, DefaultTimeout, time.Second).Should(BeTrue())
 
+		})
+
+		It("Should create create only application releases with subchart nil successfully", func() {
+			applicationGroup := defaultAppGroup(name)
+			applicationGroup.Name = name
+			applicationGroup.Namespace = DefaultNamespace
+			for i := range applicationGroup.Spec.Applications {
+				applicationGroup.Spec.Applications[i].Spec.Subcharts = nil
+			}
+			key := client.ObjectKeyFromObject(applicationGroup)
+
+			By("Applying the bookinfo object to the cluster")
+			err := k8sClient.Create(ctx, applicationGroup)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Defer the cleanup so that we delete the appGroup after creation
+			defer func() {
+				By("Deleting the bookinfo object from the cluster")
+				patch := client.MergeFrom(applicationGroup.DeepCopy())
+				controllerutil.RemoveFinalizer(applicationGroup, v1alpha1.AppGroupFinalizer)
+				_ = k8sClient.Patch(ctx, applicationGroup, patch)
+				_ = k8sClient.Delete(ctx, applicationGroup)
+			}()
+
+			helmReleaseList := &fluxhelmv2beta1.HelmReleaseList{}
+			err = k8sClient.List(ctx, helmReleaseList, client.InNamespace(name))
+			Expect(err).ToNot(HaveOccurred())
+			oldHelmReleaseCount := len(helmReleaseList.Items)
+
+			By("Making sure that the workflow goes into a running state")
+			Eventually(func() bool {
+				workflow := &v1alpha13.Workflow{}
+				workflowKey := types.NamespacedName{Name: applicationGroup.Name, Namespace: applicationGroup.Namespace}
+				_ = k8sClient.Get(ctx, workflowKey, workflow)
+				return string(workflow.Status.Phase) == string(v1alpha13.NodeRunning)
+			}, time.Minute, time.Second).Should(BeTrue())
+
+			By("Waiting for the bookinfo object to reach a succeeded reason")
+			Eventually(func() bool {
+				applicationGroup = &v1alpha1.ApplicationGroup{}
+				if err := k8sClient.Get(ctx, key, applicationGroup); err != nil {
+					return false
+				}
+				return applicationGroup.GetReadyCondition() == meta.SucceededReason
+			}, DefaultTimeout, time.Second).Should(BeTrue())
+
+			By("checking that the all the HelmReleases have come up and are in a ready state")
+			err = k8sClient.List(ctx, helmReleaseList, client.InNamespace(name))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(helmReleaseList.Items)).To(Equal(oldHelmReleaseCount + OnlyApplicationsHelmReleaseCount))
+			allReady := true
+			for _, release := range helmReleaseList.Items {
+				if condition := meta.GetResourceCondition(&release, meta.ReadyCondition); condition.Reason == meta.SucceededReason {
+					allReady = false
+				}
+			}
+			Expect(allReady).To(BeTrue())
 		})
 
 		It("should fail to create and post a failed error state", func() {
