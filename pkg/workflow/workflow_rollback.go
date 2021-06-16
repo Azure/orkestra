@@ -48,7 +48,6 @@ func (wc *RollbackWorkflowClient) GetWorkflow(ctx context.Context) (*v1alpha13.W
 
 func (wc *RollbackWorkflowClient) Generate(ctx context.Context) error {
 	if wc.appGroup == nil {
-		wc.Error(nil, "ApplicationGroup object cannot be nil")
 		return fmt.Errorf("applicationGroup object cannot be nil")
 	}
 
@@ -63,8 +62,7 @@ func (wc *RollbackWorkflowClient) Generate(ctx context.Context) error {
 
 	entryTemplate, templates, err := generateTemplates(rollbackInstance, wc.GetOptions())
 	if err != nil {
-		wc.Error(err, "failed to generate workflow")
-		return fmt.Errorf("failed to generate argo workflow : %w", err)
+		return fmt.Errorf("failed to generate argo workflow: %w", err)
 	}
 	// Update with the app dag templates, entry template, and executor template
 	updateWorkflowTemplates(wc.workflow, templates...)
@@ -77,12 +75,10 @@ func (wc *RollbackWorkflowClient) Submit(ctx context.Context) error {
 	// Create the new workflow, only if there is not already a rollback workflow that has been created
 	wc.workflow.Labels[OwnershipLabel] = wc.appGroup.Name
 	if err := controllerutil.SetControllerReference(wc.appGroup, wc.workflow, wc.Scheme()); err != nil {
-		wc.Error(err, "unable to set ApplicationGroup as owner of Argo Workflow object")
 		return fmt.Errorf("unable to set ApplicationGroup as owner of Argo Workflow: %w", err)
 	}
 	if err := wc.Create(ctx, wc.workflow); !errors.IsAlreadyExists(err) && err != nil {
-		wc.Error(err, "failed to CREATE argo workflow object")
-		return fmt.Errorf("failed to CREATE argo workflow object : %w", err)
+		return fmt.Errorf("failed to CREATE argo workflow object: %w", err)
 	}
 	return nil
 }

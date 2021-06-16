@@ -47,7 +47,6 @@ func (wc *ForwardWorkflowClient) GetWorkflow(ctx context.Context) (*v1alpha13.Wo
 
 func (wc *ForwardWorkflowClient) Generate(ctx context.Context) error {
 	if wc.appGroup == nil {
-		wc.Error(nil, "ApplicationGroup object cannot be nil")
 		return fmt.Errorf("applicationGroup object cannot be nil")
 	}
 
@@ -55,19 +54,16 @@ func (wc *ForwardWorkflowClient) Generate(ctx context.Context) error {
 	reverseClient := NewBuilderFromClient(wc).Reverse(wc.appGroup).Build()
 	rollbackClient := NewBuilderFromClient(wc).Rollback(wc.appGroup).Build()
 	if err := Suspend(ctx, reverseClient); err != nil {
-		wc.Error(err, "failed to suspend reverse workflow")
-		return err
+		return fmt.Errorf("failed to suspend reverse workflow: %w", err)
 	}
 	if err := Suspend(ctx, rollbackClient); err != nil {
-		wc.Error(err, "failed to suspend rollback workflow")
-		return err
+		return fmt.Errorf("failed to suspend rollback workflow: %w", err)
 	}
 
 	wc.workflow = initWorkflowObject(wc.appGroup.Name, wc.namespace, wc.parallelism)
 	entryTemplate, templates, err := generateTemplates(wc.GetAppGroup(), wc.GetOptions())
 	if err != nil {
-		wc.Error(err, "failed to generate workflow")
-		return fmt.Errorf("failed to generate argo workflow : %w", err)
+		return fmt.Errorf("failed to generate workflow: %w", err)
 	}
 
 	// Update with the app dag templates, entry template, and executor template
@@ -79,44 +75,36 @@ func (wc *ForwardWorkflowClient) Generate(ctx context.Context) error {
 
 func (wc *ForwardWorkflowClient) Submit(ctx context.Context) error {
 	if wc.workflow == nil {
-		wc.Error(nil, "workflow object cannot be nil")
 		return fmt.Errorf("workflow object cannot be nil")
 	}
 	if wc.appGroup == nil {
-		wc.Error(nil, "applicationGroup object cannot be nil")
 		return fmt.Errorf("applicationGroup object cannot be nil")
 	}
 
 	if err := wc.createTargetNamespaces(ctx); err != nil {
-		wc.Error(err, "failed to create the target namespaces")
-		return err
+		return fmt.Errorf("failed to create the target namespaces: %w", err)
 	}
 
 	// Create the Workflow
 	wc.workflow.Labels[OwnershipLabel] = wc.appGroup.Name
 	if err := controllerutil.SetControllerReference(wc.appGroup, wc.workflow, wc.Scheme()); err != nil {
-		wc.Error(err, "unable to set ApplicationGroup as owner of Argo Workflow object")
 		return fmt.Errorf("unable to set ApplicationGroup as owner of Argo Workflow: %w", err)
 	}
 	if err := wc.Create(ctx, wc.workflow); !errors.IsAlreadyExists(err) && err != nil {
-		wc.Error(err, "failed to CREATE argo workflow object")
-		return fmt.Errorf("failed to CREATE argo workflow object : %w", err)
+		return fmt.Errorf("failed to CREATE argo workflow object: %w", err)
 	} else if errors.IsAlreadyExists(err) {
 		// If the workflow needs an update, delete the previous workflow and apply the new one
 		// Argo Workflow does not rerun the workflow on UPDATE, so intead we cleanup and reapply
 		if err := wc.Delete(ctx, wc.workflow); err != nil {
-			wc.Error(err, "failed to DELETE argo workflow object")
-			return fmt.Errorf("failed to DELETE argo workflow object : %w", err)
+			return fmt.Errorf("failed to DELETE argo workflow object: %w", err)
 		}
 		if err := controllerutil.SetControllerReference(wc.appGroup, wc.workflow, wc.Scheme()); err != nil {
-			wc.Error(err, "unable to set ApplicationGroup as owner of Argo Workflow object")
 			return fmt.Errorf("unable to set ApplicationGroup as owner of Argo Workflow: %w", err)
 		}
 		// If the argo Workflow object is NotFound and not AlreadyExists on the cluster
 		// create a new object and submit it to the cluster
 		if err := wc.Create(ctx, wc.workflow); err != nil {
-			wc.Error(err, "failed to CREATE argo workflow object")
-			return fmt.Errorf("failed to CREATE argo workflow object : %w", err)
+			return fmt.Errorf("failed to CREATE argo workflow object: %w", err)
 		}
 	}
 	return nil
@@ -146,10 +134,10 @@ func (wc *ForwardWorkflowClient) createTargetNamespaces(ctx context.Context) err
 			},
 		}
 		if err := controllerutil.SetControllerReference(wc.appGroup, ns, wc.Scheme()); err != nil {
-			return fmt.Errorf("failed to set OwnerReference for Namespace %s : %w", ns.Name, err)
+			return fmt.Errorf("failed to set OwnerReference for Namespace %s: %w", ns.Name, err)
 		}
 		if err := wc.Create(ctx, ns); !errors.IsAlreadyExists(err) && err != nil {
-			return fmt.Errorf("failed to CREATE namespace %s object : %w", ns.Name, err)
+			return fmt.Errorf("failed to CREATE namespace %s object: %w", ns.Name, err)
 		}
 	}
 	return nil

@@ -32,14 +32,14 @@ type Client interface {
 	// GetType returns the workflow client type
 	GetType() v1alpha1.WorkflowType
 
+	// GetLogger returns the logger associated with the workflow client
+	GetLogger() logr.Logger
+
 	// GetNamespace returns the namespace that the workflow should run in
 	GetNamespace() string
 
 	// GetOptions returns the client options used with the workflow client
 	GetOptions() ClientOptions
-
-	// GetLogger returns the logger associated with the workflow client
-	GetLogger() logr.Logger
 
 	// GetWorkflow returns the workflow from the k8s apiserver associated with the workflow client
 	GetWorkflow(context.Context) (*v1alpha13.Workflow, error)
@@ -59,10 +59,10 @@ type ClientOptions struct {
 
 type Builder struct {
 	client     client.Client
-	logger     logr.Logger
 	clientType v1alpha1.WorkflowType
 	options    ClientOptions
 	executor   ExecutorFunc
+	logger     logr.Logger
 
 	forwardWorkflow *v1alpha13.Workflow
 	appGroup        *v1alpha1.ApplicationGroup
@@ -102,17 +102,17 @@ type ReverseWorkflowClient struct {
 func NewBuilder(client client.Client, logger logr.Logger) *Builder {
 	return &Builder{
 		client:  client,
-		logger:  logger,
 		options: ClientOptions{},
+		logger:  logger,
 	}
 }
 
 func NewBuilderFromClient(client Client) *Builder {
 	return &Builder{
 		client:   client.GetClient(),
-		logger:   client.GetLogger(),
 		options:  client.GetOptions(),
 		appGroup: client.GetAppGroup(),
+		logger:   client.GetLogger(),
 	}
 }
 
@@ -198,12 +198,10 @@ func (builder *Builder) Build() Client {
 // Run calls the generate and Submit commands of the workflow client
 func Run(ctx context.Context, wfClient Client) error {
 	if err := wfClient.Generate(ctx); err != nil {
-		wfClient.GetLogger().Error(err, "engine failed to generate workflow")
-		return fmt.Errorf("failed to generate workflow : %w", err)
+		return fmt.Errorf("failed to generate workflow: %w", err)
 	}
 	if err := wfClient.Submit(ctx); err != nil {
-		wfClient.GetLogger().Error(err, "engine failed to submit reverse workflow")
-		return err
+		return fmt.Errorf("failed to submit workflow: %w", err)
 	}
 	return nil
 }
@@ -214,7 +212,7 @@ func Suspend(ctx context.Context, wfClient Client) error {
 	// suspend a workflow if it is not already finished or suspended
 	workflow, err := wfClient.GetWorkflow(ctx)
 	if client.IgnoreNotFound(err) != nil {
-		return err
+		return fmt.Errorf("failed to suspend the workflow: %w", err)
 	} else if err != nil || !workflow.Status.FinishedAt.IsZero() {
 		wfClient.GetLogger().Info("workflow not found, no need to suspend")
 		return nil
@@ -226,8 +224,7 @@ func Suspend(ctx context.Context, wfClient Client) error {
 		suspend := true
 		workflow.Spec.Suspend = &suspend
 		if err := wfClient.GetClient().Patch(ctx, workflow, patch); err != nil {
-			wfClient.GetLogger().Error(err, "failed to patch workflow")
-			return err
+			return fmt.Errorf("failed to patch the workflow: %w", err)
 		}
 		SetSuspended(wfClient)
 	}
@@ -259,10 +256,10 @@ func UpdateStatus(ctx context.Context, wfClient Client) error {
 		wfClient.GetLogger().Info("workflow node is in failed state")
 		SetFailed(wfClient, "workflow node is in failed state")
 	case meta.SucceededReason:
-		wfClient.GetLogger().V(1).Info("workflow has succeeded")
+		wfClient.GetLogger().Info("workflow has succeeded")
 		SetSucceeded(wfClient)
 	default:
-		wfClient.GetLogger().V(1).Info("workflow is still progressing")
+		wfClient.GetLogger().Info("workflow is still progressing")
 		SetProgressing(wfClient)
 	}
 	return nil
@@ -300,7 +297,7 @@ func SetSuspended(wfClient Client) {
 func IsFailed(ctx context.Context, wfClient Client) (bool, error) {
 	wf, err := wfClient.GetWorkflow(ctx)
 	if client.IgnoreNotFound(err) != nil {
-		return false, err
+		return false, fmt.Errorf("failed to get workflow: %w", err)
 	}
 	if toConditionReason(wf.Status.Phase) == meta.FailedReason {
 		return true, nil
@@ -312,7 +309,7 @@ func IsFailed(ctx context.Context, wfClient Client) (bool, error) {
 func IsSucceeded(ctx context.Context, wfClient Client) (bool, error) {
 	wf, err := wfClient.GetWorkflow(ctx)
 	if client.IgnoreNotFound(err) != nil {
-		return false, err
+		return false, fmt.Errorf("failed to get workflow: %w", err)
 	}
 	if toConditionReason(wf.Status.Phase) == meta.SucceededReason {
 		return true, nil

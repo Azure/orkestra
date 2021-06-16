@@ -64,15 +64,13 @@ func (wc *ReverseWorkflowClient) Generate(ctx context.Context) error {
 		return meta.ErrForwardWorkflowNotFound
 	}
 	if err := Suspend(ctx, forwardClient); err != nil {
-		wc.Error(err, "failed to suspend forward workflow")
-		return err
+		return fmt.Errorf("failed to suspend forward workflow: %w", err)
 	}
 
 	wc.reverseWorkflow = initWorkflowObject(wc.getReverseName(), wc.namespace, wc.parallelism)
 	entry, err := wc.generateWorkflow()
 	if err != nil {
-		wc.Error(err, "failed to generate reverse workflow")
-		return fmt.Errorf("failed to generate argo reverse workflow : %w", err)
+		return fmt.Errorf("failed to generate argo reverse workflow: %w", err)
 	}
 
 	updateWorkflowTemplates(wc.reverseWorkflow, *entry, wc.executor(HelmReleaseReverseExecutorName, Delete))
@@ -91,18 +89,15 @@ func (wc *ReverseWorkflowClient) Submit(ctx context.Context) error {
 		},
 	}
 	if err := wc.Get(ctx, client.ObjectKeyFromObject(obj), obj); client.IgnoreNotFound(err) != nil {
-		wc.Error(err, "failed to GET workflow object with an unrecoverable error")
-		return fmt.Errorf("failed to GET workflow object with an unrecoverable error : %w", err)
+		return fmt.Errorf("failed to GET workflow object with an unrecoverable error: %w", err)
 	} else if err != nil {
 		if err := controllerutil.SetControllerReference(wc.forwardWorkflow, wc.reverseWorkflow, wc.Scheme()); err != nil {
-			wc.Error(err, "unable to set forward workflow as owner of Argo reverse Workflow object")
 			return fmt.Errorf("unable to set forward workflow as owner of Argo reverse Workflow: %w", err)
 		}
 		// If the argo Workflow object is NotFound and not AlreadyExists on the cluster
 		// create a new object and submit it to the cluster
 		if err = wc.Create(ctx, wc.reverseWorkflow); err != nil {
-			wc.Error(err, "failed to CREATE argo workflow object")
-			return fmt.Errorf("failed to CREATE argo workflow object : %w", err)
+			return fmt.Errorf("failed to CREATE argo workflow object: %w", err)
 		}
 	}
 	return nil
@@ -111,8 +106,7 @@ func (wc *ReverseWorkflowClient) Submit(ctx context.Context) error {
 func (wc *ReverseWorkflowClient) generateWorkflow() (*v1alpha13.Template, error) {
 	graph, err := Build(wc.forwardWorkflow.Name, getNodes(wc.forwardWorkflow))
 	if err != nil {
-		wc.Error(err, "failed to build the wf status DAG")
-		return nil, fmt.Errorf("failed to build the wf status DAG : %w", err)
+		return nil, fmt.Errorf("failed to build the wf status DAG: %w", err)
 	}
 
 	rev := graph.Reverse()
