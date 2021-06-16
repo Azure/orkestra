@@ -163,7 +163,7 @@ func (c *Client) AddRepo(cfg *Config) error {
 	}
 
 	if _, err := r.DownloadIndexFile(); err != nil {
-		return fmt.Errorf("looks like %q is not a valid chart repository or cannot be reached : %w", cfg.URL, err)
+		return fmt.Errorf("%q is not a valid chart repository or cannot be reached: %w", cfg.URL, err)
 	}
 
 	c.rfile.Update(&e)

@@ -202,11 +202,10 @@ var _ = Describe("ApplicationGroup Controller", func() {
 					return false
 				}
 				readyCondition := meta.GetResourceCondition(applicationGroup, meta.ReadyCondition)
-				deployCondition := meta.GetResourceCondition(applicationGroup, meta.DeployCondition)
-				if readyCondition == nil || deployCondition == nil {
+				if readyCondition == nil {
 					return false
 				}
-				return readyCondition.Reason == meta.FailedReason && deployCondition.Reason == meta.FailedReason
+				return readyCondition.Reason == meta.ChartPullFailedReason
 			}, time.Second*30, time.Second).Should(BeTrue())
 		})
 
@@ -278,11 +277,10 @@ var _ = Describe("ApplicationGroup Controller", func() {
 					return false
 				}
 				readyCondition := meta.GetResourceCondition(applicationGroup, meta.ReadyCondition)
-				deployCondition := meta.GetResourceCondition(applicationGroup, meta.DeployCondition)
-				if readyCondition == nil || deployCondition == nil {
+				if readyCondition == nil {
 					return false
 				}
-				return readyCondition.Reason == meta.FailedReason && deployCondition.Reason == meta.FailedReason
+				return readyCondition.Reason == meta.ChartPullFailedReason
 			}, time.Second*30, time.Second).Should(BeTrue())
 
 			patch := client.MergeFrom(applicationGroup.DeepCopy())
@@ -295,8 +293,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 				if err := k8sClient.Get(ctx, client.ObjectKeyFromObject(applicationGroup), applicationGroup); err != nil {
 					return false
 				}
-				return applicationGroup.GetDeployCondition() == meta.SucceededReason &&
-					applicationGroup.GetReadyCondition() == meta.ProgressingReason
+				return applicationGroup.GetReadyCondition() == meta.ProgressingReason
 			}, time.Minute*2, time.Second).Should(BeTrue())
 		})
 
@@ -426,7 +423,8 @@ var _ = Describe("ApplicationGroup Controller", func() {
 				}
 				return ambassadorHelmRelease.Spec.Chart.Spec.Version == ambassadorOldChartVersion &&
 					meta.GetResourceCondition(ambassadorHelmRelease, meta.ReadyCondition).Reason == meta2.ReconciliationSucceededReason &&
-					applicationGroup.GetReadyCondition() == meta.SucceededReason
+					applicationGroup.GetReadyCondition() == meta.WorkflowFailedReason &&
+					applicationGroup.GetWorkflowCondition(v1alpha1.Rollback) == meta.SucceededReason
 			}, DefaultTimeout, time.Second).Should(BeTrue())
 		})
 
@@ -479,7 +477,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 			}, time.Minute*2, time.Second).Should(BeTrue())
 
 			// Wait for all the HelmReleases to delete
-			err = k8sClient.Delete(ctx, applicationGroup)
+			err = k8sClient.Delete(ctx, applicationGroup, client.PropagationPolicy(metav1.DeletePropagationForeground))
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Making sure that the workflow goes into a suspended state")

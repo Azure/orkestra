@@ -56,7 +56,7 @@ type ApplicationGroupReconciler struct {
 // +kubebuilder:rbac:groups=orkestra.azure.microsoft.com,resources=applicationgroups,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=orkestra.azure.microsoft.com,resources=applicationgroups/status,verbs=get;update;patch
 
-func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, err error) {
 	appGroup := &v1alpha1.ApplicationGroup{}
 
 	logr := r.Log.WithValues(v1alpha1.AppGroupNameKey, req.NamespacedName.Name)
@@ -71,11 +71,12 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 	patch := client.MergeFrom(appGroup.DeepCopy())
 
-	statusHelper := helpers.StatusHelper{
-		Client:    r.Client,
-		Logger:    logr,
-		PatchFrom: patch,
-		Recorder:  r.Recorder,
+	statusHelper := &helpers.StatusHelper{
+		Client:                r.Client,
+		Logger:                logr,
+		PatchFrom:             patch,
+		Recorder:              r.Recorder,
+		WorkflowClientBuilder: r.WorkflowClientBuilder,
 	}
 	reconcileHelper := helpers.ReconcileHelper{
 		Client:                r.Client,
@@ -88,19 +89,26 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			TargetDir:               r.TargetDir,
 			CleanupDownloadedCharts: r.CleanupDownloadedCharts,
 		},
+		StatusHelper: statusHelper,
 	}
 
-	if !appGroup.DeletionTimestamp.IsZero() {
-		if err := statusHelper.MarkReversing(ctx, appGroup); err != nil {
-			logr.Error(err, "failed to mark the app group into a reversing state")
-			return statusHelper.Failed(ctx, appGroup, err)
+	// Patch the status before returning from the reconcile loop
+	defer func() {
+		// Update the err value which is scoped outside the defer
+		patchErr := statusHelper.PatchStatus(ctx, appGroup)
+		if err == nil {
+			err = patchErr
 		}
+	}()
+
+	if !appGroup.DeletionTimestamp.IsZero() {
+		statusHelper.MarkTerminating(appGroup)
 		result, err := reconcileHelper.Reverse(ctx)
 		if !result.Requeue && err == nil {
 			// Remove the finalizer because we have finished reversing
 			controllerutil.RemoveFinalizer(appGroup, v1alpha1.AppGroupFinalizer)
 			if err := r.Patch(ctx, appGroup, patch); err != nil {
-				return ctrl.Result{}, nil
+				return result, err
 			}
 		}
 		return result, err
@@ -110,7 +118,7 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		controllerutil.AddFinalizer(appGroup, v1alpha1.AppGroupFinalizer)
 		if err := r.Patch(ctx, appGroup, patch); err != nil {
 			logr.Error(err, "failed to patch the release with the appgroup finalizer")
-			return statusHelper.Failed(ctx, appGroup, err)
+			return ctrl.Result{}, err
 		}
 	}
 
@@ -118,49 +126,32 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// Only do this if we have successfully completed a rollback
 	if appGroup.Generation != appGroup.Status.ObservedGeneration {
 		// Change the app group spec into a progressing state
-		if err := statusHelper.Progressing(ctx, appGroup); err != nil {
+		if err := statusHelper.MarkProgressing(ctx, appGroup); err != nil {
 			logr.Error(err, "failed to patch the status into a progressing state")
-			return statusHelper.Failed(ctx, appGroup, err)
+			return ctrl.Result{}, err
 		}
 		if err := reconcileHelper.CreateOrUpdate(ctx); err != nil {
 			logr.Error(err, "failed to reconcile creating or updating the appgroup")
-			return statusHelper.Failed(ctx, appGroup, err)
+			return ctrl.Result{}, err
 		}
 	}
 
 	// Update the status based on the current state of the helm charts
-	if err := statusHelper.UpdateStatus(ctx, appGroup); err != nil {
+	// and the status of the workflows
+	result, err = statusHelper.UpdateStatus(ctx, appGroup)
+	if err != nil {
 		logr.Error(err, "failed to update the status of the app group")
-		return statusHelper.Failed(ctx, appGroup, fmt.Errorf("failed to update the status of the progressing application group with err: %v", err))
+		return ctrl.Result{}, err
 	}
-
-	requeueDuration := v1alpha1.GetInterval(appGroup)
-	var shouldRemediate bool
-	var err error
-
-	// While ready is progressing, we get the state of the workflow
-	if appGroup.Generation != appGroup.Status.LastSucceededGeneration {
-		shouldRemediate, requeueDuration, err = statusHelper.UpdateStatusWithWorkflow(ctx, appGroup)
-		if err != nil {
-			logr.Error(err, "failed to update the status based on the workflow status")
-			return statusHelper.Failed(ctx, appGroup, err)
+	if shouldRemediate, err := r.ShouldRemediate(ctx, appGroup); err != nil {
+		return ctrl.Result{}, err
+	} else if shouldRemediate {
+		if lastSuccessfulSpec := appGroup.GetLastSuccessful(); lastSuccessfulSpec != nil {
+			return reconcileHelper.Rollback(ctx, patch, fmt.Errorf(""))
 		}
-		if !r.DisableRemediation && shouldRemediate {
-			if lastSuccessfulSpec := appGroup.GetLastSuccessful(); lastSuccessfulSpec != nil {
-				if err := statusHelper.RollingBack(ctx, appGroup); err != nil {
-					logr.Error(err, "failed to mark the app group status as rolling back")
-					return statusHelper.Failed(ctx, appGroup, err)
-				}
-				return reconcileHelper.Rollback(ctx, patch, fmt.Errorf(""))
-			}
-			if err := statusHelper.MarkReversing(ctx, appGroup); err != nil {
-				logr.Error(err, "failed to mark the app group status as reversing")
-				return statusHelper.Failed(ctx, appGroup, err)
-			}
-			return reconcileHelper.Reverse(ctx)
-		}
+		return reconcileHelper.Reverse(ctx)
 	}
-	return ctrl.Result{RequeueAfter: requeueDuration}, nil
+	return result, nil
 }
 
 func (r *ApplicationGroupReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -168,4 +159,14 @@ func (r *ApplicationGroupReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&v1alpha1.ApplicationGroup{}).
 		WithEventFilter(predicate.GenerationChangedPredicate{}).
 		Complete(r)
+}
+
+func (r *ApplicationGroupReconciler) ShouldRemediate(ctx context.Context, instance *v1alpha1.ApplicationGroup) (bool, error) {
+	forwardClient := r.WorkflowClientBuilder.Forward(instance).Build()
+
+	isFailed, err := workflow.IsFailed(ctx, forwardClient)
+	if err != nil {
+		return false, err
+	}
+	return isFailed && !r.DisableRemediation, nil
 }
