@@ -5,6 +5,7 @@ package controllers
 
 import (
 	"context"
+
 	"github.com/Azure/Orkestra/pkg/helpers"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -112,7 +113,7 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return result, err
 	}
 	// Add finalizer if it doesn't already exist
-	if appGroup.Finalizers == nil {
+	if controllerutil.ContainsFinalizer(appGroup, v1alpha1.AppGroupFinalizer) {
 		controllerutil.AddFinalizer(appGroup, v1alpha1.AppGroupFinalizer)
 		if err := r.Patch(ctx, appGroup, patch); err != nil {
 			logr.Error(err, "failed to patch the release with the appgroup finalizer")
