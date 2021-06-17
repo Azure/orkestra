@@ -220,7 +220,7 @@ type ApplicationGroupStatus struct {
 // GetValues unmarshals the raw values to a map[string]interface{} and returns
 // the result.
 func (in *Application) GetValues() map[string]interface{} {
-	var values map[string]interface{}
+	values := make(map[string]interface{})
 	if in.Spec.Release.Values != nil {
 		_ = json.Unmarshal(in.Spec.Release.Values.Raw, &values)
 	}
