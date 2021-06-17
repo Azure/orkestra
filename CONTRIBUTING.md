@@ -73,7 +73,7 @@ For instructions on reporting security issues and bugs, please see [security][se
 
 For questions about building, running, or troubleshooting, start with the [Developer's Guide][dev-guide], and work your way through the process that we've outlined. If that doesn't answer your question(s), try to post on [Discussion][discussion-link] tab or if you think you found a bug, please file an [issue][issue-link].
 
-That said, if you still have question(s), join the Azure Orkestra [Slack](https://join.slack.com/t/azureorkestra/shared_invite/zt-rowzrite-Hm_eaih4GyjjZXWftuoqPQ) and someone will help you get answer(s) to your question(s).
+If you still have question(s), join the Azure Orkestra [Slack](https://join.slack.com/t/azureorkestra/shared_invite/zt-rowzrite-Hm_eaih4GyjjZXWftuoqPQ) and someone will help you get answer(s) to your question(s).
 
 [dev-guide]: https://azure.github.io/orkestra/developers.html
 [dev-guide-tests]: https://azure.github.io/orkestra/developers.html#testing--debugging
