@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"regexp"
 	"strings"
 
 	v1alpha13 "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
@@ -15,12 +14,8 @@ import (
 
 func ConvertToDNS1123(in string) string {
 	name := strings.ToLower(in)
-
-	notAllowedChars := regexp.MustCompile(DNS1123NotAllowedChars)
-	name = notAllowedChars.ReplaceAllString(name, "-")
-
-	notAllowedStartChars := regexp.MustCompile(DNS1123NotAllowedStartChars)
-	name = notAllowedStartChars.ReplaceAllString(name, "")
+	name = dns1123NotAllowedCharsRegexp.ReplaceAllString(name, "-")
+	name = dns1123NotAllowedStartCharsRegexp.ReplaceAllString(name, "")
 
 	if name == "" {
 		name = GetHash(in)
