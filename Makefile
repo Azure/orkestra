@@ -133,18 +133,16 @@ endif
 KIND_CLUSTER_NAME ?= orkestra
 
 kind-create:
-	./scripts/create-kind-cluster.sh
+	./hack/create-kind-cluster.sh
 	kind load docker-image $(IMG) --name $(KIND_CLUSTER_NAME)
 
 kind-delete: 
-	kind delete cluster --name=$(KIND_CLUSTER_NAME) || true
+	./hack/teardown-kind-with-registry.sh
 
 ## --------------------------------------
 ## Cleanup
 ## --------------------------------------
 
 clean:
-	docker stop $(reg_name) && docker rm $(reg_name) || true
-	helm delete orkestra -n orkestra || true
-	kind delete cluster --name $(KIND_CLUSTER_NAME) || true
+	./hack/teardown-kind-with-registry.sh
 	@rm -rf $(BIN_DIR)
