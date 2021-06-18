@@ -100,7 +100,7 @@ func generateSubchartAndAppDAGTasks(appGroupName, namespace string, app *v1alpha
 		subchartName := sc.Name
 		subchartVersion := subchartsStatus[subchartName].Version
 
-		hr, err := generateSubchartHelmRelease(namespace, app.Spec.Chart.Name, subchartName, subchartVersion, app.Spec.Release)
+		hr, err := generateSubchartHelmRelease(app.Spec.Release, namespace, app.Spec.Chart.Name, subchartName, subchartVersion)
 		if err != nil {
 			return nil, err
 		}
@@ -127,7 +127,6 @@ func generateSubchartAndAppDAGTasks(appGroupName, namespace string, app *v1alpha
 		OwnershipLabel: appGroupName,
 		HeritageLabel:  Project,
 	}
-	hrStr := utils.HrToAnyStringPtr(hr)
 
 	// Force disable all subchart for the staged application chart
 	// to prevent duplication and possible collision of deployed resources
@@ -144,6 +143,7 @@ func generateSubchartAndAppDAGTasks(appGroupName, namespace string, app *v1alpha
 		return nil, err
 	}
 
+	hrStr := utils.HrToAnyStringPtr(hr)
 	task := appDAGTaskBuilder(app.Name, getTimeout(app.Spec.Release.Timeout), hrStr)
 	task.Dependencies = func() (out []string) {
 		for _, t := range tasks {
@@ -176,11 +176,15 @@ func appDAGTaskBuilder(name string, timeout *v1alpha13.AnyString, hrStr *v1alpha
 	return task
 }
 
-func generateSubchartHelmRelease(namespace, appChartName, subchartName, version string, r *v1alpha1.Release) (*fluxhelmv2beta1.HelmRelease, error) {
+func generateSubchartHelmRelease(r *v1alpha1.Release, namespace, appChartName, subchartName, version string) (*fluxhelmv2beta1.HelmRelease, error) {
 	chName := utils.GetSubchartName(appChartName, subchartName)
 	hr := helmReleaseBuilder(r, namespace, chName, chName, subchartName, version)
 
-	val, err := subchartValues(subchartName, r.GetValues())
+	var releaseValues map[string]interface{}
+	if r != nil {
+		releaseValues = r.GetValues()
+	}
+	val, err := subchartValues(subchartName, releaseValues)
 	if err != nil {
 		return nil, err
 	}
@@ -189,6 +193,9 @@ func generateSubchartHelmRelease(namespace, appChartName, subchartName, version 
 }
 
 func helmReleaseBuilder(r *v1alpha1.Release, namespace, objMetaName, chName, releaseName, version string) *fluxhelmv2beta1.HelmRelease {
+	if r == nil {
+		r = &v1alpha1.Release{}
+	}
 	hr := &fluxhelmv2beta1.HelmRelease{
 		TypeMeta: v1.TypeMeta{
 			Kind:       fluxhelmv2beta1.HelmReleaseKind,
