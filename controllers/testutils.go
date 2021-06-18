@@ -39,7 +39,7 @@ func defaultAppGroup(targetNamespace string) *v1alpha1.ApplicationGroup {
 		},
 	}
 	g.Spec.Applications = make([]v1alpha1.Application, 0)
-	g.Spec.Applications = append(g.Spec.Applications, bookinfoApplication(targetNamespace), ambassadorApplication(targetNamespace))
+	g.Spec.Applications = append(g.Spec.Applications, bookinfoApplication(targetNamespace, ambassador), ambassadorApplication(targetNamespace))
 	return g
 }
 
@@ -54,7 +54,7 @@ func smallAppGroup(targetNamespace string) *v1alpha1.ApplicationGroup {
 	return g
 }
 
-func ambassadorApplication(targetNamespace string) v1alpha1.Application {
+func ambassadorApplication(targetNamespace string, dependencies ...string) v1alpha1.Application {
 	values := []byte(fmt.Sprintf(`{
        "nameOverride": "%s",
 	   "service": {
@@ -66,7 +66,8 @@ func ambassadorApplication(targetNamespace string) v1alpha1.Application {
 	}`, targetNamespace))
 	return v1alpha1.Application{
 		DAG: v1alpha1.DAG{
-			Name: ambassador,
+			Name:         ambassador,
+			Dependencies: dependencies,
 		},
 		Spec: v1alpha1.ApplicationSpec{
 			Chart: &v1alpha1.ChartRef{
@@ -86,7 +87,7 @@ func ambassadorApplication(targetNamespace string) v1alpha1.Application {
 	}
 }
 
-func bookinfoApplication(targetNamespace string) v1alpha1.Application {
+func bookinfoApplication(targetNamespace string, dependencies ...string) v1alpha1.Application {
 	values := []byte(`{
 		"productpage": {
 			"replicaCount": 1
@@ -103,10 +104,8 @@ func bookinfoApplication(targetNamespace string) v1alpha1.Application {
 	}`)
 	return v1alpha1.Application{
 		DAG: v1alpha1.DAG{
-			Name: bookinfo,
-			Dependencies: []string{
-				ambassador,
-			},
+			Name:         bookinfo,
+			Dependencies: dependencies,
 		},
 		Spec: v1alpha1.ApplicationSpec{
 			Chart: &v1alpha1.ChartRef{
@@ -143,11 +142,11 @@ func bookinfoApplication(targetNamespace string) v1alpha1.Application {
 	}
 }
 
-func podinfoApplication(targetNamespace string) v1alpha1.Application {
+func podinfoApplication(targetNamespace string, dependencies ...string) v1alpha1.Application {
 	return v1alpha1.Application{
 		DAG: v1alpha1.DAG{
 			Name:         podinfo,
-			Dependencies: []string{},
+			Dependencies: dependencies,
 		},
 		Spec: v1alpha1.ApplicationSpec{
 			Chart: &v1alpha1.ChartRef{

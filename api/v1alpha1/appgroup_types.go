@@ -35,8 +35,14 @@ const (
 	AppGroupNameKey   = "appgroup"
 	AppGroupFinalizer = "application-group-finalizer"
 
-	LastSuccessfulAnnotation = "orkestra/last-successful-applicationgroup"
-	ParentChartAnnotation    = "orkestra/parent-chart"
+	LastSuccessfulAnnotation = "orkestra.azure.microsoft.com/last-successful-applicationgroup"
+	ParentChartAnnotation    = "orkestra.azure.microsoft.com/parent-chart"
+
+	HeritageLabel = "orkestra.azure.microsoft.com/heritage"
+	HeritageValue = "orkestra"
+
+	OwnershipLabel = "orkestra.azure.microsoft.com/owner"
+	ChartLabel     = "orkestra.azure.microsoft.com/chart"
 
 	ForwardWorkflow  WorkflowType = "forward"
 	ReverseWorkflow  WorkflowType = "reverse"
@@ -212,6 +218,10 @@ type ApplicationGroupStatus struct {
 	// +optional
 	LastSucceededGeneration int64 `json:"lastSucceededGeneration,omitempty"`
 
+	// LastDeployedApplications captures the last applications that were created on the cluster
+	// so that we the controller can handle update/rollback scenarios
+	LastDeployedApplications []string `json:"lastDeployedApplications,omitempty"`
+
 	// Conditions holds the conditions of the ApplicationGroup
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
@@ -235,6 +245,14 @@ func GetJSON(values map[string]interface{}) (*apiextensionsv1.JSON, error) {
 	return &apiextensionsv1.JSON{
 		Raw: bytes,
 	}, nil
+}
+
+func (in *ApplicationGroup) GetApplicationNames() []string {
+	var names []string
+	for _, application := range in.Spec.Applications {
+		names = append(names, application.Name)
+	}
+	return names
 }
 
 // SetValues marshals the raw values into the JSON values

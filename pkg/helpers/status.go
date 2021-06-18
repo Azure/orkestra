@@ -77,6 +77,7 @@ func (helper *StatusHelper) MarkSucceeded(ctx context.Context, instance *v1alpha
 
 	// Set the status conditions into a succeeding state
 	instance.ReadySucceeded()
+	instance.Status.LastDeployedApplications = instance.GetApplicationNames()
 	helper.Recorder.Event(instance, "Normal", "ReconcileSuccess", fmt.Sprintf("Successfully reconciled ApplicationGroup %s", instance.Name))
 	return nil
 }
@@ -136,8 +137,8 @@ func (helper *StatusHelper) marshallChartStatus(ctx context.Context, appGroup *v
 	subChartConditionMap map[string]map[string][]metav1.Condition,
 	err error) {
 	listOption := client.MatchingLabels{
-		workflow.OwnershipLabel: appGroup.Name,
-		workflow.HeritageLabel:  workflow.Project,
+		v1alpha1.OwnershipLabel: appGroup.Name,
+		v1alpha1.HeritageLabel:  v1alpha1.HeritageValue,
 	}
 
 	// Init the mappings

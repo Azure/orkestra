@@ -552,5 +552,81 @@ var _ = Describe("ApplicationGroup Controller", func() {
 				return errors.IsNotFound(k8sClient.Get(ctx, key, applicationGroup))
 			}, time.Second*30, time.Second).Should(BeTrue())
 		})
+
+		FIt("should succeed to remove the new helm releases on application rollback", func() {
+			applicationGroup := &v1alpha1.ApplicationGroup{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: DefaultNamespace,
+				},
+				Spec: v1alpha1.ApplicationGroupSpec{
+					Applications: []v1alpha1.Application{
+						podinfoApplication(name),
+					},
+				},
+			}
+
+			key := client.ObjectKeyFromObject(applicationGroup)
+
+			By("Applying the bookinfo object to the cluster")
+			err := k8sClient.Create(ctx, applicationGroup)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Defer the cleanup so that we delete the appGroup after creation
+			defer func() {
+				By("Deleting the bookinfo object from the cluster")
+				patch := client.MergeFrom(applicationGroup.DeepCopy())
+				controllerutil.RemoveFinalizer(applicationGroup, v1alpha1.AppGroupFinalizer)
+				_ = k8sClient.Patch(ctx, applicationGroup, patch)
+				_ = k8sClient.Delete(ctx, applicationGroup)
+			}()
+
+			By("Waiting for the bookinfo object to reach a succeeded reason")
+			Eventually(func() bool {
+				applicationGroup = &v1alpha1.ApplicationGroup{}
+				if err := k8sClient.Get(ctx, key, applicationGroup); err != nil {
+					return false
+				}
+				_, exist := applicationGroup.Annotations[v1alpha1.LastSuccessfulAnnotation]
+				return applicationGroup.GetReadyCondition() == meta.SucceededReason && exist
+
+			}, DefaultTimeout, time.Second).Should(BeTrue())
+
+			By("adding applications to the application group and intentionally timing out the last application")
+			patch := client.MergeFrom(applicationGroup.DeepCopy())
+			applicationGroup.Spec.Applications = append(applicationGroup.Spec.Applications, ambassadorApplication(name, podinfo))
+			applicationGroup.Spec.Applications[1].Spec.Release.Timeout = &metav1.Duration{Duration: time.Second}
+
+			err = k8sClient.Patch(ctx, applicationGroup, patch)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("waiting for the application group to start its upgrade")
+			Eventually(func() bool {
+				if err := k8sClient.Get(ctx, key, applicationGroup); err != nil {
+					return false
+				}
+				return applicationGroup.GetReadyCondition() == meta.ProgressingReason && applicationGroup.Generation > 1
+			}, time.Second*30, time.Second).Should(BeTrue())
+
+			By("waiting for newer applications to rollout")
+			Eventually(func() bool {
+				helmReleases := &fluxhelmv2beta1.HelmReleaseList{}
+				if err := k8sClient.List(ctx, helmReleases, client.InNamespace(name)); err != nil {
+					return false
+				}
+				return len(helmReleases.Items) > 1
+			}, DefaultTimeout, time.Second).Should(BeTrue())
+
+			By("ensuring that the newer applications are removed")
+			Eventually(func() bool {
+				helmReleases := &fluxhelmv2beta1.HelmReleaseList{}
+				if err := k8sClient.List(ctx, helmReleases, client.InNamespace(name)); err != nil {
+					return false
+				}
+				return applicationGroup.GetReadyCondition() == meta.WorkflowFailedReason &&
+					applicationGroup.GetWorkflowCondition(v1alpha1.Rollback) == meta.SucceededReason &&
+					len(helmReleases.Items) == 1
+			}, DefaultTimeout, time.Second).Should(BeTrue())
+		})
 	})
 })

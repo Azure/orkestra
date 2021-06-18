@@ -3,6 +3,7 @@ package workflow
 import (
 	"encoding/base64"
 	"fmt"
+
 	"github.com/Azure/Orkestra/api/v1alpha1"
 	"github.com/Azure/Orkestra/pkg/utils"
 	v1alpha13 "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
@@ -99,9 +100,9 @@ func generateAppDAGTemplates(appGroup *v1alpha1.ApplicationGroup, namespace stri
 				},
 			}
 			hr.Labels = map[string]string{
-				ChartLabelKey:  app.Name,
-				OwnershipLabel: appGroup.Name,
-				HeritageLabel:  Project,
+				v1alpha1.ChartLabel:     app.Name,
+				v1alpha1.OwnershipLabel: appGroup.Name,
+				v1alpha1.HeritageLabel:  v1alpha1.HeritageValue,
 			}
 
 			tApp := v1alpha13.Template{
@@ -128,7 +129,6 @@ func generateAppDAGTemplates(appGroup *v1alpha1.ApplicationGroup, namespace stri
 					},
 				},
 			}
-
 			ts = append(ts, tApp)
 		}
 	}
@@ -151,9 +151,9 @@ func generateSubchartAndAppDAGTasks(appGroup *v1alpha1.ApplicationGroup, namespa
 			v1alpha1.ParentChartAnnotation: app.Name,
 		}
 		hr.Labels = map[string]string{
-			ChartLabelKey:  app.Name,
-			OwnershipLabel: appGroup.Name,
-			HeritageLabel:  Project,
+			v1alpha1.ChartLabel:     app.Name,
+			v1alpha1.OwnershipLabel: appGroup.Name,
+			v1alpha1.HeritageLabel:  v1alpha1.HeritageValue,
 		}
 
 		task := v1alpha13.DAGTask{
@@ -210,9 +210,9 @@ func generateSubchartAndAppDAGTasks(appGroup *v1alpha1.ApplicationGroup, namespa
 		},
 	}
 	hr.Labels = map[string]string{
-		ChartLabelKey:  app.Name,
-		OwnershipLabel: appGroup.Name,
-		HeritageLabel:  Project,
+		v1alpha1.ChartLabel:     app.Name,
+		v1alpha1.OwnershipLabel: appGroup.Name,
+		v1alpha1.HeritageLabel:  v1alpha1.HeritageValue,
 	}
 
 	// Force disable all subchart for the staged application chart
