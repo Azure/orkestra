@@ -2,6 +2,7 @@ package utils
 
 import (
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"strings"
@@ -61,6 +62,12 @@ func HrToYaml(hr fluxhelmv2beta1.HelmRelease) string {
 	}
 
 	return string(b)
+}
+
+func HrToAnyStringPtr(hr *fluxhelmv2beta1.HelmRelease) *v1alpha13.AnyString {
+	yaml := HrToYaml(*hr)
+	base64 := base64.StdEncoding.EncodeToString([]byte(yaml))
+	return ToAnyStringPtr(base64)
 }
 
 func TemplateContainsYaml(ch *chart.Chart) (bool, error) {
