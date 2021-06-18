@@ -156,7 +156,7 @@ func generateSubchartAndAppDAGTasks(appGroupName, namespace string, app *v1alpha
 	return tasks, nil
 }
 
-func appDAGTaskBuilder(name string, timeout *v1alpha13.AnyString, hrStr *v1alpha13.AnyString) v1alpha13.DAGTask {
+func appDAGTaskBuilder(name string, timeout, hrStr *v1alpha13.AnyString) v1alpha13.DAGTask {
 	task := v1alpha13.DAGTask{
 		Name:     utils.ConvertToDNS1123(name),
 		Template: HelmReleaseExecutorName,
