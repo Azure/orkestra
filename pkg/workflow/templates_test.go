@@ -156,7 +156,7 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 									Parameters: []v1alpha13.Parameter{
 										{
 											Name: "helmrelease",
-											Value: utils.HrToAnyStringPtr(&fluxhelmv2beta1.HelmRelease{
+											Value: utils.HrToB64AnyStringPtr(&fluxhelmv2beta1.HelmRelease{
 												TypeMeta: v1.TypeMeta{
 													Kind:       "HelmRelease",
 													APIVersion: "helm.toolkit.fluxcd.io/v2beta1",
@@ -206,7 +206,7 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 									Parameters: []v1alpha13.Parameter{
 										{
 											Name: "helmrelease",
-											Value: utils.HrToAnyStringPtr(&fluxhelmv2beta1.HelmRelease{
+											Value: utils.HrToB64AnyStringPtr(&fluxhelmv2beta1.HelmRelease{
 												TypeMeta: v1.TypeMeta{
 													Kind:       "HelmRelease",
 													APIVersion: "helm.toolkit.fluxcd.io/v2beta1",
@@ -256,7 +256,7 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 									Parameters: []v1alpha13.Parameter{
 										{
 											Name: "helmrelease",
-											Value: utils.HrToAnyStringPtr(&fluxhelmv2beta1.HelmRelease{
+											Value: utils.HrToB64AnyStringPtr(&fluxhelmv2beta1.HelmRelease{
 												TypeMeta: v1.TypeMeta{
 													Kind:       "HelmRelease",
 													APIVersion: "helm.toolkit.fluxcd.io/v2beta1",
@@ -307,7 +307,7 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 									Parameters: []v1alpha13.Parameter{
 										{
 											Name: "helmrelease",
-											Value: utils.HrToAnyStringPtr(&fluxhelmv2beta1.HelmRelease{
+											Value: utils.HrToB64AnyStringPtr(&fluxhelmv2beta1.HelmRelease{
 												TypeMeta: v1.TypeMeta{
 													Kind:       "HelmRelease",
 													APIVersion: "helm.toolkit.fluxcd.io/v2beta1",
@@ -416,7 +416,7 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 									Parameters: []v1alpha13.Parameter{
 										{
 											Name: "helmrelease",
-											Value: utils.HrToAnyStringPtr(&fluxhelmv2beta1.HelmRelease{
+											Value: utils.HrToB64AnyStringPtr(&fluxhelmv2beta1.HelmRelease{
 												TypeMeta: v1.TypeMeta{
 													Kind:       "HelmRelease",
 													APIVersion: "helm.toolkit.fluxcd.io/v2beta1",
@@ -557,7 +557,7 @@ func Test_generateSubchartAndAppDAGTasks(t *testing.T) {
 						Parameters: []v1alpha13.Parameter{
 							{
 								Name: "helmrelease",
-								Value: utils.HrToAnyStringPtr(&fluxhelmv2beta1.HelmRelease{
+								Value: utils.HrToB64AnyStringPtr(&fluxhelmv2beta1.HelmRelease{
 									TypeMeta: v1.TypeMeta{
 										Kind:       "HelmRelease",
 										APIVersion: "helm.toolkit.fluxcd.io/v2beta1",
@@ -607,7 +607,7 @@ func Test_generateSubchartAndAppDAGTasks(t *testing.T) {
 						Parameters: []v1alpha13.Parameter{
 							{
 								Name: "helmrelease",
-								Value: utils.HrToAnyStringPtr(&fluxhelmv2beta1.HelmRelease{
+								Value: utils.HrToB64AnyStringPtr(&fluxhelmv2beta1.HelmRelease{
 									TypeMeta: v1.TypeMeta{
 										Kind:       "HelmRelease",
 										APIVersion: "helm.toolkit.fluxcd.io/v2beta1",
@@ -657,7 +657,7 @@ func Test_generateSubchartAndAppDAGTasks(t *testing.T) {
 						Parameters: []v1alpha13.Parameter{
 							{
 								Name: "helmrelease",
-								Value: utils.HrToAnyStringPtr(&fluxhelmv2beta1.HelmRelease{
+								Value: utils.HrToB64AnyStringPtr(&fluxhelmv2beta1.HelmRelease{
 									TypeMeta: v1.TypeMeta{
 										Kind:       "HelmRelease",
 										APIVersion: "helm.toolkit.fluxcd.io/v2beta1",
@@ -707,7 +707,7 @@ func Test_generateSubchartAndAppDAGTasks(t *testing.T) {
 						Parameters: []v1alpha13.Parameter{
 							{
 								Name: "helmrelease",
-								Value: utils.HrToAnyStringPtr(&fluxhelmv2beta1.HelmRelease{
+								Value: utils.HrToB64AnyStringPtr(&fluxhelmv2beta1.HelmRelease{
 									TypeMeta: v1.TypeMeta{
 										Kind:       "HelmRelease",
 										APIVersion: "helm.toolkit.fluxcd.io/v2beta1",

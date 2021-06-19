@@ -74,7 +74,7 @@ func generateAppDAGTemplates(appGroup *v1alpha1.ApplicationGroup, namespace stri
 				OwnershipLabel: appGroup.Name,
 				HeritageLabel:  Project,
 			}
-			hrStr := utils.HrToAnyStringPtr(hr)
+			hrStr := utils.HrToB64AnyStringPtr(hr)
 
 			tApp := v1alpha13.Template{
 				Name:        utils.ConvertToDNS1123(app.Name),
@@ -112,7 +112,7 @@ func generateSubchartAndAppDAGTasks(appGroupName, namespace string, app *v1alpha
 			OwnershipLabel: appGroupName,
 			HeritageLabel:  Project,
 		}
-		hrStr := utils.HrToAnyStringPtr(hr)
+		hrStr := utils.HrToB64AnyStringPtr(hr)
 
 		task := appDAGTaskBuilder(subchartName, getTimeout(app.Spec.Release.Timeout), hrStr)
 		task.Dependencies = utils.ConvertSliceToDNS1123(sc.Dependencies)
@@ -143,7 +143,7 @@ func generateSubchartAndAppDAGTasks(appGroupName, namespace string, app *v1alpha
 		return nil, err
 	}
 
-	hrStr := utils.HrToAnyStringPtr(hr)
+	hrStr := utils.HrToB64AnyStringPtr(hr)
 	task := appDAGTaskBuilder(app.Name, getTimeout(app.Spec.Release.Timeout), hrStr)
 	task.Dependencies = func() (out []string) {
 		for _, t := range tasks {

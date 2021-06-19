@@ -64,7 +64,7 @@ func HrToYaml(hr fluxhelmv2beta1.HelmRelease) string {
 	return string(b)
 }
 
-func HrToAnyStringPtr(hr *fluxhelmv2beta1.HelmRelease) *v1alpha13.AnyString {
+func HrToB64AnyStringPtr(hr *fluxhelmv2beta1.HelmRelease) *v1alpha13.AnyString {
 	yaml := HrToYaml(*hr)
 	base64 := base64.StdEncoding.EncodeToString([]byte(yaml))
 	return ToAnyStringPtr(base64)
