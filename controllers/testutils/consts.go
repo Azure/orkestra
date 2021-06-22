@@ -20,9 +20,6 @@ const (
 
 	PodinfoChartURL     = "https://stefanprodan.github.io/podinfo"
 	PodinfoChartVersion = "5.2.1"
-
-	portForwardStagingRepoURL = "http://127.0.0.1:8080"
-	inClusterstagingRepoURL   = "http://orkestra-chartmuseum.orkestra:8080"
 )
 
 var (
