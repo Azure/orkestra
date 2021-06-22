@@ -24,19 +24,19 @@ all: manager
 ## Create kind cluster with local registry and prepopulate the local registry.
 setup-dev-env: kind-create prepopulate-kind-registry
 
-## Start dev environment.
+## Deploy the Orkestra helm chart (values-ci.yaml) with Orkestra controller disabled.
 dev:
 	helm upgrade --install orkestra chart/orkestra --wait --atomic -n orkestra --create-namespace --values ${CI_VALUES}
 
-## Start dev environment in debug mode.
+## Deploy the Orkestra helm chart (values-ci.yaml) with Orkestra controller enabled (in debug mode).
 debug: dev
 	go run main.go --debug --log-level ${DEBUG_LEVEL}
 
-## Cleanup any Orkestra installation.
+## Cleanup any previous Orkestra helm chart installation.
 clean:
-	helm delete orkestra -n orkestra 2>&1
+	helm delete orkestra -n orkestra 2>&1 || true
 	@rm -rf $(BIN_DIR)
-	@echo "> 🔨 Not yet fully implemented...\n"
+	@echo "> 👍 Done\n"
 
 ## Cleanup any Orkestra installation and the kind cluster with registry.
 clean-all: kind-delete
