@@ -15,7 +15,7 @@ import (
 
 // ApplyObjToK8s saves appGroup object in the Kubernetes cluster, and
 // registers cleanup functions.
-func ApplyObjToK8sAndRegisterCleanup(t *testing.T, ctx context.Context, k8sClient client.Client, appGroup *v1alpha1.ApplicationGroup) {
+func ApplyObjToK8sAndRegisterCleanup(ctx context.Context, t *testing.T, k8sClient client.Client, appGroup *v1alpha1.ApplicationGroup) {
 	// Call delete on the HelmReleases for cleanup
 	t.Cleanup(func() {
 		_ = k8sClient.DeleteAllOf(ctx, &fluxhelmv2beta1.HelmRelease{}, client.InNamespace(appGroup.Name))
