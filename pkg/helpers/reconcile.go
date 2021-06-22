@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+
 	"github.com/Azure/Orkestra/api/v1alpha1"
 	"github.com/Azure/Orkestra/pkg/meta"
 	"github.com/Azure/Orkestra/pkg/registry"
@@ -13,7 +15,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/jinzhu/copier"
 	"helm.sh/helm/v3/pkg/chart"
-	"os"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -110,7 +111,7 @@ func (helper *ReconcileHelper) Reverse(ctx context.Context) (ctrl.Result, error)
 	} else if isSucceeded {
 		return ctrl.Result{}, nil
 	}
-	return ctrl.Result{RequeueAfter: v1alpha1.DefaultProgressingRequeue}, nil
+	return ctrl.Result{Requeue: true, RequeueAfter: v1alpha1.DefaultProgressingRequeue}, nil
 }
 
 func (helper *ReconcileHelper) reconcileApplications() error {
