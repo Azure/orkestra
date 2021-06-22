@@ -77,7 +77,7 @@ argo-workflows:
   controller:
     serviceAccount:
       create: false
-      name: *orkestra
+      name: *serviceAccount
     name: workflow-controller
     # workflowNamespaces:
       # - *namespace
@@ -86,12 +86,9 @@ argo-workflows:
   server:
     serviceAccount:
       create: false
-      name: *orkestra
+      name: *serviceAccount
     enabled: true
     name: argo-server
-    serviceAccount:
-      create: false
-      name: *serviceAccount
 
 helm-controller:
   concurrent: 5
