@@ -22,16 +22,16 @@ func BookinfoApplication(targetNamespace string) v1alpha1.Application {
 	}`)
 	return v1alpha1.Application{
 		DAG: v1alpha1.DAG{
-			Name: bookinfo,
+			Name: Bookinfo,
 			Dependencies: []string{
-				ambassador,
+				Ambassador,
 			},
 		},
 		Spec: v1alpha1.ApplicationSpec{
 			Chart: &v1alpha1.ChartRef{
-				URL:     bookinfoChartURL,
-				Name:    bookinfo,
-				Version: bookinfoChartVersion,
+				URL:     BookinfoChartURL,
+				Name:    Bookinfo,
+				Version: BookinfoChartVersion,
 			},
 			Release: &v1alpha1.Release{
 				TargetNamespace: targetNamespace,
@@ -60,8 +60,4 @@ func BookinfoApplication(targetNamespace string) v1alpha1.Application {
 			},
 		},
 	}
-}
-
-func GetBookinfoChartVersion() string {
-	return bookinfoChartVersion
 }

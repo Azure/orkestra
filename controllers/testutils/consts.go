@@ -7,19 +7,19 @@ import (
 )
 
 const (
-	bookinfo   = "bookinfo"
-	ambassador = "ambassador"
-	podinfo    = "podinfo"
+	Bookinfo   = "bookinfo"
+	Ambassador = "ambassador"
+	Podinfo    = "podinfo"
 
-	ambassadorChartURL        = "https://nitishm.github.io/charts"
-	ambassadorOldChartVersion = "6.6.0"
-	ambassadorChartVersion    = "6.7.9"
+	AmbassadorChartURL        = "https://nitishm.github.io/charts"
+	AmbassadorOldChartVersion = "6.6.0"
+	AmbassadorChartVersion    = "6.7.9"
 
-	bookinfoChartURL     = "https://nitishm.github.io/charts"
-	bookinfoChartVersion = "v2"
+	BookinfoChartURL     = "https://nitishm.github.io/charts"
+	BookinfoChartVersion = "v2"
 
-	podinfoChartURL     = "https://stefanprodan.github.io/podinfo"
-	podinfoChartVersion = "5.2.1"
+	PodinfoChartURL     = "https://stefanprodan.github.io/podinfo"
+	PodinfoChartVersion = "5.2.1"
 
 	portForwardStagingRepoURL = "http://127.0.0.1:8080"
 	inClusterstagingRepoURL   = "http://orkestra-chartmuseum.orkestra:8080"

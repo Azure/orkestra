@@ -21,13 +21,13 @@ func AmbassadorApplication(targetNamespace string) v1alpha1.Application {
 	}`, targetNamespace))
 	return v1alpha1.Application{
 		DAG: v1alpha1.DAG{
-			Name: ambassador,
+			Name: Ambassador,
 		},
 		Spec: v1alpha1.ApplicationSpec{
 			Chart: &v1alpha1.ChartRef{
-				URL:     ambassadorChartURL,
-				Name:    ambassador,
-				Version: ambassadorChartVersion,
+				URL:     AmbassadorChartURL,
+				Name:    Ambassador,
+				Version: AmbassadorChartVersion,
 			},
 			Release: &v1alpha1.Release{
 				Timeout:         &metav1.Duration{Duration: time.Minute * 10},
@@ -39,12 +39,4 @@ func AmbassadorApplication(targetNamespace string) v1alpha1.Application {
 			},
 		},
 	}
-}
-
-func GetAmbassadorOldChartVersion() string {
-	return ambassadorOldChartVersion
-}
-
-func GetAmbassadorChartVersion() string {
-	return ambassadorChartVersion
 }

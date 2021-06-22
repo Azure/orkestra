@@ -5,7 +5,7 @@ import (
 	"math/rand"
 
 	"github.com/Azure/Orkestra/api/v1alpha1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func AddApplication(appGroup v1alpha1.ApplicationGroup, app v1alpha1.Application) v1alpha1.ApplicationGroup {
@@ -15,7 +15,7 @@ func AddApplication(appGroup v1alpha1.ApplicationGroup, app v1alpha1.Application
 
 func DefaultAppGroup(groupName, groupNamespace, targetNamespace string) *v1alpha1.ApplicationGroup {
 	g := &v1alpha1.ApplicationGroup{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      groupName,
 			Namespace: groupNamespace,
 		},
@@ -27,7 +27,7 @@ func DefaultAppGroup(groupName, groupNamespace, targetNamespace string) *v1alpha
 
 func SmallAppGroup(groupName, groupNamespace, targetNamespace string) *v1alpha1.ApplicationGroup {
 	g := &v1alpha1.ApplicationGroup{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      groupName,
 			Namespace: groupNamespace,
 		},
@@ -37,7 +37,7 @@ func SmallAppGroup(groupName, groupNamespace, targetNamespace string) *v1alpha1.
 	return g
 }
 
-func CreateAppGroupName(name string) string {
+func CreateUniqueAppGroupName(name string) string {
 	return name + "-" + GetRandomStringRunes(10)
 }
 
