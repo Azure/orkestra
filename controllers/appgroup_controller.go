@@ -113,7 +113,7 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return result, err
 	}
 	// Add finalizer if it doesn't already exist
-	if controllerutil.ContainsFinalizer(appGroup, v1alpha1.AppGroupFinalizer) {
+	if !controllerutil.ContainsFinalizer(appGroup, v1alpha1.AppGroupFinalizer) {
 		controllerutil.AddFinalizer(appGroup, v1alpha1.AppGroupFinalizer)
 		if err := r.Patch(ctx, appGroup, patch); err != nil {
 			logr.Error(err, "failed to patch the release with the appgroup finalizer")
