@@ -75,13 +75,18 @@ argo-workflows:
       enabled: false
 
   controller:
-    # serviceAccount: *serviceAccount
+    serviceAccount:
+      create: false
+      name: *orkestra
     name: workflow-controller
     # workflowNamespaces:
       # - *namespace
     containerRuntimeExecutor: k8sapi # Most Secure - https://argoproj.github.io/argo-workflows/workflow-executors/#kubernetes-api-k8sapi
 
   server:
+    serviceAccount:
+      create: false
+      name: *orkestra
     enabled: true
     name: argo-server
     serviceAccount:
