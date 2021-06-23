@@ -30,7 +30,7 @@ debug: dev
 	go run main.go --debug --log-level ${DEBUG_LEVEL}
 
 ginkgo-test: install setup-ginkgo
-	ginkgo -p -v -timeout=25m -cover -coverprofile=coverage.txt ./...
+	ginkgo -nodes=4 -v -timeout=25m -cover -coverprofile=coverage.txt ./...
 
 # Run tests
 test: install

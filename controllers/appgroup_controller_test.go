@@ -10,7 +10,7 @@ import (
 	v1alpha13 "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
 	fluxhelmv2beta1 "github.com/fluxcd/helm-controller/api/v2beta1"
 
-	//"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
@@ -29,7 +29,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 
 		name     string
 		appGroup *v1alpha1.ApplicationGroup
-		//key      types.NamespacedName
+		key      types.NamespacedName
 	)
 
 	BeforeEach(func() {
@@ -38,7 +38,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 
 		name = testutils.CreateUniqueAppGroupName("bookinfo")
 		appGroup = testutils.DefaultAppGroup(name, DefaultNamespace, name)
-		//key = client.ObjectKeyFromObject(appGroup)
+		key = client.ObjectKeyFromObject(appGroup)
 	})
 
 	AfterEach(func() {
@@ -151,5 +151,30 @@ var _ = Describe("ApplicationGroup Controller", func() {
 		Eventually(func() bool {
 			return testutils.IsAppGroupInChartPullFailedReason(ctx, k8sClient, appGroup)
 		}, time.Second*30, time.Second).Should(BeTrue())
+	})
+
+	It("Should create the bookinfo and then update it", func() {
+		By("Applying the bookinfo object to the cluster")
+		err = k8sClient.Create(ctx, appGroup)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Waiting for the bookinfo object to reach a succeeded reason")
+		Eventually(func() bool {
+			return testutils.IsAppGroupInSucceededReason(ctx, k8sClient, appGroup)
+		}, DefaultTimeout, time.Second).Should(BeTrue())
+
+		By("Adding application to the AppGroup Spec after the AppGroup has fully reconciled")
+		newAppGroup := testutils.AddApplication(*appGroup, testutils.PodinfoApplication(name))
+		err = k8sClient.Update(ctx, &newAppGroup)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Waiting for the bookinfo application group to reach a succeeded reason")
+		Eventually(func() bool {
+			appGroup = &v1alpha1.ApplicationGroup{}
+			if err := k8sClient.Get(ctx, key, appGroup); err != nil {
+				return false
+			}
+			return appGroup.GetReadyCondition() == meta.SucceededReason && appGroup.Generation == appGroup.Status.ObservedGeneration
+		}, DefaultTimeout*2, time.Second).Should(BeTrue())
 	})
 })
