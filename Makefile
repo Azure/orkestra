@@ -35,7 +35,7 @@ ginkgo-test: install
 
 # Run tests
 test: install
-	go test -v ./... -coverprofile coverage.txt -timeout 25m
+	go test -v ./... -coverprofile coverage.txt -timeout 35m
 
 # Build manager binary
 manager: generate fmt vet
