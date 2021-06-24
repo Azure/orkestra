@@ -9,9 +9,14 @@ set -o errexit
 # the following files:
 #                     teardown-kind-with-registry.sh
 #                     .kind-cluster.yaml
-KIND_CLUSTER_OPTS='--config .kind-cluster.yaml --name orkestra'
+KIND_CLUSTER_NAME="${KIND_CLUSTER_NAME:-orkestra}"
 reg_name='kind-registry'
 reg_port='5000'
+
+if kind get clusters | grep -q ^"${KIND_CLUSTER_NAME}"$ ; then
+  echo "cluster already exists, moving on"
+  exit 0
+fi
 
 # Create registry container unless it already exists
 running="$(docker inspect -f '{{.State.Running}}' "${reg_name}" 2>/dev/null || true)"
@@ -22,8 +27,9 @@ if [ "${running}" != 'true' ]; then
     registry:2
 fi
 
-# Create a cluster with the local registry enabled in containerd
-kind create cluster ${KIND_CLUSTER_OPTS}
+# create a kind cluster with the local registry enabled in containerd
+
+kind create cluster --name "${KIND_CLUSTER_NAME}" --config=.kind-cluster.yaml
 
 # connect the registry to the cluster network
 # (the network may already be connected)

@@ -3,7 +3,6 @@ package workflow
 import (
 	"bytes"
 	"encoding/base64"
-	"fmt"
 
 	v1alpha13 "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
 	fluxhelmv2beta1 "github.com/fluxcd/helm-controller/api/v2beta1"
@@ -22,8 +21,8 @@ type Node struct {
 }
 
 func Build(entry string, nodes map[string]v1alpha13.NodeStatus) (*Graph, error) {
-	if nodes == nil || len(nodes) == 0 {
-		return nil, fmt.Errorf("no nodes found in the graph")
+	if len(nodes) == 0 {
+		return nil, ErrNoNodesFound
 	}
 
 	g := &Graph{
@@ -33,7 +32,7 @@ func Build(entry string, nodes map[string]v1alpha13.NodeStatus) (*Graph, error) 
 
 	e, ok := nodes[entry]
 	if !ok {
-		return nil, fmt.Errorf("\"entry\" node not found")
+		return nil, ErrEntryNodeNotFound
 	}
 
 	err := g.bft(e)

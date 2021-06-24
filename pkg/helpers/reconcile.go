@@ -110,7 +110,7 @@ func (helper *ReconcileHelper) Reverse(ctx context.Context) (ctrl.Result, error)
 	} else if isSucceeded {
 		return ctrl.Result{}, nil
 	}
-	return ctrl.Result{RequeueAfter: v1alpha1.DefaultProgressingRequeue}, nil
+	return ctrl.Result{Requeue: true, RequeueAfter: v1alpha1.DefaultProgressingRequeue}, nil
 }
 
 func (helper *ReconcileHelper) reconcileApplications() error {
