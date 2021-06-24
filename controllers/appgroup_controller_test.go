@@ -66,12 +66,19 @@ var _ = Describe("ApplicationGroup Controller", func() {
 
 		By("Making sure that the workflow goes into a running state")
 		Eventually(func() bool {
-			return testutils.IsWorkflowInRunningState(ctx, k8sClient, name, appGroup.Namespace)
+			workflow := &v1alpha13.Workflow{}
+			workflowKey := types.NamespacedName{Name: appGroup.Name, Namespace: appGroup.Namespace}
+			_ = k8sClient.Get(ctx, workflowKey, workflow)
+			return string(workflow.Status.Phase) == string(v1alpha13.NodeRunning)
 		}, time.Minute, time.Second).Should(BeTrue())
 
 		By("Waiting for the bookinfo object to reach a succeeded reason")
 		Eventually(func() bool {
-			return testutils.IsAppGroupInSucceededReason(ctx, k8sClient, appGroup)
+			appGroup = &v1alpha1.ApplicationGroup{}
+			if err := k8sClient.Get(ctx, key, appGroup); err != nil {
+				return false
+			}
+			return appGroup.GetReadyCondition() == meta.SucceededReason
 		}, DefaultTimeout, time.Second).Should(BeTrue())
 
 		By("Checking that the all the HelmReleases have come up and are in a ready state")
@@ -118,12 +125,19 @@ var _ = Describe("ApplicationGroup Controller", func() {
 
 		By("Making sure that the workflow goes into a running state")
 		Eventually(func() bool {
-			return testutils.IsWorkflowInRunningState(ctx, k8sClient, name, appGroup.Namespace)
+			workflow := &v1alpha13.Workflow{}
+			workflowKey := types.NamespacedName{Name: appGroup.Name, Namespace: appGroup.Namespace}
+			_ = k8sClient.Get(ctx, workflowKey, workflow)
+			return string(workflow.Status.Phase) == string(v1alpha13.NodeRunning)
 		}, time.Minute, time.Second).Should(BeTrue())
 
 		By("Waiting for the bookinfo object to reach a succeeded reason")
 		Eventually(func() bool {
-			return testutils.IsAppGroupInSucceededReason(ctx, k8sClient, appGroup)
+			appGroup = &v1alpha1.ApplicationGroup{}
+			if err := k8sClient.Get(ctx, key, appGroup); err != nil {
+				return false
+			}
+			return appGroup.GetReadyCondition() == meta.SucceededReason
 		}, DefaultTimeout, time.Second).Should(BeTrue())
 
 		By("Checking that the all the HelmReleases have come up and are in a ready state")
@@ -149,7 +163,14 @@ var _ = Describe("ApplicationGroup Controller", func() {
 
 		By("Waiting for the bookinfo object to reach a chart pull failed reason")
 		Eventually(func() bool {
-			return testutils.IsAppGroupInChartPullFailedReason(ctx, k8sClient, appGroup)
+			if err := k8sClient.Get(ctx, key, appGroup); err != nil {
+				return false
+			}
+			readyCondition := meta.GetResourceCondition(appGroup, meta.ReadyCondition)
+			if readyCondition == nil {
+				return false
+			}
+			return readyCondition.Reason == meta.ChartPullFailedReason
 		}, time.Second*30, time.Second).Should(BeTrue())
 	})
 
@@ -160,7 +181,11 @@ var _ = Describe("ApplicationGroup Controller", func() {
 
 		By("Waiting for the bookinfo object to reach a succeeded reason")
 		Eventually(func() bool {
-			return testutils.IsAppGroupInSucceededReason(ctx, k8sClient, appGroup)
+			appGroup = &v1alpha1.ApplicationGroup{}
+			if err := k8sClient.Get(ctx, key, appGroup); err != nil {
+				return false
+			}
+			return appGroup.GetReadyCondition() == meta.SucceededReason
 		}, DefaultTimeout, time.Second).Should(BeTrue())
 
 		By("Adding application to the AppGroup Spec after the AppGroup has fully reconciled")
