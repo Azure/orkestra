@@ -94,13 +94,19 @@ func (wc *RollbackWorkflowClient) purgeNewerReleases(ctx context.Context) error 
 	// Get the helm releases that have been deployed at this generation
 	diff := wc.getDiff()
 	for _, name := range diff {
-		deleteOptions := client.MatchingLabels{
+		listOptions := client.MatchingLabels{
 			v1alpha1.OwnershipLabel: wc.appGroup.Name,
 			v1alpha1.HeritageLabel:  v1alpha1.HeritageValue,
 			v1alpha1.ChartLabel:     name,
 		}
-		if err := wc.DeleteAllOf(ctx, &fluxhelmv2beta1.HelmRelease{}, deleteOptions, client.InNamespace(wc.appGroup.Namespace)); client.IgnoreNotFound(err) != nil {
-			return fmt.Errorf("failed to delete helm releases associated with app %s: %w", name, err)
+		releaseList := &fluxhelmv2beta1.HelmReleaseList{}
+		if err := wc.List(ctx, releaseList, listOptions); err != nil {
+			return fmt.Errorf("failed to list helm releases deployed by the application group: %w", err)
+		}
+		for _, release := range releaseList.Items {
+			if err := wc.Delete(ctx, &release); err != nil {
+				return fmt.Errorf("failed to delete release %s while purging new releases from the lastest rollout: %w", release.Name, err)
+			}
 		}
 	}
 	return nil
