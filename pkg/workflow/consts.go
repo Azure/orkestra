@@ -15,7 +15,7 @@ const (
 
 	ExecutorName     = "executor"
 	ExecutorImage    = "azureorkestra/executor"
-	ExecutorImageTag = "v0.4.0"
+	ExecutorImageTag = "v0.4.1"
 
 	ChartMuseumName = "chartmuseum"
 
