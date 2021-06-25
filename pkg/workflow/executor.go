@@ -17,7 +17,7 @@ const (
 )
 
 func defaultExecutor(templateName string, action ExecutorAction) v1alpha13.Template {
-	executorArgs := []string{"--spec", "{{inputs.parameters.helmrelease}}", "--action", string(action), "--timeout", "{{inputs.parameters.timeout}}", "--interval", "10s"}
+	executorArgs := []string{"--spec", "{{inputs.parameters.helmrelease}}", "--action", string(action), "--timeout", "{{inputs.parameters.timeout}}", "--interval", "1s"}
 	return v1alpha13.Template{
 		Name:               templateName,
 		ServiceAccountName: workflowServiceAccountName(),
