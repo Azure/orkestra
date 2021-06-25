@@ -9,7 +9,6 @@ import (
 
 	v1alpha1 "github.com/Azure/Orkestra/api/v1alpha1"
 	"github.com/Azure/Orkestra/controllers"
-	"github.com/Azure/Orkestra/controllers/testutils"
 	"github.com/Azure/Orkestra/pkg/registry"
 	"github.com/Azure/Orkestra/pkg/workflow"
 	v1alpha13 "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
@@ -79,12 +78,12 @@ var _ = ginkgo.BeforeSuite(func() {
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
-		UseExistingCluster: testutils.BoolToBoolPtr(true),
+		UseExistingCluster: boolToBoolPtr(true),
 	}
 
 	cfg, err = testEnv.Start()
 	Expect(err).ToNot(HaveOccurred())
-	Expect(cfg).ToNot(gomega.BeNil())
+	Expect(cfg).ToNot(BeNil())
 
 	err = scheme.AddToScheme(scheme.Scheme)
 	Expect(err).ToNot(HaveOccurred())
@@ -138,7 +137,7 @@ var _ = ginkgo.BeforeSuite(func() {
 	}()
 
 	k8sClient = k8sManager.GetClient()
-	Expect(k8sClient).ToNot(gomega.BeNil())
+	Expect(k8sClient).ToNot(BeNil())
 }, 60)
 
 var _ = ginkgo.AfterSuite(func() {
