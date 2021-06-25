@@ -44,7 +44,7 @@ clean-all: kind-delete
 
 ## Run tests.
 test: install
-	go test -v ./... -coverprofile coverage.txt -timeout 25m
+	go test -v ./... -coverprofile coverage.txt -timeout 35m
 
 ## Run tests using Ginkgo.
 ginkgo-test: install
