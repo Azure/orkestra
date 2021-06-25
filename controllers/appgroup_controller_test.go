@@ -69,15 +69,14 @@ var _ = Describe("ApplicationGroup Controller", func() {
 
 		By("Making sure that the workflow goes into a running state")
 		Eventually(func() bool {
-			workflow := &v1alpha13.Workflow{}
-			workflowKey := types.NamespacedName{Name: appGroup.Name, Namespace: appGroup.Namespace}
-			_ = k8sClient.Get(ctx, workflowKey, workflow)
-			return string(workflow.Status.Phase) == string(v1alpha13.NodeRunning)
+			wf := &v1alpha13.Workflow{}
+			wfKey := objKeyBuilder(name, DefaultNamespace)
+			_ = k8sClient.Get(ctx, wfKey, wf)
+			return string(wf.Status.Phase) == string(v1alpha13.NodeRunning)
 		}, time.Minute, time.Second).Should(BeTrue())
 
 		By("Waiting for the bookinfo object to reach a succeeded reason")
 		Eventually(func() bool {
-			appGroup = &v1alpha1.ApplicationGroup{}
 			if err := k8sClient.Get(ctx, key, appGroup); err != nil {
 				return false
 			}
@@ -128,15 +127,14 @@ var _ = Describe("ApplicationGroup Controller", func() {
 
 		By("Making sure that the workflow goes into a running state")
 		Eventually(func() bool {
-			workflow := &v1alpha13.Workflow{}
-			workflowKey := types.NamespacedName{Name: appGroup.Name, Namespace: appGroup.Namespace}
-			_ = k8sClient.Get(ctx, workflowKey, workflow)
-			return string(workflow.Status.Phase) == string(v1alpha13.NodeRunning)
+			wf := &v1alpha13.Workflow{}
+			wfKey := objKeyBuilder(name, DefaultNamespace)
+			_ = k8sClient.Get(ctx, wfKey, wf)
+			return string(wf.Status.Phase) == string(v1alpha13.NodeRunning)
 		}, time.Minute, time.Second).Should(BeTrue())
 
 		By("Waiting for the bookinfo object to reach a succeeded reason")
 		Eventually(func() bool {
-			appGroup = &v1alpha1.ApplicationGroup{}
 			if err := k8sClient.Get(ctx, key, appGroup); err != nil {
 				return false
 			}
@@ -184,7 +182,6 @@ var _ = Describe("ApplicationGroup Controller", func() {
 
 		By("Waiting for the bookinfo object to reach a succeeded reason")
 		Eventually(func() bool {
-			appGroup = &v1alpha1.ApplicationGroup{}
 			if err := k8sClient.Get(ctx, key, appGroup); err != nil {
 				return false
 			}
@@ -198,7 +195,6 @@ var _ = Describe("ApplicationGroup Controller", func() {
 
 		By("Waiting for the bookinfo application group to reach a succeeded reason")
 		Eventually(func() bool {
-			appGroup = &v1alpha1.ApplicationGroup{}
 			if err := k8sClient.Get(ctx, key, appGroup); err != nil {
 				return false
 			}
@@ -248,14 +244,13 @@ var _ = Describe("ApplicationGroup Controller", func() {
 
 		By("Waiting for the bookinfo object to reach a succeeded reason")
 		Eventually(func() bool {
-			appGroup = &v1alpha1.ApplicationGroup{}
 			if err := k8sClient.Get(ctx, key, appGroup); err != nil {
 				return false
 			}
 			return appGroup.GetReadyCondition() == meta.SucceededReason
 		}, DefaultTimeout, time.Second).Should(BeTrue())
 
-		By("upgrading the charts to a newer version")
+		By("Upgrading the charts to a newer version")
 		patch := client.MergeFrom(appGroup.DeepCopy())
 		appGroup.Spec.Applications[1].Spec.Chart.Version = ambassadorChartVersion
 		err = k8sClient.Patch(ctx, appGroup, patch)
@@ -263,7 +258,6 @@ var _ = Describe("ApplicationGroup Controller", func() {
 
 		By("Waiting for the application group to start its upgrade")
 		Eventually(func() bool {
-			appGroup = &v1alpha1.ApplicationGroup{}
 			if err := k8sClient.Get(ctx, key, appGroup); err != nil {
 				return false
 			}
@@ -273,14 +267,10 @@ var _ = Describe("ApplicationGroup Controller", func() {
 		By("Waiting for the newer version of the charts to be released")
 		Eventually(func() bool {
 			hr := &fluxhelmv2beta1.HelmRelease{}
-			if err := k8sClient.Get(ctx, types.NamespacedName{
-				Name:      ambassador,
-				Namespace: name,
-			}, hr); err != nil {
+			hrKey := objKeyBuilder(ambassador, name)
+			if err := k8sClient.Get(ctx, hrKey, hr); err != nil {
 				return false
 			}
-
-			appGroup = &v1alpha1.ApplicationGroup{}
 			if err := k8sClient.Get(ctx, key, appGroup); err != nil {
 				return false
 			}
@@ -298,7 +288,6 @@ var _ = Describe("ApplicationGroup Controller", func() {
 
 		By("Waiting for the bookinfo object to reach a succeeded reason")
 		Eventually(func() bool {
-			appGroup = &v1alpha1.ApplicationGroup{}
 			if err := k8sClient.Get(ctx, key, appGroup); err != nil {
 				return false
 			}
@@ -324,30 +313,23 @@ var _ = Describe("ApplicationGroup Controller", func() {
 		By("Waiting for the newer version of the charts to be released")
 		Eventually(func() bool {
 			hr := &fluxhelmv2beta1.HelmRelease{}
-			if err := k8sClient.Get(ctx, types.NamespacedName{
-				Name:      ambassador,
-				Namespace: name,
-			}, hr); err != nil {
+			hrKey := objKeyBuilder(ambassador, name)
+			if err := k8sClient.Get(ctx, hrKey, hr); err != nil {
 				return false
 			}
-
 			return hr.Spec.Chart.Spec.Version == ambassadorChartVersion && meta.GetResourceCondition(hr, meta.ReadyCondition).Reason == meta2.ReconciliationSucceededReason
 		}, DefaultTimeout, time.Second).Should(BeTrue())
 
 		By("Ensuring that the applications rollback to their starting version")
 		Eventually(func() bool {
 			hr := &fluxhelmv2beta1.HelmRelease{}
-			if err := k8sClient.Get(ctx, types.NamespacedName{
-				Name:      ambassador,
-				Namespace: name,
-			}, hr); err != nil {
+			hrKey := objKeyBuilder(ambassador, name)
+			if err := k8sClient.Get(ctx, hrKey, hr); err != nil {
 				return false
 			}
-			appGroup = &v1alpha1.ApplicationGroup{}
 			if err := k8sClient.Get(ctx, key, appGroup); err != nil {
 				return false
 			}
-
 			return hr.Spec.Chart.Spec.Version == ambassadorOldChartVersion && meta.GetResourceCondition(hr, meta.ReadyCondition).Reason == meta2.ReconciliationSucceededReason && appGroup.GetReadyCondition() == meta.WorkflowFailedReason && appGroup.GetWorkflowCondition(v1alpha1.Rollback) == meta.SucceededReason
 		}, DefaultTimeout, time.Second).Should(BeTrue())
 	})
@@ -359,15 +341,14 @@ var _ = Describe("ApplicationGroup Controller", func() {
 
 		By("Making sure that the workflow goes into a running state")
 		Eventually(func() bool {
-			workflow := &v1alpha13.Workflow{}
-			workflowKey := types.NamespacedName{Name: name, Namespace: DefaultNamespace}
-			_ = k8sClient.Get(ctx, workflowKey, workflow)
-			return string(workflow.Status.Phase) == string(v1alpha13.NodeRunning)
+			wf := &v1alpha13.Workflow{}
+			wfKey := objKeyBuilder(name, DefaultNamespace)
+			_ = k8sClient.Get(ctx, wfKey, wf)
+			return string(wf.Status.Phase) == string(v1alpha13.NodeRunning)
 		}, time.Minute, time.Second).Should(BeTrue())
 
 		By("Waiting for the bookinfo object to reach a progressing reason")
 		Eventually(func() bool {
-			appGroup = &v1alpha1.ApplicationGroup{}
 			if err := k8sClient.Get(ctx, key, appGroup); err != nil {
 				return false
 			}
@@ -377,10 +358,8 @@ var _ = Describe("ApplicationGroup Controller", func() {
 		By("Waiting for the ambassador helm release to be ready")
 		Eventually(func() bool {
 			hr := &fluxhelmv2beta1.HelmRelease{}
-			if err := k8sClient.Get(ctx, types.NamespacedName{
-				Name:      ambassador,
-				Namespace: name,
-			}, hr); err != nil {
+			hrKey := objKeyBuilder(ambassador, name)
+			if err := k8sClient.Get(ctx, hrKey, hr); err != nil {
 				return false
 			}
 			readyCondition := meta.GetResourceCondition(hr, meta.ReadyCondition)
@@ -396,10 +375,10 @@ var _ = Describe("ApplicationGroup Controller", func() {
 
 		By("Making sure that the workflow goes into a suspended state")
 		Eventually(func() bool {
-			workflow := &v1alpha13.Workflow{}
-			workflowKey := types.NamespacedName{Name: name, Namespace: DefaultNamespace}
-			_ = k8sClient.Get(ctx, workflowKey, workflow)
-			return workflow.Spec.Suspend != nil && *workflow.Spec.Suspend
+			wf := &v1alpha13.Workflow{}
+			wfKey := objKeyBuilder(name, DefaultNamespace)
+			_ = k8sClient.Get(ctx, wfKey, wf)
+			return wf.Spec.Suspend != nil && *wf.Spec.Suspend
 		}, time.Minute, time.Second).Should(BeTrue())
 
 		By("Waiting for the Workflow to delete all the HelmReleases")
@@ -413,11 +392,11 @@ var _ = Describe("ApplicationGroup Controller", func() {
 
 		By("Waiting for all the Workflows to be cleaned up from the cluster")
 		Eventually(func() bool {
-			workflowList := &v1alpha13.WorkflowList{}
-			if err := k8sClient.List(ctx, workflowList, client.InNamespace(name)); err != nil {
+			wfList := &v1alpha13.WorkflowList{}
+			if err := k8sClient.List(ctx, wfList, client.InNamespace(name)); err != nil {
 				return false
 			}
-			return len(workflowList.Items) == 0
+			return len(wfList.Items) == 0
 		}, time.Minute, time.Second).Should(BeTrue())
 	})
 
@@ -431,7 +410,6 @@ var _ = Describe("ApplicationGroup Controller", func() {
 
 		By("Waiting for the bookinfo object to reach a succeeded reason")
 		Eventually(func() bool {
-			appGroup = &v1alpha1.ApplicationGroup{}
 			if err := k8sClient.Get(ctx, key, appGroup); err != nil {
 				return false
 			}
@@ -441,17 +419,11 @@ var _ = Describe("ApplicationGroup Controller", func() {
 		By("Deleting the application group and deleting the workflow")
 		err = k8sClient.Delete(ctx, appGroup)
 		Expect(err).To(BeNil())
-		wf := &v1alpha13.Workflow{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name,
-				Namespace: DefaultNamespace,
-			},
-		}
+		wf := workflowBuilder(name, DefaultNamespace)
 		err = k8sClient.Delete(ctx, wf)
 		Expect(err).To(BeNil())
 
 		Eventually(func() bool {
-			appGroup = &v1alpha1.ApplicationGroup{}
 			return errors.IsNotFound(k8sClient.Get(ctx, key, appGroup))
 		}, time.Second*30, time.Second).Should(BeTrue())
 	})
