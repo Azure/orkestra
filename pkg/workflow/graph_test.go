@@ -17,7 +17,7 @@ func TestBuild(t *testing.T) {
 
 	hrValue := utils.HrToB64AnyStringPtr(&fluxhelmv2beta1.HelmRelease{})
 
-	nodes_no_child := map[string]v1alpha13.NodeStatus{
+	nodesWithoutChildren := map[string]v1alpha13.NodeStatus{
 		"node1": {ID: "node1", Type: "Pod", Children: nil, Inputs: &v1alpha13.Inputs{
 			Parameters: []v1alpha13.Parameter{{Value: hrValue}},
 		}},
@@ -26,7 +26,7 @@ func TestBuild(t *testing.T) {
 		}},
 	}
 
-	nodes_with_child := map[string]v1alpha13.NodeStatus{
+	nodesWithChildren := map[string]v1alpha13.NodeStatus{
 		"node1": {
 			ID:       "node1",
 			Type:     "Pod",
@@ -154,10 +154,10 @@ func TestBuild(t *testing.T) {
 			name: "testing with no children",
 			args: args{
 				entry: "node2",
-				nodes: nodes_no_child,
+				nodes: nodesWithoutChildren,
 			},
 			want: &Graph{
-				nodes: nodes_no_child,
+				nodes: nodesWithoutChildren,
 				releases: map[int][]fluxhelmv2beta1.HelmRelease{
 					0: {{}},
 				},
@@ -169,10 +169,10 @@ func TestBuild(t *testing.T) {
 			name: "testing with children, indirect children, and failed nodes",
 			args: args{
 				entry: "node1",
-				nodes: nodes_with_child,
+				nodes: nodesWithChildren,
 			},
 			want: &Graph{
-				nodes: nodes_with_child,
+				nodes: nodesWithChildren,
 				releases: map[int][]fluxhelmv2beta1.HelmRelease{
 					0: {{}},
 					1: {{}},
@@ -191,28 +191,6 @@ func TestBuild(t *testing.T) {
 			}
 			if !cmp.Equal(got, tt.want, cmp.AllowUnexported(Graph{})) {
 				t.Errorf("Build() = %v", cmp.Diff(got, tt.want, cmp.AllowUnexported(Graph{})))
-			}
-		})
-	}
-}
-
-func Test_isIndirectChild(t *testing.T) {
-	type args struct {
-		nodeID string
-		node   v1alpha13.NodeStatus
-	}
-	tests := []struct {
-		name  string
-		graph Graph
-		args  args
-		want  bool
-	}{
-		//
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.graph.isIndirectChild(tt.args.nodeID, tt.args.node); got != tt.want {
-				t.Errorf("Graph.isIndirectChild() = %v, want %v", got, tt.want)
 			}
 		})
 	}
