@@ -17,7 +17,7 @@ if [ "${running}" != 'true' ]; then
     -d --restart=always -p "127.0.0.1:${reg_port}:5000" --name "${reg_name}" \
     registry:2
 else
-  echo "> Kind Registry container already exist, moving on ..."
+  echo "> Kind Registry container already exists, moving on ..."
 fi
 
 # Create kind cluster with the local registry enabled in containerd unless it already exists
