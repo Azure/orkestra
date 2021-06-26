@@ -218,10 +218,6 @@ type ApplicationGroupStatus struct {
 	// +optional
 	LastSucceededGeneration int64 `json:"lastSucceededGeneration,omitempty"`
 
-	// LastDeployedApplications captures the last applications that were created on the cluster
-	// so that we the controller can handle update/rollback scenarios
-	LastDeployedApplications []string `json:"lastDeployedApplications,omitempty"`
-
 	// Conditions holds the conditions of the ApplicationGroup
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`

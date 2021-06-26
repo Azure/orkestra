@@ -90,6 +90,7 @@ func (wc *RollbackWorkflowClient) Submit(ctx context.Context) error {
 	return nil
 }
 
+// TODO: Purge releases should remove the applications with dependencies in mind
 func (wc *RollbackWorkflowClient) purgeNewerReleases(ctx context.Context) error {
 	// Get the helm releases that have been deployed at this generation
 	diff := wc.getDiff()

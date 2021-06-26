@@ -442,11 +442,6 @@ spec:
                   - type
                   type: object
                 type: array
-              lastDeployedApplications:
-                description: LastDeployedApplications captures the last applications that were created on the cluster so that we the controller can handle update/rollback scenarios
-                items:
-                  type: string
-                type: array
               lastSucceededGeneration:
                 description: LastSucceededGeneration captures the last generation that has successfully completed a full workflow rollout of the application group
                 format: int64

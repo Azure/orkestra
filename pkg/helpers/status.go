@@ -77,7 +77,6 @@ func (helper *StatusHelper) MarkSucceeded(ctx context.Context, instance *v1alpha
 
 	// Set the status conditions into a succeeding state
 	instance.ReadySucceeded()
-	instance.Status.LastDeployedApplications = instance.GetApplicationNames()
 	helper.Recorder.Event(instance, "Normal", "ReconcileSuccess", fmt.Sprintf("Successfully reconciled ApplicationGroup %s", instance.Name))
 	return nil
 }

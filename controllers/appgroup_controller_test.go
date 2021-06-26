@@ -553,7 +553,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 			}, time.Second*30, time.Second).Should(BeTrue())
 		})
 
-		FIt("should succeed to remove the new helm releases on application rollback", func() {
+		It("should succeed to remove the new helm releases on application rollback", func() {
 			applicationGroup := &v1alpha1.ApplicationGroup{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      name,
@@ -623,9 +623,10 @@ var _ = Describe("ApplicationGroup Controller", func() {
 				if err := k8sClient.List(ctx, helmReleases, client.InNamespace(name)); err != nil {
 					return false
 				}
-				return applicationGroup.GetReadyCondition() == meta.WorkflowFailedReason &&
-					applicationGroup.GetWorkflowCondition(v1alpha1.Rollback) == meta.SucceededReason &&
-					len(helmReleases.Items) == 1
+				if err := k8sClient.Get(ctx, key, applicationGroup); err != nil {
+					return false
+				}
+				return applicationGroup.GetReadyCondition() == meta.WorkflowFailedReason && len(helmReleases.Items) == 1
 			}, DefaultTimeout, time.Second).Should(BeTrue())
 		})
 	})
