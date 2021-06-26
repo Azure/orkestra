@@ -83,6 +83,17 @@ func (g *Graph) bft(node v1alpha13.NodeStatus) error {
 		if v.Status.Type != v1alpha13.NodeTypePod {
 			continue
 		}
+
+		if v.Status.Inputs == nil {
+			return ErrInvalidInputsPtr
+		}
+		if len(v.Status.Inputs.Parameters) == 0 {
+			return ErrNilParametersSlice
+		}
+		if v.Status.Inputs.Parameters[0].Value == nil {
+			return ErrInvalidValuePtr
+		}
+
 		hrStr := v.Status.Inputs.Parameters[0].Value
 		hrBytes, err := base64.StdEncoding.DecodeString(string(*hrStr))
 		if err != nil {
