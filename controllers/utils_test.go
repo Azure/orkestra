@@ -7,11 +7,9 @@ import (
 
 	"github.com/Azure/Orkestra/api/v1alpha1"
 	"github.com/Azure/Orkestra/pkg/meta"
-	v1alpha13 "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
 	fluxhelmv2beta1 "github.com/fluxcd/helm-controller/api/v2beta1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 const (
@@ -34,22 +32,6 @@ var (
 	defaultDuration = metav1.Duration{Duration: time.Minute * 5}     // treat as const
 	letterRunes     = []rune("abcdefghijklmnopqrstuvwxyz1234567890") // treat as const
 )
-
-func objKeyBuilder(name, namespace string) types.NamespacedName {
-	return types.NamespacedName{
-		Name:      name,
-		Namespace: namespace,
-	}
-}
-
-func workflowBuilder(name, namespace string) *v1alpha13.Workflow {
-	return &v1alpha13.Workflow{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-	}
-}
 
 func isAllHelmReleasesInReadyState(helmReleases []fluxhelmv2beta1.HelmRelease) bool {
 	allReady := true

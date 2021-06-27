@@ -30,9 +30,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 	)
 
 	var (
-		ctx context.Context
-		err error
-
+		ctx      context.Context
 		name     string
 		appGroup *v1alpha1.ApplicationGroup
 		key      types.NamespacedName
@@ -40,8 +38,6 @@ var _ = Describe("ApplicationGroup Controller", func() {
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		err = nil
-
 		name = createUniqueAppGroupName("bookinfo")
 		appGroup = defaultAppGroup(name, defaultNamespace, name)
 		key = client.ObjectKeyFromObject(appGroup)
@@ -61,7 +57,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 
 	It("Should create Bookinfo spec successfully", func() {
 		By("Applying the bookinfo object to the cluster")
-		err = k8sClient.Create(ctx, appGroup)
+		err := k8sClient.Create(ctx, appGroup)
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Getting the Helm Release list")
@@ -73,7 +69,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 		By("Making sure that the workflow goes into a running state")
 		Eventually(func() bool {
 			wf := &v1alpha13.Workflow{}
-			wfKey := objKeyBuilder(name, defaultNamespace)
+			wfKey := types.NamespacedName{Name: name, Namespace: defaultNamespace}
 			_ = k8sClient.Get(ctx, wfKey, wf)
 			return string(wf.Status.Phase) == string(v1alpha13.NodeRunning)
 		}, time.Minute, time.Second).Should(BeTrue())
@@ -112,7 +108,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 		}
 
 		By("Applying the bookinfo object to the cluster")
-		err = k8sClient.Create(ctx, appGroup)
+		err := k8sClient.Create(ctx, appGroup)
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Getting the Helm Release list")
@@ -124,7 +120,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 		By("Making sure that the workflow goes into a running state")
 		Eventually(func() bool {
 			wf := &v1alpha13.Workflow{}
-			wfKey := objKeyBuilder(name, defaultNamespace)
+			wfKey := types.NamespacedName{Name: name, Namespace: defaultNamespace}
 			_ = k8sClient.Get(ctx, wfKey, wf)
 			return string(wf.Status.Phase) == string(v1alpha13.NodeRunning)
 		}, time.Minute, time.Second).Should(BeTrue())
@@ -148,7 +144,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 		appGroup.Spec.Applications[0].Spec.Chart.Version = "fake-version"
 
 		By("Applying the bookinfo object to the cluster")
-		err = k8sClient.Create(ctx, appGroup)
+		err := k8sClient.Create(ctx, appGroup)
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Waiting for the bookinfo object to reach a chart pull failed reason")
@@ -166,7 +162,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 
 	It("Should create the bookinfo and then update it", func() {
 		By("Applying the bookinfo object to the cluster")
-		err = k8sClient.Create(ctx, appGroup)
+		err := k8sClient.Create(ctx, appGroup)
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Waiting for the bookinfo object to reach a succeeded reason")
@@ -195,7 +191,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 		appGroup.Spec.Applications[0].Spec.Chart.Version = "fake-version"
 
 		By("Applying the bookinfo object to the cluster")
-		err = k8sClient.Create(ctx, appGroup)
+		err := k8sClient.Create(ctx, appGroup)
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Waiting for the bookinfo object to go into a failed state")
@@ -228,7 +224,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 		appGroup.Spec.Applications[1].Spec.Chart.Version = ambassadorOldChartVersion
 
 		By("Applying the bookinfo object to the cluster")
-		err = k8sClient.Create(ctx, appGroup)
+		err := k8sClient.Create(ctx, appGroup)
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Waiting for the bookinfo object to reach a succeeded reason")
@@ -256,7 +252,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 		By("Waiting for the newer version of the charts to be released")
 		Eventually(func() bool {
 			hr := &fluxhelmv2beta1.HelmRelease{}
-			hrKey := objKeyBuilder(ambassador, name)
+			hrKey := types.NamespacedName{Name: ambassador, Namespace: name}
 			if err := k8sClient.Get(ctx, hrKey, hr); err != nil {
 				return false
 			}
@@ -272,7 +268,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 		appGroup.Spec.Applications[1].Spec.Chart.Version = ambassadorOldChartVersion
 
 		By("Applying the bookinfo object to the cluster")
-		err = k8sClient.Create(ctx, appGroup)
+		err := k8sClient.Create(ctx, appGroup)
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Waiting for the bookinfo object to reach a succeeded reason")
@@ -302,7 +298,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 		By("Waiting for the newer version of the charts to be released")
 		Eventually(func() bool {
 			hr := &fluxhelmv2beta1.HelmRelease{}
-			hrKey := objKeyBuilder(ambassador, name)
+			hrKey := types.NamespacedName{Name: ambassador, Namespace: name}
 			if err := k8sClient.Get(ctx, hrKey, hr); err != nil {
 				return false
 			}
@@ -312,7 +308,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 		By("Ensuring that the applications rollback to their starting version")
 		Eventually(func() bool {
 			hr := &fluxhelmv2beta1.HelmRelease{}
-			hrKey := objKeyBuilder(ambassador, name)
+			hrKey := types.NamespacedName{Name: ambassador, Namespace: name}
 			if err := k8sClient.Get(ctx, hrKey, hr); err != nil {
 				return false
 			}
@@ -325,13 +321,13 @@ var _ = Describe("ApplicationGroup Controller", func() {
 
 	It("Should create the bookinfo and then delete it while in progress", func() {
 		By("Applying the bookinfo object to the cluster")
-		err = k8sClient.Create(ctx, appGroup)
+		err := k8sClient.Create(ctx, appGroup)
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Making sure that the workflow goes into a running state")
 		Eventually(func() bool {
 			wf := &v1alpha13.Workflow{}
-			wfKey := objKeyBuilder(name, defaultNamespace)
+			wfKey := types.NamespacedName{Name: name, Namespace: defaultNamespace}
 			_ = k8sClient.Get(ctx, wfKey, wf)
 			return string(wf.Status.Phase) == string(v1alpha13.NodeRunning)
 		}, time.Minute, time.Second).Should(BeTrue())
@@ -347,7 +343,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 		By("Waiting for the ambassador helm release to be ready")
 		Eventually(func() bool {
 			hr := &fluxhelmv2beta1.HelmRelease{}
-			hrKey := objKeyBuilder(ambassador, name)
+			hrKey := types.NamespacedName{Name: ambassador, Namespace: name}
 			if err := k8sClient.Get(ctx, hrKey, hr); err != nil {
 				return false
 			}
@@ -365,7 +361,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 		By("Making sure that the workflow goes into a suspended state")
 		Eventually(func() bool {
 			wf := &v1alpha13.Workflow{}
-			wfKey := objKeyBuilder(name, defaultNamespace)
+			wfKey := types.NamespacedName{Name: name, Namespace: defaultNamespace}
 			_ = k8sClient.Get(ctx, wfKey, wf)
 			return wf.Spec.Suspend != nil && *wf.Spec.Suspend
 		}, time.Minute, time.Second).Should(BeTrue())
@@ -394,7 +390,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 		key = client.ObjectKeyFromObject(appGroup)
 
 		By("Applying the bookinfo object to the cluster")
-		err = k8sClient.Create(ctx, appGroup)
+		err := k8sClient.Create(ctx, appGroup)
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Waiting for the bookinfo object to reach a succeeded reason")
@@ -408,7 +404,12 @@ var _ = Describe("ApplicationGroup Controller", func() {
 		By("Deleting the application group and deleting the workflow")
 		err = k8sClient.Delete(ctx, appGroup)
 		Expect(err).To(BeNil())
-		wf := workflowBuilder(name, defaultNamespace)
+		wf := &v1alpha13.Workflow{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: defaultNamespace,
+			},
+		}
 		err = k8sClient.Delete(ctx, wf)
 		Expect(err).To(BeNil())
 
