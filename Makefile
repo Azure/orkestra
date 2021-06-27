@@ -29,8 +29,9 @@ dev:
 debug: dev
 	go run main.go --debug --log-level ${DEBUG_LEVEL}
 
-ginkgo-test: install setup-ginkgo
-	ginkgo -nodes=4 -v -timeout=25m -cover -coverprofile=coverage.txt ./...
+ginkgo-test: install
+        go get github.com/onsi/ginkgo/ginkgo
+	ginkgo ./... -cover -coverprofile coverage.txt
 
 # Run tests
 test: install
@@ -93,10 +94,6 @@ docker-push:
 setup-kubebuilder:
 	bash hack/setup-envtest.sh;
 	bash hack/setup-kubebuilder.sh
-
-## find or download ginkgo
-setup-ginkgo:
-	go get github.com/onsi/ginkgo/ginkgo
 
 # find or download controller-gen
 # download controller-gen if necessary
