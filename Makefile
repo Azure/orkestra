@@ -30,7 +30,7 @@ debug: dev
 	go run main.go --debug --log-level ${DEBUG_LEVEL}
 
 ginkgo-test: install
-        go get github.com/onsi/ginkgo/ginkgo
+	go get github.com/onsi/ginkgo/ginkgo
 	ginkgo ./... -cover -coverprofile coverage.txt
 
 # Run tests
