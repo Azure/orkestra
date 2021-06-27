@@ -13,10 +13,12 @@ import (
 	"github.com/Azure/Orkestra/pkg/workflow"
 	v1alpha13 "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
 	fluxhelmv2beta1 "github.com/fluxcd/helm-controller/api/v2beta1"
-	"github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/config"
-	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -40,20 +42,6 @@ var (
 	k8sClient               client.Client
 	tempChartStoreTargetDir string
 	testEnv                 *envtest.Environment
-
-	AfterEach  = ginkgo.AfterEach
-	BeforeEach = ginkgo.BeforeEach
-	By         = ginkgo.By
-	Context    = ginkgo.Context
-	Describe   = ginkgo.Describe
-	It         = ginkgo.It
-
-	BeNil        = gomega.BeNil
-	BeTrue       = gomega.BeTrue
-	Equal        = gomega.Equal
-	Eventually   = gomega.Eventually
-	Expect       = gomega.Expect
-	HaveOccurred = gomega.HaveOccurred
 )
 
 func init() {
@@ -62,18 +50,18 @@ func init() {
 }
 
 func TestAppGroupController(t *testing.T) {
-	gomega.RegisterFailHandler(ginkgo.Fail)
-	ginkgo.RunSpecsWithDefaultAndCustomReporters(t, "ApplicationGroup Controller Suite", []ginkgo.Reporter{printer.NewlineReporter{}})
+	RegisterFailHandler(Fail)
+	RunSpecsWithDefaultAndCustomReporters(t, "ApplicationGroup Controller Suite", []Reporter{printer.NewlineReporter{}})
 }
 
-var _ = ginkgo.BeforeSuite(func() {
+var _ = BeforeSuite(func() {
 	var (
 		cfg        *rest.Config
 		err        error
 		k8sManager ctrl.Manager
 	)
 
-	logf.SetLogger(zap.New(zap.WriteTo(ginkgo.GinkgoWriter), zap.UseDevMode(true)))
+	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 	rand.Seed(time.Now().UnixNano())
 
 	By("bootstrapping test environment")
@@ -140,7 +128,7 @@ var _ = ginkgo.BeforeSuite(func() {
 	Expect(k8sClient).ToNot(BeNil())
 }, 60)
 
-var _ = ginkgo.AfterSuite(func() {
+var _ = AfterSuite(func() {
 	By("tearing down the test environment")
 	gexec.KillAndWait(5 * time.Second)
 

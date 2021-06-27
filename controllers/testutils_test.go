@@ -6,7 +6,9 @@ import (
 	"time"
 
 	"github.com/Azure/Orkestra/api/v1alpha1"
+	"github.com/Azure/Orkestra/pkg/meta"
 	v1alpha13 "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
+	fluxhelmv2beta1 "github.com/fluxcd/helm-controller/api/v2beta1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -47,6 +49,17 @@ func workflowBuilder(name, namespace string) *v1alpha13.Workflow {
 			Namespace: namespace,
 		},
 	}
+}
+
+func isAllHelmReleasesInReadyState(helmReleases []fluxhelmv2beta1.HelmRelease) bool {
+	allReady := true
+	for _, release := range helmReleases {
+		condition := meta.GetResourceCondition(&release, meta.ReadyCondition)
+		if condition.Reason == meta.SucceededReason {
+			allReady = false
+		}
+	}
+	return allReady
 }
 
 func addApplication(appGroup v1alpha1.ApplicationGroup, app v1alpha1.Application) v1alpha1.ApplicationGroup {

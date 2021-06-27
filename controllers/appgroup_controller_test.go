@@ -11,6 +11,9 @@ import (
 	fluxhelmv2beta1 "github.com/fluxcd/helm-controller/api/v2beta1"
 	meta2 "github.com/fluxcd/pkg/apis/meta"
 
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -20,10 +23,10 @@ import (
 
 var _ = Describe("ApplicationGroup Controller", func() {
 	const (
-		DefaultNamespace                 = "orkestra"
-		DefaultTimeout                   = time.Minute * 5
-		TotalHelmReleaseCount            = 6
-		OnlyApplicationsHelmReleaseCount = 2
+		defaultNamespace                 = "orkestra"
+		defaultTimeout                   = time.Minute * 5
+		totalHelmReleaseCount            = 6
+		onlyApplicationsHelmReleaseCount = 2
 	)
 
 	var (
@@ -40,7 +43,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 		err = nil
 
 		name = createUniqueAppGroupName("bookinfo")
-		appGroup = defaultAppGroup(name, DefaultNamespace, name)
+		appGroup = defaultAppGroup(name, defaultNamespace, name)
 		key = client.ObjectKeyFromObject(appGroup)
 	})
 
@@ -70,7 +73,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 		By("Making sure that the workflow goes into a running state")
 		Eventually(func() bool {
 			wf := &v1alpha13.Workflow{}
-			wfKey := objKeyBuilder(name, DefaultNamespace)
+			wfKey := objKeyBuilder(name, defaultNamespace)
 			_ = k8sClient.Get(ctx, wfKey, wf)
 			return string(wf.Status.Phase) == string(v1alpha13.NodeRunning)
 		}, time.Minute, time.Second).Should(BeTrue())
@@ -81,20 +84,13 @@ var _ = Describe("ApplicationGroup Controller", func() {
 				return false
 			}
 			return appGroup.GetReadyCondition() == meta.SucceededReason
-		}, DefaultTimeout, time.Second).Should(BeTrue())
+		}, defaultTimeout, time.Second).Should(BeTrue())
 
-		By("Checking that the all the HelmReleases have come up and are in a ready state")
+		By("Checking that all the HelmReleases have come up and are in a ready state")
 		err = k8sClient.List(ctx, hrList, client.InNamespace(name))
 		Expect(err).NotTo(HaveOccurred())
-		Expect(len(hrList.Items)).To(Equal(oldHelmReleaseCount + TotalHelmReleaseCount))
-		allReady := true
-		for _, release := range hrList.Items {
-			condition := meta.GetResourceCondition(&release, meta.ReadyCondition)
-			if condition.Reason == meta.SucceededReason {
-				allReady = false
-			}
-		}
-		Expect(allReady).To(BeTrue())
+		Expect(len(hrList.Items)).To(Equal(oldHelmReleaseCount + totalHelmReleaseCount))
+		Expect(isAllHelmReleasesInReadyState(hrList.Items)).To(BeTrue())
 
 		By("Waiting for all the HelmReleases to delete")
 		err = k8sClient.Delete(ctx, appGroup)
@@ -107,7 +103,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 				return false
 			}
 			return len(helmReleases.Items) == 0
-		}, DefaultTimeout, time.Second).Should(BeTrue())
+		}, defaultTimeout, time.Second).Should(BeTrue())
 	})
 
 	It("Should create only application releases with subchart nil successfully", func() {
@@ -128,7 +124,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 		By("Making sure that the workflow goes into a running state")
 		Eventually(func() bool {
 			wf := &v1alpha13.Workflow{}
-			wfKey := objKeyBuilder(name, DefaultNamespace)
+			wfKey := objKeyBuilder(name, defaultNamespace)
 			_ = k8sClient.Get(ctx, wfKey, wf)
 			return string(wf.Status.Phase) == string(v1alpha13.NodeRunning)
 		}, time.Minute, time.Second).Should(BeTrue())
@@ -139,20 +135,13 @@ var _ = Describe("ApplicationGroup Controller", func() {
 				return false
 			}
 			return appGroup.GetReadyCondition() == meta.SucceededReason
-		}, DefaultTimeout, time.Second).Should(BeTrue())
+		}, defaultTimeout, time.Second).Should(BeTrue())
 
 		By("Checking that the all the HelmReleases have come up and are in a ready state")
 		err = k8sClient.List(ctx, hrList, client.InNamespace(name))
 		Expect(err).NotTo(HaveOccurred())
-		Expect(len(hrList.Items)).To(Equal(oldHelmReleaseCount + OnlyApplicationsHelmReleaseCount))
-		allReady := true
-		for _, release := range hrList.Items {
-			condition := meta.GetResourceCondition(&release, meta.ReadyCondition)
-			if condition.Reason == meta.SucceededReason {
-				allReady = false
-			}
-		}
-		Expect(allReady).To(BeTrue())
+		Expect(len(hrList.Items)).To(Equal(oldHelmReleaseCount + onlyApplicationsHelmReleaseCount))
+		Expect(isAllHelmReleasesInReadyState(hrList.Items)).To(BeTrue())
 	})
 
 	It("Should fail to create and post a failed error state", func() {
@@ -186,7 +175,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 				return false
 			}
 			return appGroup.GetReadyCondition() == meta.SucceededReason
-		}, DefaultTimeout, time.Second).Should(BeTrue())
+		}, defaultTimeout, time.Second).Should(BeTrue())
 
 		By("Adding application to the AppGroup Spec after the AppGroup has fully reconciled")
 		newAppGroup := addApplication(*appGroup, podinfoApplication(name))
@@ -248,7 +237,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 				return false
 			}
 			return appGroup.GetReadyCondition() == meta.SucceededReason
-		}, DefaultTimeout, time.Second).Should(BeTrue())
+		}, defaultTimeout, time.Second).Should(BeTrue())
 
 		By("Upgrading the charts to a newer version")
 		patch := client.MergeFrom(appGroup.DeepCopy())
@@ -275,7 +264,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 				return false
 			}
 			return hr.Spec.Chart.Spec.Version == ambassadorChartVersion && appGroup.GetReadyCondition() == meta.SucceededReason
-		}, DefaultTimeout, time.Second).Should(BeTrue())
+		}, defaultTimeout, time.Second).Should(BeTrue())
 
 	})
 
@@ -293,7 +282,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 			}
 			_, exist := appGroup.Annotations[v1alpha1.LastSuccessfulAnnotation]
 			return appGroup.GetReadyCondition() == meta.SucceededReason && exist
-		}, DefaultTimeout, time.Second).Should(BeTrue())
+		}, defaultTimeout, time.Second).Should(BeTrue())
 
 		By("Upgrading the ambassador chart to a newer version while intentionally timing out the last DAG step")
 		patch := client.MergeFrom(appGroup.DeepCopy())
@@ -318,7 +307,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 				return false
 			}
 			return hr.Spec.Chart.Spec.Version == ambassadorChartVersion && meta.GetResourceCondition(hr, meta.ReadyCondition).Reason == meta2.ReconciliationSucceededReason
-		}, DefaultTimeout, time.Second).Should(BeTrue())
+		}, defaultTimeout, time.Second).Should(BeTrue())
 
 		By("Ensuring that the applications rollback to their starting version")
 		Eventually(func() bool {
@@ -331,7 +320,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 				return false
 			}
 			return hr.Spec.Chart.Spec.Version == ambassadorOldChartVersion && meta.GetResourceCondition(hr, meta.ReadyCondition).Reason == meta2.ReconciliationSucceededReason && appGroup.GetReadyCondition() == meta.WorkflowFailedReason && appGroup.GetWorkflowCondition(v1alpha1.Rollback) == meta.SucceededReason
-		}, DefaultTimeout, time.Second).Should(BeTrue())
+		}, defaultTimeout, time.Second).Should(BeTrue())
 	})
 
 	It("Should create the bookinfo and then delete it while in progress", func() {
@@ -342,7 +331,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 		By("Making sure that the workflow goes into a running state")
 		Eventually(func() bool {
 			wf := &v1alpha13.Workflow{}
-			wfKey := objKeyBuilder(name, DefaultNamespace)
+			wfKey := objKeyBuilder(name, defaultNamespace)
 			_ = k8sClient.Get(ctx, wfKey, wf)
 			return string(wf.Status.Phase) == string(v1alpha13.NodeRunning)
 		}, time.Minute, time.Second).Should(BeTrue())
@@ -376,7 +365,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 		By("Making sure that the workflow goes into a suspended state")
 		Eventually(func() bool {
 			wf := &v1alpha13.Workflow{}
-			wfKey := objKeyBuilder(name, DefaultNamespace)
+			wfKey := objKeyBuilder(name, defaultNamespace)
 			_ = k8sClient.Get(ctx, wfKey, wf)
 			return wf.Spec.Suspend != nil && *wf.Spec.Suspend
 		}, time.Minute, time.Second).Should(BeTrue())
@@ -401,7 +390,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 	})
 
 	It("Should delete the application group if reverse workflow is removed", func() {
-		appGroup = smallAppGroup(name, DefaultNamespace, name)
+		appGroup = smallAppGroup(name, defaultNamespace, name)
 		key = client.ObjectKeyFromObject(appGroup)
 
 		By("Applying the bookinfo object to the cluster")
@@ -414,12 +403,12 @@ var _ = Describe("ApplicationGroup Controller", func() {
 				return false
 			}
 			return appGroup.GetReadyCondition() == meta.SucceededReason
-		}, DefaultTimeout, time.Second).Should(BeTrue())
+		}, defaultTimeout, time.Second).Should(BeTrue())
 
 		By("Deleting the application group and deleting the workflow")
 		err = k8sClient.Delete(ctx, appGroup)
 		Expect(err).To(BeNil())
-		wf := workflowBuilder(name, DefaultNamespace)
+		wf := workflowBuilder(name, defaultNamespace)
 		err = k8sClient.Delete(ctx, wf)
 		Expect(err).To(BeNil())
 
