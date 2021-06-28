@@ -1,15 +1,15 @@
-package controllers
+package controllers_test
 
 import (
 	"fmt"
 	"math/rand"
 	"time"
 
+	"github.com/Azure/Orkestra/api/v1alpha1"
+	"github.com/Azure/Orkestra/pkg/meta"
+	fluxhelmv2beta1 "github.com/fluxcd/helm-controller/api/v2beta1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/Azure/Orkestra/api/v1alpha1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -29,13 +29,31 @@ const (
 )
 
 var (
-	defaultDuration = metav1.Duration{Duration: time.Minute * 5}
+	defaultDuration = metav1.Duration{Duration: time.Minute * 5}     // treat as const
+	letterRunes     = []rune("abcdefghijklmnopqrstuvwxyz1234567890") // treat as const
 )
 
-func defaultAppGroup(targetNamespace string) *v1alpha1.ApplicationGroup {
+func isAllHelmReleasesInReadyState(helmReleases []fluxhelmv2beta1.HelmRelease) bool {
+	allReady := true
+	for _, release := range helmReleases {
+		condition := meta.GetResourceCondition(&release, meta.ReadyCondition)
+		if condition.Reason == meta.SucceededReason {
+			allReady = false
+		}
+	}
+	return allReady
+}
+
+func addApplication(appGroup v1alpha1.ApplicationGroup, app v1alpha1.Application) v1alpha1.ApplicationGroup {
+	appGroup.Spec.Applications = append(appGroup.Spec.Applications, app)
+	return appGroup
+}
+
+func defaultAppGroup(groupName, groupNamespace, targetNamespace string) *v1alpha1.ApplicationGroup {
 	g := &v1alpha1.ApplicationGroup{
-		ObjectMeta: v1.ObjectMeta{
-			Name: targetNamespace,
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      groupName,
+			Namespace: groupNamespace,
 		},
 	}
 	g.Spec.Applications = make([]v1alpha1.Application, 0)
@@ -43,15 +61,32 @@ func defaultAppGroup(targetNamespace string) *v1alpha1.ApplicationGroup {
 	return g
 }
 
-func smallAppGroup(targetNamespace string) *v1alpha1.ApplicationGroup {
+func smallAppGroup(groupName, groupNamespace, targetNamespace string) *v1alpha1.ApplicationGroup {
 	g := &v1alpha1.ApplicationGroup{
-		ObjectMeta: v1.ObjectMeta{
-			Name: targetNamespace,
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      groupName,
+			Namespace: groupNamespace,
 		},
 	}
 	g.Spec.Applications = make([]v1alpha1.Application, 0)
 	g.Spec.Applications = append(g.Spec.Applications, podinfoApplication(targetNamespace))
 	return g
+}
+
+func createUniqueAppGroupName(name string) string {
+	return name + "-" + getRandomStringRunes(10)
+}
+
+func getRandomStringRunes(n int) string {
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = letterRunes[rand.Intn(len(letterRunes))]
+	}
+	return string(b)
+}
+
+func boolToBoolPtr(in bool) *bool {
+	return &in
 }
 
 func ambassadorApplication(targetNamespace string, dependencies ...string) v1alpha1.Application {
@@ -160,19 +195,4 @@ func podinfoApplication(targetNamespace string, dependencies ...string) v1alpha1
 			},
 		},
 	}
-}
-
-func AddApplication(appGroup v1alpha1.ApplicationGroup, app v1alpha1.Application) v1alpha1.ApplicationGroup {
-	appGroup.Spec.Applications = append(appGroup.Spec.Applications, app)
-	return appGroup
-}
-
-var letterRunes = []rune("abcdefghijklmnopqrstuvwxyz1234567890")
-
-func randStringRunes(n int) string {
-	b := make([]rune, n)
-	for i := range b {
-		b[i] = letterRunes[rand.Intn(len(letterRunes))]
-	}
-	return string(b)
 }
