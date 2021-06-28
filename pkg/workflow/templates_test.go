@@ -164,7 +164,7 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 												ObjectMeta: v1.ObjectMeta{
 													Name: "1ccd4cae89-subchart-3",
 													Labels: map[string]string{
-														ChartLabelKey:           "application",
+														v1alpha1.ChartLabel:     "application",
 														v1alpha1.OwnershipLabel: "application",
 														v1alpha1.HeritageLabel:  "orkestra",
 													},
@@ -214,7 +214,7 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 												ObjectMeta: v1.ObjectMeta{
 													Name: "1ccd4cae89-subchart-2",
 													Labels: map[string]string{
-														ChartLabelKey:           "application",
+														v1alpha1.ChartLabel:     "application",
 														v1alpha1.OwnershipLabel: "application",
 														v1alpha1.HeritageLabel:  "orkestra",
 													},
@@ -264,7 +264,7 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 												ObjectMeta: v1.ObjectMeta{
 													Name: "1ccd4cae89-subchart-1",
 													Labels: map[string]string{
-														ChartLabelKey:           "application",
+														v1alpha1.ChartLabel:     "application",
 														v1alpha1.OwnershipLabel: "application",
 														v1alpha1.HeritageLabel:  "orkestra",
 													},
@@ -315,7 +315,7 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 												ObjectMeta: v1.ObjectMeta{
 													Name: "application",
 													Labels: map[string]string{
-														ChartLabelKey:           "application",
+														v1alpha1.ChartLabel:     "application",
 														v1alpha1.OwnershipLabel: "application",
 														v1alpha1.HeritageLabel:  "orkestra",
 													},
@@ -424,7 +424,7 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 												ObjectMeta: v1.ObjectMeta{
 													Name: "application",
 													Labels: map[string]string{
-														ChartLabelKey:           "application",
+														v1alpha1.ChartLabel:     "application",
 														v1alpha1.OwnershipLabel: "application",
 														v1alpha1.HeritageLabel:  "orkestra",
 													},
@@ -565,7 +565,7 @@ func Test_generateSubchartAndAppDAGTasks(t *testing.T) {
 									ObjectMeta: v1.ObjectMeta{
 										Name: "1ccd4cae89-subchart-3",
 										Labels: map[string]string{
-											ChartLabelKey:           "application",
+											v1alpha1.ChartLabel:     "application",
 											v1alpha1.OwnershipLabel: "application",
 											v1alpha1.HeritageLabel:  "orkestra",
 										},
@@ -615,7 +615,7 @@ func Test_generateSubchartAndAppDAGTasks(t *testing.T) {
 									ObjectMeta: v1.ObjectMeta{
 										Name: "1ccd4cae89-subchart-2",
 										Labels: map[string]string{
-											ChartLabelKey:           "application",
+											v1alpha1.ChartLabel:     "application",
 											v1alpha1.OwnershipLabel: "application",
 											v1alpha1.HeritageLabel:  "orkestra",
 										},
@@ -665,7 +665,7 @@ func Test_generateSubchartAndAppDAGTasks(t *testing.T) {
 									ObjectMeta: v1.ObjectMeta{
 										Name: "1ccd4cae89-subchart-1",
 										Labels: map[string]string{
-											ChartLabelKey:           "application",
+											v1alpha1.ChartLabel:     "application",
 											v1alpha1.OwnershipLabel: "application",
 											v1alpha1.HeritageLabel:  "orkestra",
 										},
@@ -715,7 +715,7 @@ func Test_generateSubchartAndAppDAGTasks(t *testing.T) {
 									ObjectMeta: v1.ObjectMeta{
 										Name: "application",
 										Labels: map[string]string{
-											ChartLabelKey:           "application",
+											v1alpha1.ChartLabel:     "application",
 											v1alpha1.OwnershipLabel: "application",
 											v1alpha1.HeritageLabel:  "orkestra",
 										},
