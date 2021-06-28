@@ -46,7 +46,7 @@ func TruncateString(in string, num int) string {
 	return out
 }
 
-func Remove(s []string, r string) []string {
+func RemoveStringFromSlice(r string, s []string) []string {
 	for i, v := range s {
 		if v == r {
 			return append(s[:i], s[i+1:]...)

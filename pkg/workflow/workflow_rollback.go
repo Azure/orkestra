@@ -116,7 +116,7 @@ func (wc *RollbackWorkflowClient) purgeNewerReleases(ctx context.Context) error 
 func (wc *RollbackWorkflowClient) getDiff() []string {
 	names := wc.appGroup.GetApplicationNames()
 	for _, appName := range wc.rollbackAppGroup.GetApplicationNames() {
-		names = utils.Remove(names, appName)
+		names = utils.RemoveStringFromSlice(appName, names)
 	}
 	return names
 }
