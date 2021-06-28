@@ -23,9 +23,13 @@ import (
 
 var _ = Describe("ApplicationGroup Controller", func() {
 	const (
-		defaultNamespace                 = "orkestra"
-		defaultTimeout                   = time.Minute * 5
-		totalHelmReleaseCount            = 6
+		defaultNamespace = "orkestra"
+		defaultTimeout   = time.Minute * 5
+
+		// Total number of helm releases in the default app group, including subcharts.
+		totalHelmReleaseCount = 6
+
+		// Total number of application helm releases in the default app group, excluding subcharts.
 		onlyApplicationsHelmReleaseCount = 2
 	)
 
