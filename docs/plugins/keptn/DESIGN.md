@@ -138,7 +138,7 @@ data:
 
 ```json
 {
-  "name": "keptn-controller"`
+  "name": "keptn-controller"
 }
 
 Response - save the sha1 since it will not be provided in the GET call
