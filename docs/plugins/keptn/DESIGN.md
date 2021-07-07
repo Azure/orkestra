@@ -182,6 +182,8 @@ Args:
 - `GIT_TOKEN=0dce23c13e0ed69a0f5466fe34a65039477e4d1f`
 - `GIT_REMOTE_URL=http://gitea-http.default.svc.cluster.local:3000/keptn/<helmrelease-name>.git`
 
+Steps:
+
 - plugin configuration data blob (`plugin.[].data`)
 - package the incoming application `helmrelease` as a Helm Chart (tgz) and store in the local filesystem
 - authenticate with the keptn controlplane and retrieve the TOKEN for future requests
