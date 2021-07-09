@@ -8,6 +8,7 @@ import (
 type Plugin interface {
 	Init() error
 	Name() string
+	GetParam(string) string
 }
 
 // DecomposeCSL splits the comma separated list of plugins to be configured and registered
