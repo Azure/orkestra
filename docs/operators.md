@@ -792,4 +792,32 @@ helm-controller:
     serviceAccount:
       create: false
       name: "orkestra"
+
+# Plugin configuration
+plugins:
+  keptn:
+    enabled: &keptnEnabled false
+    git:
+      service:
+        type: &gitServiceType LoadBalancer
+    api-gateway:
+      service:
+        type: &apiGWServiceType LoadBalancer
+# Keptn plugin component default values
+# DO NOT MODIFY DIRECTLY
+# USE plugins.keptn to configure these values
+gitea:
+  enabled: *keptnEnabled
+  service:
+    http:
+      type: *gitServiceType
+
+keptn:
+  enabled: *keptnEnabled
+  continuous-delivery:
+    enabled: true
+  control-plane:
+    apiGatewayNginx:
+      type: *apiGWServiceType
+
 ```
