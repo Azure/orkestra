@@ -37,7 +37,7 @@ func DecomposeCSL(in string) (map[string]Plugin, error) {
 func getPluginFromName(name string) Plugin {
 	switch name {
 	case "keptn":
-		return &Keptn{}
+		return keptn()
 	default:
 		return nil
 	}

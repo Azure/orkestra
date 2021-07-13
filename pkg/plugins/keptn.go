@@ -2,10 +2,12 @@ package plugins
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 
 	"code.gitea.io/sdk/gitea"
+	"github.com/davecgh/go-spew/spew"
 )
 
 const (
@@ -16,7 +18,8 @@ const (
 	GitPasswordParam = "password"
 	GitAPITokenParam = "git-token"
 
-	GitAdminUsername   = "gitea-admin"
+	GitDefaultURL      = "http://orkestra-gitea-http.orkestra.svc.cluster.local:3000"
+	GitAdminUsername   = "gitea_admin"
 	GitDefaultUsername = "keptn"
 	GitDefaultPassword = "password"
 )
@@ -34,13 +37,17 @@ type Keptn struct {
 	git Git
 }
 
-func New(url string) (*Keptn, error) {
-	var user, pwd string
-	if user = os.Getenv("GITEA_USERNAME"); user != "" {
+func keptn() *Keptn {
+	var url, user, pwd string
+	if url = os.Getenv("GITEA_URL"); pwd == "" {
+		url = GitDefaultURL
+	}
+
+	if user = os.Getenv("GITEA_USERNAME"); user == "" {
 		user = GitDefaultUsername
 	}
 
-	if pwd = os.Getenv("GITEA_PASSWORD"); pwd != "" {
+	if pwd = os.Getenv("GITEA_PASSWORD"); pwd == "" {
 		pwd = GitDefaultPassword
 	}
 
@@ -50,7 +57,7 @@ func New(url string) (*Keptn, error) {
 			Username: user,
 			Password: pwd,
 		},
-	}, nil
+	}
 }
 
 // Init initializes the plugin by interacting with the plugin components
@@ -115,6 +122,7 @@ func (k *Keptn) initAdminClient() (*gitea.Client, error) {
 
 	admin, err := gitea.NewClient(k.git.URL, gitea.SetBasicAuth(adminUname, adminPwd))
 	if err != nil {
+		log.Printf("failed to create admin client: %v", err)
 		return nil, err
 	}
 
@@ -122,19 +130,27 @@ func (k *Keptn) initAdminClient() (*gitea.Client, error) {
 }
 
 func (k *Keptn) createUser(admin *gitea.Client) (string, error) {
+	var mustChangePassword bool = false
+
 	opts := gitea.CreateUserOption{
-		LoginName: k.git.Username,
-		Username:  k.git.Username,
-		FullName:  k.git.Username,
-		Password:  k.git.Password,
+		LoginName:          k.git.Username,
+		Username:           k.git.Username,
+		FullName:           k.git.Username,
+		Password:           k.git.Password,
+		Email:              k.git.Username + "@example.com",
+		MustChangePassword: &mustChangePassword,
 	}
 
+	spew.Dump(opts)
+
 	if _, resp, err := admin.AdminCreateUser(opts); err != nil || resp.StatusCode != http.StatusCreated {
+		log.Printf("failed to create user: %v", err)
 		return "", err
 	}
 
 	uClient, err := gitea.NewClient(k.git.URL, gitea.SetBasicAuth(k.git.Username, k.git.Password))
 	if err != nil {
+		log.Printf("failed to create git client for new user: %v", err)
 		return "", err
 	}
 
@@ -142,8 +158,10 @@ func (k *Keptn) createUser(admin *gitea.Client) (string, error) {
 		Name: KeptnPluginName,
 	})
 	if err != nil || resp.StatusCode != http.StatusCreated {
+		log.Printf("failed to create access token: %v", err)
 		return "", err
 	}
 
+	log.Printf("created access token: %v", t.Token)
 	return t.Token, nil
 }
