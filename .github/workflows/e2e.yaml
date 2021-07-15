@@ -22,11 +22,11 @@ jobs:
           curl https://baltocdn.com/helm/signing.asc | sudo apt-key add -
           sudo apt-get install apt-transport-https --yes
           echo "deb https://baltocdn.com/helm/stable/debian/ all main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list
-          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
           sudo apt-get update
           sudo apt-get install helm
           kind export kubeconfig --name orkestra
-          helm install orkestra chart/orkestra --atomic -n orkestra --create-namespace --values chart/orkestra/values-ci.yaml
+          helm install orkestra chart/orkestra --atomic -n orkestra --create-namespace --values chart/orkestra/values-ci.yaml --timeout 10m
       - name: Verify Deployment
         run: |
           curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
