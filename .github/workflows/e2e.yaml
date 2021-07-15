@@ -26,7 +26,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install helm
           kind export kubeconfig --name orkestra
-          helm install orkestra chart/orkestra --wait --atomic -n orkestra --create-namespace --values chart/orkestra/values-ci.yaml
+          helm install orkestra chart/orkestra --atomic -n orkestra --create-namespace --values chart/orkestra/values-ci.yaml
       - name: Verify Deployment
         run: |
           curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
