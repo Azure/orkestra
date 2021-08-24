@@ -61,7 +61,8 @@ func (wc *ForwardWorkflowClient) Generate(ctx context.Context) error {
 	}
 
 	wc.workflow = initWorkflowObject(wc.appGroup.Name, wc.namespace, wc.parallelism)
-	entryTemplate, templates, err := generateTemplates(wc.GetAppGroup(), wc.GetOptions())
+	graph := NewForwardGraph(wc.GetAppGroup())
+	entryTemplate, templates, err := generateTemplates(graph, wc.GetOptions())
 	if err != nil {
 		return fmt.Errorf("failed to generate workflow: %w", err)
 	}
