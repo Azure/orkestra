@@ -1,162 +1,140 @@
 package workflow
 
 import (
-	"bytes"
-	"encoding/base64"
-
-	v1alpha13 "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
-	fluxhelmv2beta1 "github.com/fluxcd/helm-controller/api/v2beta1"
-	k8Yaml "k8s.io/apimachinery/pkg/util/yaml"
+	"github.com/Azure/Orkestra/api/v1alpha1"
+	"github.com/Azure/Orkestra/pkg/utils"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
 type Graph struct {
-	nodes    map[string]v1alpha13.NodeStatus
-	releases map[int][]fluxhelmv2beta1.HelmRelease
-	maxLevel int
+	Name string
+	Nodes map[string]*Node
 }
 
 type Node struct {
-	Status v1alpha13.NodeStatus
-	Level  int
+	Name string
+	ChartName string
+	ChartVersion string
+	Owner string
+	Release *v1alpha1.Release
+	Dependencies []string
 }
 
-func Build(entry string, nodes map[string]v1alpha13.NodeStatus) (*Graph, error) {
-	if len(nodes) == 0 {
-		return nil, ErrNoNodesFound
-	}
-
+func NewForwardGraph(appGroup *v1alpha1.ApplicationGroup) *Graph {
 	g := &Graph{
-		nodes:    nodes,
-		releases: make(map[int][]fluxhelmv2beta1.HelmRelease),
+		Name: appGroup.Name,
+		Nodes: make(map[string]*Node),
 	}
 
-	e, ok := nodes[entry]
-	if !ok {
-		return nil, ErrEntryNodeNotFound
-	}
+	for i, application := range appGroup.Spec.Applications {
+		applicationNode := NewNode(&application)
+		appValues := applicationNode.Release.GetValues()
 
-	err := g.bft(e)
-	if err != nil {
-		return nil, err
-	}
+		// Iterate through the subchart nodes
+		for _, subChart := range application.Spec.Subcharts {
+			subChartVersion := appGroup.Status.Applications[i].Subcharts[subChart.Name].Version
+			nodeName := utils.GetSubchartName(application.Name, subChart.Name)
 
-	return g, nil
+			// Get the sub-chart values and assign that ot the release
+			values, _ := subChartValues(subChart.Name, application.GetValues())
+			release := application.Spec.Release.DeepCopy()
+			release.Values = values
+
+			subChartNode := &Node{
+				Name: nodeName,
+				ChartName: nodeName,
+				ChartVersion: subChartVersion,
+				Release: release,
+				Owner: application.Name,
+				Dependencies: []string{},
+			}
+
+			// Add the sub-chart dependencies with their names
+			for _, dep := range subChart.Dependencies {
+				subChartNode.Dependencies = append(subChartNode.Dependencies, utils.GetSubchartName(application.Name, dep))
+			}
+			subChartNode.Dependencies = append(subChartNode.Dependencies, application.Dependencies...)
+			g.Nodes[nodeName] = subChartNode
+
+			// Disable the sub-chart dependencies in the values of the parent chart
+			appValues[subChart.Name] = map[string]interface{}{
+				"enabled": false,
+			}
+
+			// Add the node to the set of parent node dependencies
+			applicationNode.Dependencies = append(applicationNode.Dependencies, nodeName)
+		}
+		applicationNode.Release.SetValues(appValues)
+		g.Nodes[applicationNode.Name] = applicationNode
+	}
+	return g
 }
 
-// bft performs the Breath First Traversal of the DAG
-func (g *Graph) bft(node v1alpha13.NodeStatus) error {
-	visited := make(map[string]*Node)
-	level := 0
-	q := []v1alpha13.NodeStatus{}
-	q = append(q, node)
+func NewReverseGraph(appGroup *v1alpha1.ApplicationGroup) *Graph {
+	g := NewForwardGraph(appGroup).clearDependencies()
 
-	visited[node.ID] = &Node{
-		Status: node,
-		Level:  level,
-	}
+	for _, application := range appGroup.Spec.Applications {
+		// Iterate through the application dependencies and reverse the dependency relationship
+		for _, dep := range application.Dependencies {
+			if node, ok := g.Nodes[dep]; ok {
+				node.Dependencies = append(node.Dependencies, application.Name)
+			}
+		}
+		for _, subChart := range application.Spec.Subcharts {
+			nodeName := utils.GetSubchartName(application.Name, subChart.Name)
+			subChartNode := g.Nodes[nodeName]
 
-	for len(q) > 0 {
-		level++
-		n := q[0]
-		for _, c := range n.Children {
-			ch := g.nodes[c]
-			if _, ok := visited[ch.ID]; !ok {
-				// don't visit the child if it is reachable indirectly
-				if !g.isIndirectChild(ch.ID, n) {
-					// don't visit failed nodes
-					if ch.Phase != v1alpha13.NodeSkipped &&
-						ch.Phase != v1alpha13.NodeFailed &&
-						ch.Phase != v1alpha13.NodeError {
-						visited[ch.ID] = &Node{
-							Status: ch,
-							Level:  level,
-						}
-						q = append(q, ch)
-					}
+			// Application dependencies now depend on the sub-chart to reverse
+			for _, dep := range application.Dependencies {
+				if node, ok := g.Nodes[dep]; ok {
+					node.Dependencies = append(node.Dependencies, subChartNode.Name)
 				}
 			}
-		}
-		q = q[1:]
-	}
 
-	for _, v := range visited {
-		if v.Status.Type != v1alpha13.NodeTypePod {
-			continue
-		}
-
-		if v.Status.Inputs == nil {
-			return ErrInvalidInputsPtr
-		}
-		if len(v.Status.Inputs.Parameters) == 0 {
-			return ErrNilParametersSlice
-		}
-		if v.Status.Inputs.Parameters[0].Value == nil {
-			return ErrInvalidValuePtr
-		}
-
-		hrStr := v.Status.Inputs.Parameters[0].Value
-		hrBytes, err := base64.StdEncoding.DecodeString(string(*hrStr))
-		if err != nil {
-			return err
-		}
-		hr := fluxhelmv2beta1.HelmRelease{}
-		dec := k8Yaml.NewYAMLOrJSONDecoder(bytes.NewReader(hrBytes), 1000)
-		if err := dec.Decode(&hr); err != nil {
-			return err
-		}
-
-		if _, ok := g.releases[v.Level]; !ok {
-			g.releases[v.Level] = make([]fluxhelmv2beta1.HelmRelease, 0)
-		}
-		g.releases[v.Level] = append(g.releases[v.Level], hr)
-	}
-
-	g.maxLevel = level
-	return nil
-}
-
-func (g *Graph) isIndirectChild(nodeID string, node v1alpha13.NodeStatus) bool {
-	for _, c := range node.Children {
-		ch := g.nodes[c]
-		if ch.ID != nodeID && g.isChild(nodeID, ch) {
-			return true
-		}
-	}
-
-	return false
-}
-
-func (g *Graph) isChild(nodeID string, node v1alpha13.NodeStatus) bool {
-	visited := make(map[string]bool)
-	q := []v1alpha13.NodeStatus{}
-	q = append(q, node)
-
-	visited[node.ID] = true
-
-	for len(q) > 0 {
-		n := q[0]
-		for _, c := range n.Children {
-			ch := g.nodes[c]
-			if ch.ID == nodeID {
-				return true
+			// Sub-chart dependencies now depend on this sub-chart to reverse
+			for _, dep := range subChart.Dependencies {
+				if node, ok := g.Nodes[utils.GetSubchartName(application.Name, dep)]; ok {
+					node.Dependencies = append(node.Dependencies, subChartNode.Name)
+				}
 			}
-			if !visited[ch.ID] {
-				visited[ch.ID] = true
-				q = append(q, ch)
+
+			// Sub-chart now depends on the parent application chart to reverse
+			subChartNode.Dependencies = append(subChartNode.Dependencies, application.Name)
+		}
+	}
+	return g
+}
+
+func (g *Graph) clearDependencies() *Graph {
+	for _, node := range g.Nodes {
+		node.Dependencies = []string{}
+	}
+	return g
+}
+
+func NewNode(application *v1alpha1.Application) *Node {
+	return &Node{
+		Name: application.Name,
+		ChartName: application.Spec.Chart.Name,
+		ChartVersion: application.Spec.Chart.Version,
+		Release: application.Spec.Release,
+		Dependencies: application.Dependencies,
+	}
+}
+
+func subChartValues(subChartName string, values map[string]interface{}) (*apiextensionsv1.JSON, error) {
+	data := make(map[string]interface{})
+	if scVals, ok := values[subChartName]; ok {
+		if vv, ok := scVals.(map[string]interface{}); ok {
+			for k, val := range vv {
+				data[k] = val
 			}
 		}
-		q = q[1:]
 	}
-
-	return false
-}
-
-func (g *Graph) Reverse() [][]fluxhelmv2beta1.HelmRelease {
-	reverseSlice := make([][]fluxhelmv2beta1.HelmRelease, 0)
-	for i := g.maxLevel; i >= 0; i-- {
-		if _, ok := g.releases[i]; ok {
-			reverseSlice = append(reverseSlice, g.releases[i])
+	if gVals, ok := values[ValuesKeyGlobal]; ok {
+		if vv, ok := gVals.(map[string]interface{}); ok {
+			data[ValuesKeyGlobal] = vv
 		}
 	}
-	return reverseSlice
+	return v1alpha1.GetJSON(data)
 }
