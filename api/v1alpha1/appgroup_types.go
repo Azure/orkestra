@@ -244,12 +244,15 @@ func GetJSON(values map[string]interface{}) (*apiextensionsv1.JSON, error) {
 }
 
 // SetValues marshals the raw values into the JSON values
-func (in *Application) SetValues(values map[string]interface{}) error {
+func (in *Release) SetValues(values map[string]interface{}) error {
 	bytes, err := json.Marshal(values)
 	if err != nil {
 		return err
 	}
-	in.Spec.Release.Values.Raw = bytes
+	if in.Values == nil {
+		in.Values = &apiextensionsv1.JSON{}
+	} 
+	in.Values.Raw = bytes
 	return nil
 }
 
