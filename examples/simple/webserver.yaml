@@ -1,0 +1,19 @@
+apiVersion: orkestra.azure.microsoft.com/v1alpha1
+kind: ApplicationGroup
+metadata:
+  name: webserver
+spec:
+  applications:
+    - name: app
+      spec:
+        chart:
+          url: "https://nitishm.github.io/charts"
+          name: webserver
+          version: v1.0.0
+        release:
+          timeout: 10m
+          targetNamespace: webserver
+          values:
+            webserver:
+              service:
+                type: ClusterIP

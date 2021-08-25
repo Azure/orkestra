@@ -7,54 +7,56 @@ import (
 )
 
 type Graph struct {
-	Name string
-	Nodes map[string]*Node
+	Name  string
+	Nodes map[string]*AppNode
 }
 
-type Node struct {
-	Name string
-	ChartName string
+type AppNode struct {
+	Name         string
+	Dependencies []string
+	Tasks        map[string]*TaskNode
+}
+
+type TaskNode struct {
+	Name         string
+	ChartName    string
 	ChartVersion string
-	Owner string
-	Release *v1alpha1.Release
+	Parent       string
+	Release      *v1alpha1.Release
 	Dependencies []string
 }
 
 func NewForwardGraph(appGroup *v1alpha1.ApplicationGroup) *Graph {
 	g := &Graph{
-		Name: appGroup.Name,
-		Nodes: make(map[string]*Node),
+		Name:  appGroup.Name,
+		Nodes: make(map[string]*AppNode),
 	}
 
 	for i, application := range appGroup.Spec.Applications {
-		applicationNode := NewNode(&application)
-		appValues := applicationNode.Release.GetValues()
+		applicationNode := NewAppNode(&application)
+		applicationNode.Tasks[application.Name] = NewTaskNode(&application)
+		appValues := application.Spec.Release.GetValues()
 
 		// Iterate through the subchart nodes
 		for _, subChart := range application.Spec.Subcharts {
 			subChartVersion := appGroup.Status.Applications[i].Subcharts[subChart.Name].Version
-			nodeName := utils.GetSubchartName(application.Name, subChart.Name)
+			chartName := utils.GetSubchartName(application.Name, subChart.Name)
 
 			// Get the sub-chart values and assign that ot the release
 			values, _ := subChartValues(subChart.Name, application.GetValues())
 			release := application.Spec.Release.DeepCopy()
 			release.Values = values
 
-			subChartNode := &Node{
-				Name: nodeName,
-				ChartName: nodeName,
+			subChartNode := &TaskNode{
+				Name:         subChart.Name,
+				ChartName:    chartName,
 				ChartVersion: subChartVersion,
-				Release: release,
-				Owner: application.Name,
-				Dependencies: []string{},
+				Release:      release,
+				Parent:       application.Name,
+				Dependencies: subChart.Dependencies,
 			}
 
-			// Add the sub-chart dependencies with their names
-			for _, dep := range subChart.Dependencies {
-				subChartNode.Dependencies = append(subChartNode.Dependencies, utils.GetSubchartName(application.Name, dep))
-			}
-			subChartNode.Dependencies = append(subChartNode.Dependencies, application.Dependencies...)
-			g.Nodes[nodeName] = subChartNode
+			applicationNode.Tasks[subChart.Name] = subChartNode
 
 			// Disable the sub-chart dependencies in the values of the parent chart
 			appValues[subChart.Name] = map[string]interface{}{
@@ -62,9 +64,9 @@ func NewForwardGraph(appGroup *v1alpha1.ApplicationGroup) *Graph {
 			}
 
 			// Add the node to the set of parent node dependencies
-			applicationNode.Dependencies = append(applicationNode.Dependencies, nodeName)
+			applicationNode.Tasks[application.Name].Dependencies = append(applicationNode.Dependencies, subChart.Name)
 		}
-		applicationNode.Release.SetValues(appValues)
+		applicationNode.Tasks[application.Name].Release.SetValues(appValues)
 		g.Nodes[applicationNode.Name] = applicationNode
 	}
 	return g
@@ -81,23 +83,14 @@ func NewReverseGraph(appGroup *v1alpha1.ApplicationGroup) *Graph {
 			}
 		}
 		for _, subChart := range application.Spec.Subcharts {
-			nodeName := utils.GetSubchartName(application.Name, subChart.Name)
-			subChartNode := g.Nodes[nodeName]
-
-			// Application dependencies now depend on the sub-chart to reverse
-			for _, dep := range application.Dependencies {
-				if node, ok := g.Nodes[dep]; ok {
-					node.Dependencies = append(node.Dependencies, subChartNode.Name)
-				}
-			}
+			subChartNode := g.Nodes[application.Name].Tasks[subChart.Name]
 
 			// Sub-chart dependencies now depend on this sub-chart to reverse
 			for _, dep := range subChart.Dependencies {
-				if node, ok := g.Nodes[utils.GetSubchartName(application.Name, dep)]; ok {
+				if node, ok := g.Nodes[application.Name].Tasks[dep]; ok {
 					node.Dependencies = append(node.Dependencies, subChartNode.Name)
 				}
 			}
-
 			// Sub-chart now depends on the parent application chart to reverse
 			subChartNode.Dependencies = append(subChartNode.Dependencies, application.Name)
 		}
@@ -108,17 +101,27 @@ func NewReverseGraph(appGroup *v1alpha1.ApplicationGroup) *Graph {
 func (g *Graph) clearDependencies() *Graph {
 	for _, node := range g.Nodes {
 		node.Dependencies = []string{}
+		for _, task := range node.Tasks {
+			task.Dependencies = []string{}
+		}
 	}
 	return g
 }
 
-func NewNode(application *v1alpha1.Application) *Node {
-	return &Node{
-		Name: application.Name,
-		ChartName: application.Spec.Chart.Name,
-		ChartVersion: application.Spec.Chart.Version,
-		Release: application.Spec.Release,
+func NewAppNode(application *v1alpha1.Application) *AppNode {
+	return &AppNode{
+		Name:         application.Name,
 		Dependencies: application.Dependencies,
+		Tasks:        make(map[string]*TaskNode),
+	}
+}
+
+func NewTaskNode(application *v1alpha1.Application) *TaskNode {
+	return &TaskNode{
+		Name:         application.Name,
+		ChartName:    application.Spec.Chart.Name,
+		ChartVersion: application.Spec.Chart.Version,
+		Release:      application.Spec.Release,
 	}
 }
 
