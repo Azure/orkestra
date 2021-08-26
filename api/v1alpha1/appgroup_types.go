@@ -251,7 +251,7 @@ func (in *Release) SetValues(values map[string]interface{}) error {
 	}
 	if in.Values == nil {
 		in.Values = &apiextensionsv1.JSON{}
-	} 
+	}
 	in.Values.Raw = bytes
 	return nil
 }

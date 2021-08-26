@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"fmt"
+
 	"github.com/Azure/Orkestra/api/v1alpha1"
 	"github.com/Azure/Orkestra/pkg/utils"
 	v1alpha13 "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
@@ -9,7 +10,6 @@ import (
 	fluxsourcev1beta1 "github.com/fluxcd/source-controller/api/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
-
 
 func generateTemplates(graph *Graph, options ClientOptions) (*v1alpha13.Template, []v1alpha13.Template, error) {
 	templateMap, err := generateAppDAGTemplates(graph, options.namespace, options.parallelism)
@@ -19,8 +19,8 @@ func generateTemplates(graph *Graph, options ClientOptions) (*v1alpha13.Template
 
 	// Create the entry template from the app dag templates
 	entryTemplate := &v1alpha13.Template{
-		Name: EntrypointTemplateName,
-		DAG: &v1alpha13.DAGTemplate{},
+		Name:        EntrypointTemplateName,
+		DAG:         &v1alpha13.DAGTemplate{},
 		Parallelism: options.parallelism,
 	}
 
@@ -41,28 +41,29 @@ func generateAppDAGTemplates(graph *Graph, namespace string, parallelism *int64)
 	templateMap := make(map[string]v1alpha13.Template, 0)
 
 	for name, node := range graph.Nodes {
-		hr := createHelmRelease(node.Release, namespace, node.Name, node.ChartName, node.ChartVersion)
-		hr.Labels = map[string]string{
-			ChartLabelKey:  node.Name,
-			OwnershipLabel: graph.Name,
-			HeritageLabel:  Project,
-		}
-		if node.Owner != "" {
-			hr.Annotations = map[string]string{
-				v1alpha1.ParentChartAnnotation: node.Owner,
-			}
-		}
-
-		hrStr := utils.HrToB64AnyStringPtr(hr)
-		templateMap[name] = v1alpha13.Template{
+		template := v1alpha13.Template{
 			Name:        utils.ConvertToDNS1123(node.Name),
 			Parallelism: parallelism,
 			DAG: &v1alpha13.DAGTemplate{
-				Tasks: []v1alpha13.DAGTask{
-					appDAGTaskBuilder(node.Name, getTimeout(node.Release.Timeout), hrStr),
-				},
+				Tasks: []v1alpha13.DAGTask{},
 			},
 		}
+		for _, task := range node.Tasks {
+			hr := createHelmRelease(task.Release, namespace, task.ChartName, task.ChartVersion)
+			hr.Labels = map[string]string{
+				ChartLabelKey:  task.ChartName,
+				OwnershipLabel: graph.Name,
+				HeritageLabel:  Project,
+			}
+			if task.Parent != "" {
+				hr.Annotations = map[string]string{
+					v1alpha1.ParentChartAnnotation: task.Parent,
+				}
+			}
+			hrStr := utils.HrToB64AnyStringPtr(hr)
+			template.DAG.Tasks = append(template.DAG.Tasks, appDAGTaskBuilder(task.Name, getTimeout(task.Release.Timeout), hrStr))
+		}
+		templateMap[name] = template
 	}
 	return templateMap, nil
 }
@@ -87,7 +88,7 @@ func appDAGTaskBuilder(name string, timeout, hrStr *v1alpha13.AnyString) v1alpha
 	return task
 }
 
-func createHelmRelease(r *v1alpha1.Release, namespace, name, chartName, version string) *fluxhelmv2beta1.HelmRelease {
+func createHelmRelease(r *v1alpha1.Release, namespace, name, version string) *fluxhelmv2beta1.HelmRelease {
 	return &fluxhelmv2beta1.HelmRelease{
 		TypeMeta: v1.TypeMeta{
 			Kind:       fluxhelmv2beta1.HelmReleaseKind,
@@ -100,7 +101,7 @@ func createHelmRelease(r *v1alpha1.Release, namespace, name, chartName, version 
 		Spec: fluxhelmv2beta1.HelmReleaseSpec{
 			Chart: fluxhelmv2beta1.HelmChartTemplate{
 				Spec: fluxhelmv2beta1.HelmChartTemplateSpec{
-					Chart:   utils.ConvertToDNS1123(chartName),
+					Chart:   utils.ConvertToDNS1123(name),
 					Version: version,
 					SourceRef: fluxhelmv2beta1.CrossNamespaceObjectReference{
 						Kind:      fluxsourcev1beta1.HelmRepositoryKind,
@@ -116,8 +117,8 @@ func createHelmRelease(r *v1alpha1.Release, namespace, name, chartName, version 
 			Upgrade:         r.Upgrade,
 			Rollback:        r.Rollback,
 			Uninstall:       r.Uninstall,
-			Interval: r.Interval,
-			Values: r.Values,
+			Interval:        r.Interval,
+			Values:          r.Values,
 		},
 	}
 }

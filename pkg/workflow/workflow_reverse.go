@@ -104,7 +104,6 @@ func (wc *ReverseWorkflowClient) Submit(ctx context.Context) error {
 	return nil
 }
 
-
 func (wc *ReverseWorkflowClient) getReverseName() string {
 	return fmt.Sprintf("%s-reverse", wc.forwardWorkflow.Name)
 }
