@@ -61,14 +61,14 @@ func generateAppDAGTemplates(graph *Graph, namespace string, parallelism *int64)
 				}
 			}
 			hrStr := utils.HrToB64AnyStringPtr(hr)
-			template.DAG.Tasks = append(template.DAG.Tasks, appDAGTaskBuilder(task.Name, getTimeout(task.Release.Timeout), hrStr))
+			template.DAG.Tasks = append(template.DAG.Tasks, appDAGTaskBuilder(task.Name, task.Dependencies, getTimeout(task.Release.Timeout), hrStr))
 		}
 		templateMap[name] = template
 	}
 	return templateMap, nil
 }
 
-func appDAGTaskBuilder(name string, timeout, hrStr *v1alpha13.AnyString) v1alpha13.DAGTask {
+func appDAGTaskBuilder(name string, dependencies []string, timeout, hrStr *v1alpha13.AnyString) v1alpha13.DAGTask {
 	task := v1alpha13.DAGTask{
 		Name:     utils.ConvertToDNS1123(name),
 		Template: HelmReleaseExecutorName,
@@ -84,6 +84,7 @@ func appDAGTaskBuilder(name string, timeout, hrStr *v1alpha13.AnyString) v1alpha
 				},
 			},
 		},
+		Dependencies: dependencies,
 	}
 	return task
 }
