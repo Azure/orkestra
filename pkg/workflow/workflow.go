@@ -328,14 +328,6 @@ func toConditionReason(nodePhase v1alpha13.WorkflowPhase) string {
 	}
 }
 
-func getNodes(wf *v1alpha13.Workflow) map[string]v1alpha13.NodeStatus {
-	nodes := make(map[string]v1alpha13.NodeStatus)
-	for _, node := range wf.Status.Nodes {
-		nodes[node.ID] = node
-	}
-	return nodes
-}
-
 func initWorkflowObject(name, namespace string, parallelism *int64) *v1alpha13.Workflow {
 	return &v1alpha13.Workflow{
 		ObjectMeta: v1.ObjectMeta{

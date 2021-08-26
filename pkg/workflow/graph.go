@@ -64,9 +64,10 @@ func NewForwardGraph(appGroup *v1alpha1.ApplicationGroup) *Graph {
 			}
 
 			// Add the node to the set of parent node dependencies
-			applicationNode.Tasks[application.Name].Dependencies = append(applicationNode.Dependencies, subChart.Name)
+			applicationNode.Tasks[application.Name].Dependencies = append(applicationNode.Tasks[application.Name].Dependencies, subChart.Name)
 		}
-		applicationNode.Tasks[application.Name].Release.SetValues(appValues)
+		_ = applicationNode.Tasks[application.Name].Release.SetValues(appValues)
+
 		g.Nodes[applicationNode.Name] = applicationNode
 	}
 	return g
@@ -100,9 +101,9 @@ func NewReverseGraph(appGroup *v1alpha1.ApplicationGroup) *Graph {
 
 func (g *Graph) clearDependencies() *Graph {
 	for _, node := range g.Nodes {
-		node.Dependencies = []string{}
+		node.Dependencies = nil
 		for _, task := range node.Tasks {
-			task.Dependencies = []string{}
+			task.Dependencies = nil
 		}
 	}
 	return g
@@ -133,9 +134,17 @@ func subChartValues(subChartName string, values map[string]interface{}) (*apiext
 				data[k] = val
 			}
 		}
+		if vv, ok := scVals.(map[string]string); ok {
+			for k, val := range vv {
+				data[k] = val
+			}
+		}
 	}
 	if gVals, ok := values[ValuesKeyGlobal]; ok {
 		if vv, ok := gVals.(map[string]interface{}); ok {
+			data[ValuesKeyGlobal] = vv
+		}
+		if vv, ok := gVals.(map[string]string); ok {
 			data[ValuesKeyGlobal] = vv
 		}
 	}

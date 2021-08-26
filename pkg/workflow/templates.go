@@ -49,7 +49,7 @@ func generateAppDAGTemplates(graph *Graph, namespace string, parallelism *int64)
 			},
 		}
 		for _, task := range node.Tasks {
-			hr := createHelmRelease(task.Release, namespace, node.Name, task.ChartName, task.ChartVersion)
+			hr := createHelmRelease(task.Release, namespace, task.ChartName, task.ChartVersion)
 			hr.Labels = map[string]string{
 				ChartLabelKey:  task.ChartName,
 				OwnershipLabel: graph.Name,
@@ -61,14 +61,14 @@ func generateAppDAGTemplates(graph *Graph, namespace string, parallelism *int64)
 				}
 			}
 			hrStr := utils.HrToB64AnyStringPtr(hr)
-			template.DAG.Tasks = append(template.DAG.Tasks, appDAGTaskBuilder(task.Name, getTimeout(task.Release.Timeout), hrStr))
+			template.DAG.Tasks = append(template.DAG.Tasks, appDAGTaskBuilder(task.Name, task.Dependencies, getTimeout(task.Release.Timeout), hrStr))
 		}
 		templateMap[name] = template
 	}
 	return templateMap, nil
 }
 
-func appDAGTaskBuilder(name string, timeout, hrStr *v1alpha13.AnyString) v1alpha13.DAGTask {
+func appDAGTaskBuilder(name string, dependencies []string, timeout, hrStr *v1alpha13.AnyString) v1alpha13.DAGTask {
 	task := v1alpha13.DAGTask{
 		Name:     utils.ConvertToDNS1123(name),
 		Template: HelmReleaseExecutorName,
@@ -88,7 +88,7 @@ func appDAGTaskBuilder(name string, timeout, hrStr *v1alpha13.AnyString) v1alpha
 	return task
 }
 
-func createHelmRelease(r *v1alpha1.Release, namespace, name, chartName, version string) *fluxhelmv2beta1.HelmRelease {
+func createHelmRelease(r *v1alpha1.Release, namespace, name, version string) *fluxhelmv2beta1.HelmRelease {
 	return &fluxhelmv2beta1.HelmRelease{
 		TypeMeta: v1.TypeMeta{
 			Kind:       fluxhelmv2beta1.HelmReleaseKind,
@@ -101,7 +101,7 @@ func createHelmRelease(r *v1alpha1.Release, namespace, name, chartName, version 
 		Spec: fluxhelmv2beta1.HelmReleaseSpec{
 			Chart: fluxhelmv2beta1.HelmChartTemplate{
 				Spec: fluxhelmv2beta1.HelmChartTemplateSpec{
-					Chart:   utils.ConvertToDNS1123(chartName),
+					Chart:   utils.ConvertToDNS1123(name),
 					Version: version,
 					SourceRef: fluxhelmv2beta1.CrossNamespaceObjectReference{
 						Kind:      fluxsourcev1beta1.HelmRepositoryKind,
