@@ -22,8 +22,7 @@ endif
 all: manager
 
 # Create a local docker registry, start kind cluster, and install Orkestra
-dev:
-	make kind-create
+dev: kind-create
 	helm upgrade --install orkestra chart/orkestra --wait --atomic -n orkestra --create-namespace --values ${CI_VALUES}
 
 debug: dev

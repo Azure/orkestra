@@ -60,14 +60,16 @@ func (wc *RollbackWorkflowClient) Generate(ctx context.Context) error {
 	rollbackWorkflowName := fmt.Sprintf("%s-rollback", rollbackInstance.Name)
 	wc.workflow = initWorkflowObject(rollbackWorkflowName, wc.namespace, wc.parallelism)
 
-	entryTemplate, templates, err := generateTemplates(rollbackInstance, wc.GetOptions())
+	wc.workflow = initWorkflowObject(rollbackWorkflowName, wc.namespace, wc.parallelism)
+	graph := NewForwardGraph(rollbackInstance)
+	entryTemplate, templates, err := generateTemplates(graph, wc.GetOptions())
 	if err != nil {
-		return fmt.Errorf("failed to generate argo workflow: %w", err)
+		return fmt.Errorf("failed to generate workflow: %w", err)
 	}
+
 	// Update with the app dag templates, entry template, and executor template
 	updateWorkflowTemplates(wc.workflow, templates...)
 	updateWorkflowTemplates(wc.workflow, *entryTemplate, wc.executor(HelmReleaseExecutorName, Install))
-
 	return nil
 }
 
