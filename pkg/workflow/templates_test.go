@@ -115,7 +115,7 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 					Name: "bookinfo",
 					DAG: &v1alpha13.DAGTemplate{
 						Tasks: []v1alpha13.DAGTask{
-							appDAGTaskBuilder("bookinfo", getTimeout(nil), utils.HrToB64AnyStringPtr(
+							appDAGTaskBuilder("bookinfo", []string{"subchart-1", "subchart-2", "subchart-3"}, getTimeout(nil), utils.HrToB64AnyStringPtr(
 								&fluxhelmv2beta1.HelmRelease{
 									TypeMeta: v1.TypeMeta{
 										Kind:       "HelmRelease",
@@ -148,7 +148,7 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 									},
 								}),
 							),
-							appDAGTaskBuilder("subchart-1", getTimeout(nil), utils.HrToB64AnyStringPtr(
+							appDAGTaskBuilder("subchart-1", nil, getTimeout(nil), utils.HrToB64AnyStringPtr(
 								&fluxhelmv2beta1.HelmRelease{
 									TypeMeta: v1.TypeMeta{
 										Kind:       "HelmRelease",
@@ -184,7 +184,7 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 									},
 								}),
 							),
-							appDAGTaskBuilder("subchart-2", getTimeout(nil), utils.HrToB64AnyStringPtr(
+							appDAGTaskBuilder("subchart-2", nil, getTimeout(nil), utils.HrToB64AnyStringPtr(
 								&fluxhelmv2beta1.HelmRelease{
 									TypeMeta: v1.TypeMeta{
 										Kind:       "HelmRelease",
@@ -220,7 +220,7 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 									},
 								}),
 							),
-							appDAGTaskBuilder("subchart-3", getTimeout(nil), utils.HrToB64AnyStringPtr(
+							appDAGTaskBuilder("subchart-3", []string{"subchart-1", "subchart-2"}, getTimeout(nil), utils.HrToB64AnyStringPtr(
 								&fluxhelmv2beta1.HelmRelease{
 									TypeMeta: v1.TypeMeta{
 										Kind:       "HelmRelease",
@@ -264,7 +264,7 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 					Name: "ambassador",
 					DAG: &v1alpha13.DAGTemplate{
 						Tasks: []v1alpha13.DAGTask{
-							appDAGTaskBuilder("ambassador", getTimeout(nil), utils.HrToB64AnyStringPtr(
+							appDAGTaskBuilder("ambassador", nil, getTimeout(nil), utils.HrToB64AnyStringPtr(
 								&fluxhelmv2beta1.HelmRelease{
 									TypeMeta: v1.TypeMeta{
 										Kind:       "HelmRelease",
@@ -417,6 +417,7 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 func Test_appDAGTaskBuilder(t *testing.T) {
 	type args struct {
 		name    string
+		dependencies []string
 		timeout *v1alpha13.AnyString
 		hrStr   *v1alpha13.AnyString
 	}
@@ -429,6 +430,7 @@ func Test_appDAGTaskBuilder(t *testing.T) {
 			name: "testing with nil pointer args",
 			args: args{
 				name:    "myApp",
+				dependencies: nil,
 				timeout: nil,
 				hrStr:   nil,
 			},
@@ -453,6 +455,7 @@ func Test_appDAGTaskBuilder(t *testing.T) {
 			name: "testing with valid args",
 			args: args{
 				name:    "myApp",
+				dependencies: []string{"dependency1", "dependency2"},
 				timeout: utils.ToAnyStringPtr("5m"),
 				hrStr:   utils.ToAnyStringPtr("empty"),
 			},
@@ -471,13 +474,14 @@ func Test_appDAGTaskBuilder(t *testing.T) {
 						},
 					},
 				},
+				Dependencies: []string{"dependency1", "dependency2"},
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := appDAGTaskBuilder(tt.args.name, tt.args.timeout, tt.args.hrStr)
+			got := appDAGTaskBuilder(tt.args.name, tt.args.dependencies, tt.args.timeout, tt.args.hrStr)
 			if !cmp.Equal(got, tt.want) {
 				t.Errorf("appDAGTaskBuilder() = %v", cmp.Diff(got, tt.want))
 			}

@@ -101,9 +101,9 @@ func NewReverseGraph(appGroup *v1alpha1.ApplicationGroup) *Graph {
 
 func (g *Graph) clearDependencies() *Graph {
 	for _, node := range g.Nodes {
-		node.Dependencies = []string{}
+		node.Dependencies = nil
 		for _, task := range node.Tasks {
-			task.Dependencies = []string{}
+			task.Dependencies = nil
 		}
 	}
 	return g
