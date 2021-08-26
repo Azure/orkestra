@@ -5,6 +5,7 @@ const (
 
 	HelmReleaseArg                 = "helmrelease"
 	TimeoutArg                     = "timeout"
+	ActionArg                      = "action"
 	HelmReleaseExecutorName        = "helmrelease-executor"
 	HelmReleaseReverseExecutorName = "helmrelease-reverse-executor"
 
@@ -16,6 +17,12 @@ const (
 	ExecutorName     = "executor"
 	ExecutorImage    = "azureorkestra/executor"
 	ExecutorImageTag = "v0.4.1"
+
+	KeptnExecutor         = "azureorkestra/keptn-executor"
+	KeptnExecutorImageTag = "v0.1.0"
+
+	defaultExecutorName = "default"
+	KeptnExecutorName   = "keptn"
 
 	ChartMuseumName = "chartmuseum"
 

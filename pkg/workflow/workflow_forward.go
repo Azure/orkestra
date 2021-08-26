@@ -69,6 +69,7 @@ func (wc *ForwardWorkflowClient) Generate(ctx context.Context) error {
 
 	// Update with the app dag templates, entry template, and executor template
 	updateWorkflowTemplates(wc.workflow, templates...)
+	updateWorkflowTemplates(wc.workflow, defaultExecutor(), keptnExecutor())
 	updateWorkflowTemplates(wc.workflow, *entryTemplate, wc.executor(HelmReleaseExecutorName, Install))
 
 	return nil

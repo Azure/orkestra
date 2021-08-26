@@ -165,7 +165,7 @@ func (builder *Builder) Build() Client {
 			executor:      builder.executor,
 		}
 		if builder.executor == nil {
-			forwardClient.executor = defaultExecutor
+			forwardClient.executor = chainedDefaultKeptnExecutor
 		}
 		return forwardClient
 	case v1alpha1.Reverse:
@@ -177,7 +177,7 @@ func (builder *Builder) Build() Client {
 			executor:      builder.executor,
 		}
 		if builder.executor == nil {
-			reverseClient.executor = defaultExecutor
+			reverseClient.executor = chainedDefaultKeptnExecutor
 		}
 		return reverseClient
 	default:
@@ -189,7 +189,7 @@ func (builder *Builder) Build() Client {
 			executor:      builder.executor,
 		}
 		if builder.executor == nil {
-			rollbackClient.executor = defaultExecutor
+			rollbackClient.executor = chainedDefaultKeptnExecutor
 		}
 		return rollbackClient
 	}

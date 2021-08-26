@@ -3,6 +3,7 @@ package workflow
 import (
 	"context"
 	"fmt"
+
 	v1alpha13 "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
 
 	"github.com/Azure/Orkestra/pkg/meta"
@@ -69,6 +70,7 @@ func (wc *RollbackWorkflowClient) Generate(ctx context.Context) error {
 
 	// Update with the app dag templates, entry template, and executor template
 	updateWorkflowTemplates(wc.workflow, templates...)
+	updateWorkflowTemplates(wc.workflow, defaultExecutor(), keptnExecutor())
 	updateWorkflowTemplates(wc.workflow, *entryTemplate, wc.executor(HelmReleaseExecutorName, Install))
 	return nil
 }

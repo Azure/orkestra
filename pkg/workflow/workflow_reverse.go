@@ -73,6 +73,7 @@ func (wc *ReverseWorkflowClient) Generate(ctx context.Context) error {
 
 	// Update with the app dag templates, entry template, and executor template
 	updateWorkflowTemplates(wc.reverseWorkflow, templates...)
+	updateWorkflowTemplates(wc.reverseWorkflow, defaultExecutor(), keptnExecutor())
 	updateWorkflowTemplates(wc.reverseWorkflow, *entryTemplate, wc.executor(HelmReleaseExecutorName, Delete))
 
 	return nil
@@ -103,7 +104,6 @@ func (wc *ReverseWorkflowClient) Submit(ctx context.Context) error {
 	}
 	return nil
 }
-
 
 func (wc *ReverseWorkflowClient) getReverseName() string {
 	return fmt.Sprintf("%s-reverse", wc.forwardWorkflow.Name)
