@@ -17,3 +17,5 @@ spec:
             webserver:
               service:
                 type: ClusterIP
+              errors:
+                enabled: false

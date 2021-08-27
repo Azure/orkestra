@@ -19,7 +19,7 @@ const (
 	ExecutorImageTag = "v0.4.1"
 
 	KeptnExecutor         = "azureorkestra/keptn-executor"
-	KeptnExecutorImageTag = "v0.1.0"
+	KeptnExecutorImageTag = "v0.1.1"
 
 	defaultExecutorName = "default"
 	KeptnExecutorName   = "keptn"
