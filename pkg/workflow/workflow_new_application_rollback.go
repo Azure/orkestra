@@ -62,7 +62,7 @@ func (wc *NewApplicationRollbackWorkflowClient) Generate(ctx context.Context) er
 
 	// Update with the app dag templates, entry template, and executor template
 	templates.UpdateWorkflowTemplates(wc.workflow, tpls...)
-	templates.UpdateWorkflowTemplates(wc.workflow, *entryTemplate, wc.executor(HelmReleaseExecutorName, executor.Install))
+	templates.UpdateWorkflowTemplates(wc.workflow, *entryTemplate, wc.executor(HelmReleaseExecutorName, executor.Delete))
 	return nil
 }
 

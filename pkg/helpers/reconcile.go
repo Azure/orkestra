@@ -71,16 +71,23 @@ func (helper *ReconcileHelper) CreateOrUpdate(ctx context.Context) error {
 func (helper *ReconcileHelper) Rollback(ctx context.Context, patch client.Patch) (ctrl.Result, error) {
 	helper.Info("Rolling back to last successful application group spec")
 	rollbackClient := helper.WorkflowClientBuilder.Rollback(helper.Instance).Build()
+	newAppRollbackClient := helper.WorkflowClientBuilder.NewApplicationRollback(helper.Instance).Build()
 
 	// Re-running the workflow will not re-generate it since we check if we have already started it
-	if err := workflow.Run(ctx, rollbackClient); err != nil {
-		helper.Error(err, "failed to create the workflow for rollback")
-		return ctrl.Result{}, err
+	allSucceeded := true
+	for _, client := range []workflow.Client{rollbackClient, newAppRollbackClient} {
+		if err := workflow.Run(ctx, client); err != nil {
+			helper.Error(err, fmt.Sprintf("failed to create the workflow '%s' for rollback", client.GetName()))
+			return ctrl.Result{}, err
+		}
+		if isSucceeded, err := workflow.IsSucceeded(ctx, rollbackClient); err != nil {
+			helper.Error(err, "failed to validate if the workflow is succeeded")
+			return ctrl.Result{}, err
+		} else if !isSucceeded {
+			allSucceeded = false
+		}
 	}
-	if isSucceeded, err := workflow.IsSucceeded(ctx, rollbackClient); err != nil {
-		helper.Error(err, "failed to validate if the workflow is succeeded")
-		return ctrl.Result{}, err
-	} else if isSucceeded {
+	if allSucceeded {
 		return ctrl.Result{}, nil
 	}
 	return reconcile.Result{RequeueAfter: v1alpha1.DefaultProgressingRequeue}, nil

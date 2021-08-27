@@ -275,6 +275,8 @@ func DeleteWorkflow(ctx context.Context, wfClient Client) error {
 	workflow, err := GetWorkflow(ctx, wfClient)
 	if client.IgnoreNotFound(err) != nil {
 		return err
+	} else if err != nil {
+		return nil
 	}
 	return wfClient.GetClient().Delete(ctx, workflow)
 }
