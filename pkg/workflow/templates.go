@@ -84,6 +84,7 @@ func appDAGTaskBuilder(name string, dependencies []string, timeout, hrStr *v1alp
 				},
 			},
 		},
+		Dependencies: dependencies,
 	}
 	return task
 }
