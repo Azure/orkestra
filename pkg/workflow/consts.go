@@ -11,8 +11,6 @@ const (
 	ValuesKeyGlobal = "global"
 	ChartLabelKey   = "chart"
 
-	DefaultTimeout = "5m"
-
 	ExecutorName     = "executor"
 	ExecutorImage    = "azureorkestra/executor"
 	ExecutorImageTag = "v0.4.1"

@@ -49,16 +49,19 @@ func init() {
 }
 
 func main() {
-	var metricsAddr string
-	var enableLeaderElection bool
-	var configPath string
-	var stagingRepoURL string
-	var tempChartStoreTargetDir string
-	var disableRemediation bool
-	var cleanupDownloadedCharts bool
-	var debug bool
-	var workflowParallelism int64
-	var logLevel int
+	var (
+		metricsAddr             string
+		enableLeaderElection    bool
+		configPath              string
+		stagingRepoURL          string
+		tempChartStoreTargetDir string
+		disableRemediation      bool
+		cleanupDownloadedCharts bool
+		debug                   bool
+		workflowParallelism     int64
+		logLevel                int
+		enableZapLogDevMode     bool
+	)
 
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8081", "The address the metric endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
@@ -74,11 +77,10 @@ func main() {
 	flag.IntVar(&logLevel, "log-level", 0, "Log Level")
 	flag.Parse()
 
-	if logLevel > 0 {
-		ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
-	} else {
-		ctrl.SetLogger(zap.New(zap.UseDevMode(false)))
+	if logLevel < 0 {
+		enableZapLogDevMode = true
 	}
+	ctrl.SetLogger(zap.New(zap.UseDevMode(enableZapLogDevMode)))
 
 	// Start the probe at the very beginning
 	probe, err := utils.ProbeHandler(stagingRepoURL, "health")
@@ -107,12 +109,12 @@ func main() {
 	stagingHelmURL, workflowHelmURL, tempChartStoreTargetDir := getValues(stagingRepoURL, tempChartStoreTargetDir, debug)
 
 	if stagingHelmURL == "" {
-		if s := os.Getenv(stagingRepoURLEnv); s != "" {
-			stagingHelmURL = s
-		} else {
+		s := os.Getenv(stagingRepoURLEnv)
+		if s == "" {
 			setupLog.Error(err, "staging repo URL must be set")
 			os.Exit(1)
 		}
+		stagingHelmURL = s
 	}
 
 	rc, err := registry.NewClient(
@@ -135,7 +137,7 @@ func main() {
 				URL:  stagingHelmURL,
 			})
 			if err != nil {
-				setupLog.Info("failed to add staging helm repo, retrying...")
+				setupLog.Error(err, "failed to add staging helm repo, retrying...")
 				time.Sleep(time.Second * 5)
 			} else {
 				retryChan <- true

@@ -3,6 +3,9 @@ package workflow
 import (
 	"context"
 	"fmt"
+	"github.com/Azure/Orkestra/pkg/executor"
+	"github.com/Azure/Orkestra/pkg/graph"
+	"github.com/Azure/Orkestra/pkg/templates"
 
 	"github.com/Azure/Orkestra/api/v1alpha1"
 	v1alpha13 "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
@@ -27,8 +30,12 @@ func (wc *ForwardWorkflowClient) GetType() v1alpha1.WorkflowType {
 	return v1alpha1.Forward
 }
 
+func (wc *ForwardWorkflowClient) GetName() string {
+	return wc.appGroup.Name
+}
+
 func (wc *ForwardWorkflowClient) GetNamespace() string {
-	return wc.namespace
+	return wc.Namespace
 }
 
 func (wc *ForwardWorkflowClient) GetOptions() ClientOptions {
@@ -41,7 +48,7 @@ func (wc *ForwardWorkflowClient) GetAppGroup() *v1alpha1.ApplicationGroup {
 
 func (wc *ForwardWorkflowClient) GetWorkflow(ctx context.Context) (*v1alpha13.Workflow, error) {
 	workflow := &v1alpha13.Workflow{}
-	err := wc.Get(ctx, types.NamespacedName{Namespace: wc.namespace, Name: wc.appGroup.Name}, workflow)
+	err := wc.Get(ctx, types.NamespacedName{Namespace: wc.Namespace, Name: wc.appGroup.Name}, workflow)
 	return workflow, err
 }
 
@@ -60,15 +67,16 @@ func (wc *ForwardWorkflowClient) Generate(ctx context.Context) error {
 		return fmt.Errorf("failed to suspend rollback workflow: %w", err)
 	}
 
-	wc.workflow = initWorkflowObject(wc.appGroup.Name, wc.namespace, wc.parallelism)
-	entryTemplate, templates, err := generateTemplates(wc.GetAppGroup(), wc.GetOptions())
+	wc.workflow = initWorkflowObject(wc.appGroup.Name, wc.Namespace, wc.Parallelism)
+	graph := graph.NewForwardGraph(wc.GetAppGroup())
+	entryTemplate, templates, err := templates.GenerateTemplates(graph, wc.GetOptions())
 	if err != nil {
 		return fmt.Errorf("failed to generate workflow: %w", err)
 	}
 
 	// Update with the app dag templates, entry template, and executor template
 	updateWorkflowTemplates(wc.workflow, templates...)
-	updateWorkflowTemplates(wc.workflow, *entryTemplate, wc.executor(HelmReleaseExecutorName, Install))
+	updateWorkflowTemplates(wc.workflow, *entryTemplate, wc.executor(HelmReleaseExecutorName, executor.Install))
 
 	return nil
 }

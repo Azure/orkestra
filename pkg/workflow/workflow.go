@@ -3,6 +3,7 @@ package workflow
 import (
 	"context"
 	"fmt"
+	"github.com/Azure/Orkestra/pkg/executor"
 
 	"github.com/Azure/Orkestra/pkg/meta"
 	v1alpha13 "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
@@ -16,7 +17,7 @@ import (
 
 type ClientType string
 
-type ExecutorFunc func(string, ExecutorAction) v1alpha13.Template
+type ExecutorFunc func(string, executor.ExecutorAction) v1alpha13.Template
 
 var _ = ForwardWorkflowClient{}
 var _ = ReverseWorkflowClient{}
@@ -52,9 +53,9 @@ type Client interface {
 }
 
 type ClientOptions struct {
-	parallelism *int64
-	stagingRepo string
-	namespace   string
+	Parallelism *int64
+	StagingRepo string
+	Namespace   string
 }
 
 type Builder struct {
@@ -64,7 +65,7 @@ type Builder struct {
 	executor   ExecutorFunc
 	logger     logr.Logger
 
-	forwardWorkflow *v1alpha13.Workflow
+	workflow *v1alpha13.Workflow
 	appGroup        *v1alpha1.ApplicationGroup
 }
 
@@ -86,7 +87,16 @@ type RollbackWorkflowClient struct {
 
 	workflow         *v1alpha13.Workflow
 	appGroup         *v1alpha1.ApplicationGroup
-	rollbackAppGroup *v1alpha1.ApplicationGroup
+}
+
+type NewApplicationRollbackWorkflowClient struct {
+	client.Client
+	logr.Logger
+	ClientOptions
+	executor ExecutorFunc
+
+	workflow         *v1alpha13.Workflow
+	appGroup         *v1alpha1.ApplicationGroup
 }
 
 type ReverseWorkflowClient struct {
@@ -95,8 +105,7 @@ type ReverseWorkflowClient struct {
 	ClientOptions
 	executor ExecutorFunc
 
-	forwardWorkflow *v1alpha13.Workflow
-	reverseWorkflow *v1alpha13.Workflow
+	workflow *v1alpha13.Workflow
 	appGroup        *v1alpha1.ApplicationGroup
 }
 
@@ -135,18 +144,24 @@ func (builder *Builder) Rollback(appGroup *v1alpha1.ApplicationGroup) *Builder {
 	return builder
 }
 
+func (builder *Builder) NewApplicationRollback(appGroup *v1alpha1.ApplicationGroup) *Builder {
+	builder.clientType = v1alpha1.NewApplicationRollback
+	builder.appGroup = appGroup
+	return builder
+}
+
 func (builder *Builder) WithParallelism(numNodes int64) *Builder {
-	builder.options.parallelism = &numNodes
+	builder.options.Parallelism = &numNodes
 	return builder
 }
 
 func (builder *Builder) WithStagingRepo(stagingURL string) *Builder {
-	builder.options.stagingRepo = stagingURL
+	builder.options.StagingRepo = stagingURL
 	return builder
 }
 
 func (builder *Builder) InNamespace(namespace string) *Builder {
-	builder.options.namespace = namespace
+	builder.options.Namespace = namespace
 	return builder
 }
 
@@ -166,7 +181,7 @@ func (builder *Builder) Build() Client {
 			executor:      builder.executor,
 		}
 		if builder.executor == nil {
-			forwardClient.executor = defaultExecutor
+			forwardClient.executor = executor.Default
 		}
 		return forwardClient
 	case v1alpha1.Reverse:
@@ -178,10 +193,10 @@ func (builder *Builder) Build() Client {
 			executor:      builder.executor,
 		}
 		if builder.executor == nil {
-			reverseClient.executor = defaultExecutor
+			reverseClient.executor = executor.Default
 		}
 		return reverseClient
-	default:
+	case v1alpha1.Rollback:
 		rollbackClient := &RollbackWorkflowClient{
 			Client:        builder.client,
 			Logger:        builder.logger,
@@ -190,9 +205,21 @@ func (builder *Builder) Build() Client {
 			executor:      builder.executor,
 		}
 		if builder.executor == nil {
-			rollbackClient.executor = defaultExecutor
+			rollbackClient.executor = executor.Default
 		}
 		return rollbackClient
+	default:
+		newApplicationRollbackClient := &NewApplicationRollbackWorkflowClient{
+			Client:        builder.client,
+			Logger:        builder.logger,
+			ClientOptions: builder.options,
+			appGroup:      builder.appGroup,
+			executor:      builder.executor,
+		}
+		if builder.executor == nil {
+			newApplicationRollbackClient.executor = executor.Default
+		}
+		return newApplicationRollbackClient
 	}
 }
 
@@ -327,14 +354,6 @@ func toConditionReason(nodePhase v1alpha13.WorkflowPhase) string {
 	default:
 		return meta.ProgressingReason
 	}
-}
-
-func getNodes(wf *v1alpha13.Workflow) map[string]v1alpha13.NodeStatus {
-	nodes := make(map[string]v1alpha13.NodeStatus)
-	for _, node := range wf.Status.Nodes {
-		nodes[node.ID] = node
-	}
-	return nodes
 }
 
 func initWorkflowObject(name, namespace string, parallelism *int64) *v1alpha13.Workflow {
