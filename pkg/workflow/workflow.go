@@ -4,20 +4,24 @@ import (
 	"context"
 	"fmt"
 	"github.com/Azure/Orkestra/pkg/executor"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/Azure/Orkestra/pkg/meta"
 	v1alpha13 "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/Azure/Orkestra/api/v1alpha1"
 	"github.com/go-logr/logr"
 )
 
+const (
+	HelmReleaseExecutorName = "helmrelease-executor"
+)
+
 type ClientType string
 
-type ExecutorFunc func(string, executor.ExecutorAction) v1alpha13.Template
+type ExecutorFunc func(string, executor.Action) v1alpha13.Template
 
 var _ = ForwardWorkflowClient{}
 var _ = ReverseWorkflowClient{}
@@ -36,14 +40,14 @@ type Client interface {
 	// GetLogger returns the logger associated with the workflow client
 	GetLogger() logr.Logger
 
+	// GetName returns the name associated with the workflow
+	GetName() string
+
 	// GetNamespace returns the namespace that the workflow should run in
 	GetNamespace() string
 
 	// GetOptions returns the client options used with the workflow client
 	GetOptions() ClientOptions
-
-	// GetWorkflow returns the workflow from the k8s apiserver associated with the workflow client
-	GetWorkflow(context.Context) (*v1alpha13.Workflow, error)
 
 	// GetClient returns the k8s client associated with the workflow
 	GetClient() client.Client
@@ -66,7 +70,7 @@ type Builder struct {
 	logger     logr.Logger
 
 	workflow *v1alpha13.Workflow
-	appGroup        *v1alpha1.ApplicationGroup
+	appGroup *v1alpha1.ApplicationGroup
 }
 
 type ForwardWorkflowClient struct {
@@ -85,8 +89,8 @@ type RollbackWorkflowClient struct {
 	ClientOptions
 	executor ExecutorFunc
 
-	workflow         *v1alpha13.Workflow
-	appGroup         *v1alpha1.ApplicationGroup
+	workflow *v1alpha13.Workflow
+	appGroup *v1alpha1.ApplicationGroup
 }
 
 type NewApplicationRollbackWorkflowClient struct {
@@ -95,8 +99,8 @@ type NewApplicationRollbackWorkflowClient struct {
 	ClientOptions
 	executor ExecutorFunc
 
-	workflow         *v1alpha13.Workflow
-	appGroup         *v1alpha1.ApplicationGroup
+	workflow *v1alpha13.Workflow
+	appGroup *v1alpha1.ApplicationGroup
 }
 
 type ReverseWorkflowClient struct {
@@ -106,7 +110,7 @@ type ReverseWorkflowClient struct {
 	executor ExecutorFunc
 
 	workflow *v1alpha13.Workflow
-	appGroup        *v1alpha1.ApplicationGroup
+	appGroup *v1alpha1.ApplicationGroup
 }
 
 func NewBuilder(client client.Client, logger logr.Logger) *Builder {
@@ -238,7 +242,7 @@ func Run(ctx context.Context, wfClient Client) error {
 // if the workflow still exists on the cluster
 func Suspend(ctx context.Context, wfClient Client) error {
 	// suspend a workflow if it is not already finished or suspended
-	workflow, err := wfClient.GetWorkflow(ctx)
+	workflow, err := GetWorkflow(ctx, wfClient)
 	if client.IgnoreNotFound(err) != nil {
 		return fmt.Errorf("failed to suspend the workflow: %w", err)
 	} else if err != nil || !workflow.Status.FinishedAt.IsZero() {
@@ -259,10 +263,16 @@ func Suspend(ctx context.Context, wfClient Client) error {
 	return nil
 }
 
+func GetWorkflow(ctx context.Context, wc Client) (*v1alpha13.Workflow, error) {
+	workflow := &v1alpha13.Workflow{}
+	err := wc.GetClient().Get(ctx, types.NamespacedName{Namespace: wc.GetNamespace(), Name: wc.GetName()}, workflow)
+	return workflow, err
+}
+
 // DeleteWorkflow removes the workflow from the api server associated with
 // the workflow client
 func DeleteWorkflow(ctx context.Context, wfClient Client) error {
-	workflow, err := wfClient.GetWorkflow(ctx)
+	workflow, err := GetWorkflow(ctx, wfClient)
 	if client.IgnoreNotFound(err) != nil {
 		return err
 	}
@@ -272,7 +282,7 @@ func DeleteWorkflow(ctx context.Context, wfClient Client) error {
 // UpdateStatus updates the status of the owning appGroup with the workflow condition type
 // of the workflow client
 func UpdateStatus(ctx context.Context, wfClient Client) error {
-	wf, err := wfClient.GetWorkflow(ctx)
+	wf, err := GetWorkflow(ctx, wfClient)
 	if client.IgnoreNotFound(err) != nil {
 		return err
 	} else if err != nil {
@@ -323,7 +333,7 @@ func SetSuspended(wfClient Client) {
 
 // IsFailed checks if the workflow created by the workflow client is in a failed state
 func IsFailed(ctx context.Context, wfClient Client) (bool, error) {
-	wf, err := wfClient.GetWorkflow(ctx)
+	wf, err := GetWorkflow(ctx, wfClient)
 	if client.IgnoreNotFound(err) != nil {
 		return false, fmt.Errorf("failed to get workflow: %w", err)
 	}
@@ -335,7 +345,7 @@ func IsFailed(ctx context.Context, wfClient Client) (bool, error) {
 
 // IsSucceeded checks if the workflow created by the workflow client is in a succeeded state
 func IsSucceeded(ctx context.Context, wfClient Client) (bool, error) {
-	wf, err := wfClient.GetWorkflow(ctx)
+	wf, err := GetWorkflow(ctx, wfClient)
 	if client.IgnoreNotFound(err) != nil {
 		return false, fmt.Errorf("failed to get workflow: %w", err)
 	}
@@ -354,30 +364,4 @@ func toConditionReason(nodePhase v1alpha13.WorkflowPhase) string {
 	default:
 		return meta.ProgressingReason
 	}
-}
-
-func initWorkflowObject(name, namespace string, parallelism *int64) *v1alpha13.Workflow {
-	return &v1alpha13.Workflow{
-		ObjectMeta: v1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-			Labels:    map[string]string{v1alpha1.HeritageLabel: v1alpha1.HeritageValue},
-		},
-		TypeMeta: v1.TypeMeta{
-			APIVersion: v1alpha13.WorkflowSchemaGroupVersionKind.GroupVersion().String(),
-			Kind:       v1alpha13.WorkflowSchemaGroupVersionKind.Kind,
-		},
-		Spec: v1alpha13.WorkflowSpec{
-			Entrypoint:  EntrypointTemplateName,
-			Templates:   make([]v1alpha13.Template, 0),
-			Parallelism: parallelism,
-			PodGC: &v1alpha13.PodGC{
-				Strategy: v1alpha13.PodGCOnWorkflowCompletion,
-			},
-		},
-	}
-}
-
-func updateWorkflowTemplates(wf *v1alpha13.Workflow, tpls ...v1alpha13.Template) {
-	wf.Spec.Templates = append(wf.Spec.Templates, tpls...)
 }

@@ -2,7 +2,6 @@ package executor
 
 import (
 	"fmt"
-	"github.com/Azure/Orkestra/pkg/workflow"
 	"os"
 
 	"github.com/Azure/Orkestra/pkg/utils"
@@ -11,12 +10,21 @@ import (
 )
 
 // ExecutorAction defines the set of executor actions which can be performed on a helmrelease object
-type ExecutorAction string
+type Action string
 
 const (
-	Install ExecutorAction = "install"
-	Delete  ExecutorAction = "delete"
-	DefaultTimeout string = "5m"
+	Install Action = "install"
+	Delete  Action = "delete"
+)
+
+const (
+	DefaultTimeout   = "5m"
+	ExecutorName     = "executor"
+	ExecutorImage    = "azureorkestra/executor"
+	ExecutorImageTag = "v0.4.1"
+
+	HelmReleaseArg = "helmrelease"
+	TimeoutArg     = "timeout"
 )
 
 func workflowServiceAccountName() string {
@@ -26,7 +34,7 @@ func workflowServiceAccountName() string {
 	return "orkestra"
 }
 
-func Default(templateName string, action ExecutorAction) v1alpha13.Template {
+func Default(templateName string, action Action) v1alpha13.Template {
 	executorArgs := []string{"--spec", "{{inputs.parameters.helmrelease}}", "--action", string(action), "--timeout", "{{inputs.parameters.timeout}}", "--interval", "1s"}
 	return v1alpha13.Template{
 		Name:               templateName,
@@ -34,10 +42,10 @@ func Default(templateName string, action ExecutorAction) v1alpha13.Template {
 		Inputs: v1alpha13.Inputs{
 			Parameters: []v1alpha13.Parameter{
 				{
-					Name: workflow.HelmReleaseArg,
+					Name: HelmReleaseArg,
 				},
 				{
-					Name:    workflow.TimeoutArg,
+					Name:    TimeoutArg,
 					Default: utils.ToAnyStringPtr(DefaultTimeout),
 				},
 			},
@@ -47,8 +55,8 @@ func Default(templateName string, action ExecutorAction) v1alpha13.Template {
 		},
 		Outputs: v1alpha13.Outputs{},
 		Container: &corev1.Container{
-			Name:  workflow.ExecutorName,
-			Image: fmt.Sprintf("%s:%s", workflow.ExecutorImage, workflow.ExecutorImageTag),
+			Name:  ExecutorName,
+			Image: fmt.Sprintf("%s:%s", ExecutorImage, ExecutorImageTag),
 			Args:  executorArgs,
 		},
 	}

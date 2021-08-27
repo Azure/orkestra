@@ -14,7 +14,6 @@ import (
 
 	v1alpha13 "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
 	"github.com/go-logr/logr"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
@@ -46,14 +45,6 @@ func (wc *ReverseWorkflowClient) GetNamespace() string {
 	return wc.Namespace
 }
 
-func (wc *ReverseWorkflowClient) GetWorkflow(ctx context.Context) (*v1alpha13.Workflow, error) {
-	reverseWorkflow := &v1alpha13.Workflow{}
-
-	rwfName := fmt.Sprintf("%s-reverse", wc.appGroup.Name)
-	err := wc.Get(ctx, types.NamespacedName{Namespace: wc.Namespace, Name: rwfName}, reverseWorkflow)
-	return reverseWorkflow, err
-}
-
 func (wc *ReverseWorkflowClient) Generate(ctx context.Context) error {
 	var err error
 
@@ -67,23 +58,23 @@ func (wc *ReverseWorkflowClient) Generate(ctx context.Context) error {
 		return fmt.Errorf("failed to suspend rollback workflow: %w", err)
 	}
 
-	wc.workflow = initWorkflowObject(wc.GetName(), wc.Namespace, wc.Parallelism)
+	wc.workflow = templates.GenerateWorkflow(wc.GetName(), wc.Namespace, wc.Parallelism)
 	graph := graph.NewReverseGraph(wc.GetAppGroup())
-	entryTemplate, templates, err := templates.GenerateTemplates(graph, wc.GetOptions())
+	entryTemplate, tpls, err := templates.GenerateTemplates(graph, wc.Namespace, wc.Parallelism)
 	if err != nil {
 		return fmt.Errorf("failed to generate workflow: %w", err)
 	}
 
 	// Update with the app dag templates, entry template, and executor template
-	updateWorkflowTemplates(wc.workflow, templates...)
-	updateWorkflowTemplates(wc.workflow, *entryTemplate, wc.executor(HelmReleaseExecutorName, executor.Delete))
+	templates.UpdateWorkflowTemplates(wc.workflow, tpls...)
+	templates.UpdateWorkflowTemplates(wc.workflow, *entryTemplate, wc.executor(HelmReleaseExecutorName, executor.Delete))
 
 	return nil
 }
 
 func (wc *ReverseWorkflowClient) Submit(ctx context.Context) error {
 	forwardClient := NewBuilderFromClient(wc).Forward(wc.appGroup).Build()
-	forwardWorkflow, err := forwardClient.GetWorkflow(ctx)
+	forwardWorkflow, err := GetWorkflow(ctx, forwardClient)
 	if err != nil {
 		return err
 	}

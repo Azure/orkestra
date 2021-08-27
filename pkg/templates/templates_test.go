@@ -126,7 +126,7 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 									ObjectMeta: v1.ObjectMeta{
 										Name: "bookinfo",
 										Labels: map[string]string{
-											v1alpha1.ChartLabel:  "bookinfo",
+											v1alpha1.ChartLabel:     "bookinfo",
 											v1alpha1.OwnershipLabel: "bookinfo",
 											v1alpha1.HeritageLabel:  "orkestra",
 										},
@@ -159,7 +159,7 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 									ObjectMeta: v1.ObjectMeta{
 										Name: utils.GetSubchartName("bookinfo", "subchart-1"),
 										Labels: map[string]string{
-											v1alpha1.ChartLabel:  utils.GetSubchartName("bookinfo", "subchart-1"),
+											v1alpha1.ChartLabel:     utils.GetSubchartName("bookinfo", "subchart-1"),
 											v1alpha1.OwnershipLabel: "bookinfo",
 											v1alpha1.HeritageLabel:  "orkestra",
 										},
@@ -195,7 +195,7 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 									ObjectMeta: v1.ObjectMeta{
 										Name: utils.GetSubchartName("bookinfo", "subchart-2"),
 										Labels: map[string]string{
-											v1alpha1.ChartLabel:  utils.GetSubchartName("bookinfo", "subchart-2"),
+											v1alpha1.ChartLabel:     utils.GetSubchartName("bookinfo", "subchart-2"),
 											v1alpha1.OwnershipLabel: "bookinfo",
 											v1alpha1.HeritageLabel:  "orkestra",
 										},
@@ -231,7 +231,7 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 									ObjectMeta: v1.ObjectMeta{
 										Name: utils.GetSubchartName("bookinfo", "subchart-3"),
 										Labels: map[string]string{
-											v1alpha1.ChartLabel:  utils.GetSubchartName("bookinfo", "subchart-3"),
+											v1alpha1.ChartLabel:     utils.GetSubchartName("bookinfo", "subchart-3"),
 											v1alpha1.OwnershipLabel: "bookinfo",
 											v1alpha1.HeritageLabel:  "orkestra",
 										},
@@ -275,7 +275,7 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 									ObjectMeta: v1.ObjectMeta{
 										Name: "ambassador",
 										Labels: map[string]string{
-											v1alpha1.ChartLabel:  "ambassador",
+											v1alpha1.ChartLabel:     "ambassador",
 											v1alpha1.OwnershipLabel: "bookinfo",
 											v1alpha1.HeritageLabel:  "orkestra",
 										},
@@ -352,7 +352,7 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 												ObjectMeta: v1.ObjectMeta{
 													Name: "bookinfo",
 													Labels: map[string]string{
-														v1alpha1.ChartLabel:  "bookinfo",
+														v1alpha1.ChartLabel:     "bookinfo",
 														v1alpha1.OwnershipLabel: "bookinfo",
 														v1alpha1.HeritageLabel:  "orkestra",
 													},

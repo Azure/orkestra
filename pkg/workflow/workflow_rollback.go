@@ -7,13 +7,10 @@ import (
 	"github.com/Azure/Orkestra/pkg/graph"
 	"github.com/Azure/Orkestra/pkg/templates"
 
-	"github.com/Azure/Orkestra/pkg/meta"
-	v1alpha13 "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
-
 	"github.com/Azure/Orkestra/api/v1alpha1"
+	"github.com/Azure/Orkestra/pkg/meta"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
@@ -46,13 +43,6 @@ func (wc *RollbackWorkflowClient) GetAppGroup() *v1alpha1.ApplicationGroup {
 	return wc.appGroup
 }
 
-func (wc *RollbackWorkflowClient) GetWorkflow(ctx context.Context) (*v1alpha13.Workflow, error) {
-	rollbackWorkflow := &v1alpha13.Workflow{}
-	rollbackWorkflowName := fmt.Sprintf("%s-rollback", wc.appGroup.Name)
-	err := wc.Get(ctx, types.NamespacedName{Namespace: wc.Namespace, Name: rollbackWorkflowName}, rollbackWorkflow)
-	return rollbackWorkflow, err
-}
-
 func (wc *RollbackWorkflowClient) Generate(ctx context.Context) error {
 	if wc.appGroup == nil {
 		return fmt.Errorf("applicationGroup object cannot be nil")
@@ -65,16 +55,16 @@ func (wc *RollbackWorkflowClient) Generate(ctx context.Context) error {
 	}
 	rollbackAppGroup.Spec = *lastSuccessful
 
-	wc.workflow = initWorkflowObject(wc.GetName(), wc.Namespace, wc.Parallelism)
+	wc.workflow = templates.GenerateWorkflow(wc.GetName(), wc.Namespace, wc.Parallelism)
 	graph := graph.NewForwardGraph(rollbackAppGroup)
-	entryTemplate, templates, err := templates.GenerateTemplates(graph, wc.GetOptions())
+	entryTemplate, tpls, err := templates.GenerateTemplates(graph, wc.Namespace, wc.Parallelism)
 	if err != nil {
 		return fmt.Errorf("failed to generate workflow: %w", err)
 	}
 
 	// Update with the app dag templates, entry template, and executor template
-	updateWorkflowTemplates(wc.workflow, templates...)
-	updateWorkflowTemplates(wc.workflow, *entryTemplate, wc.executor(HelmReleaseExecutorName, executor.Install))
+	templates.UpdateWorkflowTemplates(wc.workflow, tpls...)
+	templates.UpdateWorkflowTemplates(wc.workflow, *entryTemplate, wc.executor(HelmReleaseExecutorName, executor.Install))
 	return nil
 }
 

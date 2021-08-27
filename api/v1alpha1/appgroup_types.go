@@ -17,9 +17,9 @@ import (
 type WorkflowType string
 
 const (
-	Forward  WorkflowType = "forward"
-	Reverse  WorkflowType = "reverse"
-	Rollback WorkflowType = "rollback"
+	Forward                WorkflowType = "forward"
+	Reverse                WorkflowType = "reverse"
+	Rollback               WorkflowType = "rollback"
 	NewApplicationRollback WorkflowType = "newApplicationRollback"
 )
 

@@ -8,10 +8,8 @@ import (
 	"github.com/Azure/Orkestra/pkg/templates"
 
 	"github.com/Azure/Orkestra/api/v1alpha1"
-	v1alpha13 "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
@@ -44,36 +42,31 @@ func (wc *NewApplicationRollbackWorkflowClient) GetAppGroup() *v1alpha1.Applicat
 	return wc.appGroup
 }
 
-func (wc *NewApplicationRollbackWorkflowClient) GetWorkflow(ctx context.Context) (*v1alpha13.Workflow, error) {
-	rollbackWorkflow := &v1alpha13.Workflow{}
-	rollbackWorkflowName := fmt.Sprintf("%s-rollback", wc.appGroup.Name)
-	err := wc.Get(ctx, types.NamespacedName{Namespace: wc.Namespace, Name: rollbackWorkflowName}, rollbackWorkflow)
-	return rollbackWorkflow, err
-}
-
 func (wc *NewApplicationRollbackWorkflowClient) Generate(ctx context.Context) error {
 	if wc.appGroup == nil {
 		return fmt.Errorf("applicationGroup object cannot be nil")
 	}
 
-	wc.workflow = initWorkflowObject(wc.GetName(), wc.Namespace, wc.Parallelism)
-	graph := graph.NewForwardGraph(wc.appGroup)
-	entryTemplate, templates, err := templates.GenerateTemplates(graph, wc.GetOptions())
+	lastAppGroup := wc.GetAppGroup().DeepCopy()
+	lastAppGroup.Spec = *wc.appGroup.GetLastSuccessful()
+	currGraph := graph.NewForwardGraph(wc.appGroup)
+	lastGraph := graph.NewForwardGraph(lastAppGroup)
+
+	diffGraph := graph.GetDiff(currGraph, lastGraph)
+
+	wc.workflow = templates.GenerateWorkflow(wc.GetName(), wc.Namespace, wc.Parallelism)
+	entryTemplate, tpls, err := templates.GenerateTemplates(diffGraph.Reverse(), wc.Namespace, wc.Parallelism)
 	if err != nil {
 		return fmt.Errorf("failed to generate workflow: %w", err)
 	}
 
 	// Update with the app dag templates, entry template, and executor template
-	updateWorkflowTemplates(wc.workflow, templates...)
-	updateWorkflowTemplates(wc.workflow, *entryTemplate, wc.executor(HelmReleaseExecutorName, executor.Install))
+	templates.UpdateWorkflowTemplates(wc.workflow, tpls...)
+	templates.UpdateWorkflowTemplates(wc.workflow, *entryTemplate, wc.executor(HelmReleaseExecutorName, executor.Install))
 	return nil
 }
 
 func (wc *NewApplicationRollbackWorkflowClient) Submit(ctx context.Context) error {
-	if err := wc.purgeNewerReleases(ctx); err != nil {
-		return fmt.Errorf("failed to purge helm releases: %w", err)
-	}
-
 	// Create the new workflow, only if there is not already a rollback workflow that has been created
 	wc.workflow.Labels[v1alpha1.OwnershipLabel] = wc.appGroup.Name
 	if err := controllerutil.SetControllerReference(wc.appGroup, wc.workflow, wc.Scheme()); err != nil {

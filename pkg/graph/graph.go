@@ -3,13 +3,27 @@ package graph
 import (
 	"github.com/Azure/Orkestra/api/v1alpha1"
 	"github.com/Azure/Orkestra/pkg/utils"
-	"github.com/Azure/Orkestra/pkg/workflow"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+)
+
+const (
+	ValuesKeyGlobal = "global"
 )
 
 type Graph struct {
 	Name  string
 	Nodes map[string]*AppNode
+}
+
+func (g *Graph) DeepCopy() *Graph {
+	newGraph := &Graph{
+		Name:  g.Name,
+		Nodes: make(map[string]*AppNode),
+	}
+	for name, appNode := range g.Nodes {
+		newGraph.Nodes[name] = appNode.DeepCopy()
+	}
+	return newGraph
 }
 
 type AppNode struct {
@@ -20,9 +34,9 @@ type AppNode struct {
 
 func (appNode *AppNode) DeepCopy() *AppNode {
 	newAppNode := &AppNode{
-		Name: appNode.Name,
+		Name:         appNode.Name,
 		Dependencies: appNode.Dependencies,
-		Tasks: make(map[string]*TaskNode),
+		Tasks:        make(map[string]*TaskNode),
 	}
 
 	for name, task := range appNode.Tasks {
@@ -42,11 +56,11 @@ type TaskNode struct {
 
 func (taskNode *TaskNode) DeepCopy() *TaskNode {
 	return &TaskNode{
-		Name: taskNode.Name,
-		ChartName: taskNode.ChartName,
+		Name:         taskNode.Name,
+		ChartName:    taskNode.ChartName,
 		ChartVersion: taskNode.ChartVersion,
-		Parent: taskNode.Parent,
-		Release: taskNode.Release.DeepCopy(),
+		Parent:       taskNode.Parent,
+		Release:      taskNode.Release.DeepCopy(),
 		Dependencies: taskNode.Dependencies,
 	}
 }
@@ -110,40 +124,43 @@ func (g *Graph) Reverse() *Graph {
 	for _, application := range g.Nodes {
 		// Iterate through the application dependencies and reverse the dependency relationship
 		for _, dep := range application.Dependencies {
-			if node, ok := g.Nodes[dep]; ok {
+			if node, ok := reverseGraph.Nodes[dep]; ok {
 				node.Dependencies = append(node.Dependencies, application.Name)
 			}
 		}
 		for _, subTask := range application.Tasks {
-			subChartNode := g.Nodes[application.Name].Tasks[subTask.Name]
-
+			subChartNode := reverseGraph.Nodes[application.Name].Tasks[subTask.Name]
 			// Sub-chart dependencies now depend on this sub-chart to reverse
 			for _, dep := range subTask.Dependencies {
-				if node, ok := g.Nodes[application.Name].Tasks[dep]; ok {
+				if node, ok := reverseGraph.Nodes[application.Name].Tasks[dep]; ok {
 					node.Dependencies = append(node.Dependencies, subChartNode.Name)
 				}
 			}
-			// Sub-chart now depends on the parent application chart to reverse
-			subChartNode.Dependencies = append(subChartNode.Dependencies, application.Name)
 		}
 	}
-	return g
+	return reverseGraph
 }
 
-func (g *Graph) DeepCopy() *Graph {
-	newGraph := &Graph{
-		Name: g.Name,
-		Nodes: make(map[string]*AppNode),
-	}
-	for name, appNode := range g.Nodes {
-		g.Nodes[name] = appNode.DeepCopy()
-	}
-	return newGraph
-}
-
-// TODO: Implement the get diff of two graphs
+// GetDiff returns the difference between two graphs
+// It is the equivalent of performing A - B
 func GetDiff(a, b *Graph) *Graph {
-	return &Graph{}
+	diffGraph := a.DeepCopy()
+	for name, appA := range a.Nodes {
+		if appB, ok := b.Nodes[name]; ok {
+			gotAllTasks := true
+			for taskName := range appA.Tasks {
+				if _, ok := appB.Tasks[taskName]; ok {
+					delete(diffGraph.Nodes[name].Tasks, taskName)
+				} else {
+					gotAllTasks = false
+				}
+			}
+			if gotAllTasks {
+				delete(diffGraph.Nodes, name)
+			}
+		}
+	}
+	return diffGraph
 }
 
 func (g *Graph) clearDependencies() *Graph {
@@ -187,12 +204,12 @@ func SubChartValues(subChartName string, values map[string]interface{}) (*apiext
 			}
 		}
 	}
-	if gVals, ok := values[workflow.ValuesKeyGlobal]; ok {
+	if gVals, ok := values[ValuesKeyGlobal]; ok {
 		if vv, ok := gVals.(map[string]interface{}); ok {
-			data[workflow.ValuesKeyGlobal] = vv
+			data[ValuesKeyGlobal] = vv
 		}
 		if vv, ok := gVals.(map[string]string); ok {
-			data[workflow.ValuesKeyGlobal] = vv
+			data[ValuesKeyGlobal] = vv
 		}
 	}
 	return v1alpha1.GetJSON(data)

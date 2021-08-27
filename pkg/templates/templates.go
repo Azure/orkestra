@@ -3,7 +3,6 @@ package templates
 import (
 	"fmt"
 	"github.com/Azure/Orkestra/pkg/graph"
-	"github.com/Azure/Orkestra/pkg/workflow"
 
 	"github.com/Azure/Orkestra/api/v1alpha1"
 	"github.com/Azure/Orkestra/pkg/utils"
@@ -13,17 +12,51 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func GenerateTemplates(graph *graph.Graph, options workflow.ClientOptions) (*v1alpha13.Template, []v1alpha13.Template, error) {
-	templateMap, err := generateAppDAGTemplates(graph, options.Namespace, options.Parallelism)
+const (
+	EntrypointTemplateName  = "entry"
+	HelmReleaseArg          = "helmrelease"
+	TimeoutArg              = "timeout"
+	HelmReleaseExecutorName = "helmrelease-executor"
+	ChartMuseumName         = "chartmuseum"
+)
+
+func GenerateWorkflow(name, namespace string, parallelism *int64) *v1alpha13.Workflow {
+	return &v1alpha13.Workflow{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+			Labels:    map[string]string{v1alpha1.HeritageLabel: v1alpha1.HeritageValue},
+		},
+		TypeMeta: v1.TypeMeta{
+			APIVersion: v1alpha13.WorkflowSchemaGroupVersionKind.GroupVersion().String(),
+			Kind:       v1alpha13.WorkflowSchemaGroupVersionKind.Kind,
+		},
+		Spec: v1alpha13.WorkflowSpec{
+			Entrypoint:  EntrypointTemplateName,
+			Templates:   make([]v1alpha13.Template, 0),
+			Parallelism: parallelism,
+			PodGC: &v1alpha13.PodGC{
+				Strategy: v1alpha13.PodGCOnWorkflowCompletion,
+			},
+		},
+	}
+}
+
+func UpdateWorkflowTemplates(wf *v1alpha13.Workflow, tpls ...v1alpha13.Template) {
+	wf.Spec.Templates = append(wf.Spec.Templates, tpls...)
+}
+
+func GenerateTemplates(graph *graph.Graph, namespace string, parallelism *int64) (*v1alpha13.Template, []v1alpha13.Template, error) {
+	templateMap, err := generateAppDAGTemplates(graph, namespace, parallelism)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to generate application DAG templates : %w", err)
 	}
 
 	// Create the entry template from the app dag templates
 	entryTemplate := &v1alpha13.Template{
-		Name:        workflow.EntrypointTemplateName,
+		Name:        EntrypointTemplateName,
 		DAG:         &v1alpha13.DAGTemplate{},
-		Parallelism: options.Parallelism,
+		Parallelism: parallelism,
 	}
 
 	var templateSlice []v1alpha13.Template
@@ -73,15 +106,15 @@ func generateAppDAGTemplates(graph *graph.Graph, namespace string, parallelism *
 func appDAGTaskBuilder(name string, dependencies []string, timeout, hrStr *v1alpha13.AnyString) v1alpha13.DAGTask {
 	task := v1alpha13.DAGTask{
 		Name:     utils.ConvertToDNS1123(name),
-		Template: workflow.HelmReleaseExecutorName,
+		Template: HelmReleaseExecutorName,
 		Arguments: v1alpha13.Arguments{
 			Parameters: []v1alpha13.Parameter{
 				{
-					Name:  workflow.HelmReleaseArg,
+					Name:  HelmReleaseArg,
 					Value: hrStr,
 				},
 				{
-					Name:  workflow.TimeoutArg,
+					Name:  TimeoutArg,
 					Value: timeout,
 				},
 			},
@@ -108,7 +141,7 @@ func createHelmRelease(r *v1alpha1.Release, namespace, name, version string) *fl
 					Version: version,
 					SourceRef: fluxhelmv2beta1.CrossNamespaceObjectReference{
 						Kind:      fluxsourcev1beta1.HelmRepositoryKind,
-						Name:      workflow.ChartMuseumName,
+						Name:      ChartMuseumName,
 						Namespace: namespace,
 					},
 				},

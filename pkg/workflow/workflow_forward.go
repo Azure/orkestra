@@ -8,12 +8,10 @@ import (
 	"github.com/Azure/Orkestra/pkg/templates"
 
 	"github.com/Azure/Orkestra/api/v1alpha1"
-	v1alpha13 "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
@@ -46,12 +44,6 @@ func (wc *ForwardWorkflowClient) GetAppGroup() *v1alpha1.ApplicationGroup {
 	return wc.appGroup
 }
 
-func (wc *ForwardWorkflowClient) GetWorkflow(ctx context.Context) (*v1alpha13.Workflow, error) {
-	workflow := &v1alpha13.Workflow{}
-	err := wc.Get(ctx, types.NamespacedName{Namespace: wc.Namespace, Name: wc.appGroup.Name}, workflow)
-	return workflow, err
-}
-
 func (wc *ForwardWorkflowClient) Generate(ctx context.Context) error {
 	if wc.appGroup == nil {
 		return fmt.Errorf("applicationGroup object cannot be nil")
@@ -67,16 +59,16 @@ func (wc *ForwardWorkflowClient) Generate(ctx context.Context) error {
 		return fmt.Errorf("failed to suspend rollback workflow: %w", err)
 	}
 
-	wc.workflow = initWorkflowObject(wc.appGroup.Name, wc.Namespace, wc.Parallelism)
+	wc.workflow = templates.GenerateWorkflow(wc.appGroup.Name, wc.Namespace, wc.Parallelism)
 	graph := graph.NewForwardGraph(wc.GetAppGroup())
-	entryTemplate, templates, err := templates.GenerateTemplates(graph, wc.GetOptions())
+	entryTemplate, tpls, err := templates.GenerateTemplates(graph, wc.Namespace, wc.Parallelism)
 	if err != nil {
 		return fmt.Errorf("failed to generate workflow: %w", err)
 	}
 
 	// Update with the app dag templates, entry template, and executor template
-	updateWorkflowTemplates(wc.workflow, templates...)
-	updateWorkflowTemplates(wc.workflow, *entryTemplate, wc.executor(HelmReleaseExecutorName, executor.Install))
+	templates.UpdateWorkflowTemplates(wc.workflow, tpls...)
+	templates.UpdateWorkflowTemplates(wc.workflow, *entryTemplate, wc.executor(HelmReleaseExecutorName, executor.Install))
 
 	return nil
 }
