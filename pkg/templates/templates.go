@@ -96,7 +96,9 @@ func generateAppDAGTemplates(graph *graph.Graph, namespace string, parallelism *
 				}
 			}
 			hrStr := utils.HrToB64AnyStringPtr(hr)
-			template.DAG.Tasks = append(template.DAG.Tasks, appDAGTaskBuilder(task.Name, task.Dependencies, getTimeout(task.Release.Timeout), hrStr))
+			for _, executor := range task.Executors {
+				template.DAG.Tasks = append(template.DAG.Tasks, executor.GetTask(task.Name, task.Dependencies, getTimeout(task.Release.Timeout), hrStr))
+			}
 		}
 		templateMap[name] = template
 	}

@@ -64,7 +64,6 @@ func (helper *ReconcileHelper) CreateOrUpdate(ctx context.Context) error {
 		helper.StatusHelper.MarkWorkflowTemplateGenerationFailed(helper.Instance, err)
 		return fmt.Errorf("failed to run forward workflow with: %w", err)
 	}
-	helper.Instance.Status.ObservedGeneration = helper.Instance.Generation
 	return nil
 }
 

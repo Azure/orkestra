@@ -3,7 +3,6 @@ package workflow
 import (
 	"context"
 	"fmt"
-	"github.com/Azure/Orkestra/pkg/executor"
 	"github.com/Azure/Orkestra/pkg/graph"
 	"github.com/Azure/Orkestra/pkg/templates"
 
@@ -68,7 +67,10 @@ func (wc *ForwardWorkflowClient) Generate(ctx context.Context) error {
 
 	// Update with the app dag templates, entry template, and executor template
 	templates.UpdateWorkflowTemplates(wc.workflow, tpls...)
-	templates.UpdateWorkflowTemplates(wc.workflow, *entryTemplate, wc.executor(HelmReleaseExecutorName, executor.Install))
+	templates.UpdateWorkflowTemplates(wc.workflow, *entryTemplate)
+	for _, executor := range graph.AllExecutors {
+		templates.UpdateWorkflowTemplates(wc.workflow, executor.GetTemplate())
+	}
 
 	return nil
 }

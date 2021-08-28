@@ -704,6 +704,127 @@ func Test_Diff(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "Diff with Same Node",
+			args: args{
+				a: &Graph{
+					Name: "firstGraph",
+					Nodes: map[string]*AppNode{
+						"application1": {
+							Name: "application1",
+							Tasks: map[string]*TaskNode{
+								"application1": {
+									Name: "application1",
+								},
+							},
+						},
+						"application2": {
+							Name: "application1",
+							Tasks: map[string]*TaskNode{
+								"application1": {
+									Name: "application1",
+								},
+							},
+						},
+					},
+				},
+				b: &Graph{
+					Name: "secondGraph",
+					Nodes: map[string]*AppNode{
+						"application2": {
+							Name: "application2",
+							Tasks: map[string]*TaskNode{
+								"application2": {
+									Name: "application2",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: &Graph{
+				Name: "firstGraph",
+				Nodes: map[string]*AppNode{
+					"application1": {
+						Name: "application1",
+						Tasks: map[string]*TaskNode{
+							"application1": {
+								Name: "application1",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "Different Subtasks in the First Graph",
+			args: args{
+				a: &Graph{
+					Name: "firstGraph",
+					Nodes: map[string]*AppNode{
+						"application1": {
+							Name: "application1",
+							Tasks: map[string]*TaskNode{
+								"application1": {
+									Name: "application1",
+								},
+							},
+						},
+						"application2": {
+							Name: "application2",
+							Tasks: map[string]*TaskNode{
+								"application2": {
+									Name: "application2",
+								},
+								"subtask1": {
+									Name: "subtask1",
+								},
+								"subtask2": {
+									Name: "subtask2",
+								},
+							},
+						},
+					},
+				},
+				b: &Graph{
+					Name: "secondGraph",
+					Nodes: map[string]*AppNode{
+						"application2": {
+							Name: "application2",
+							Tasks: map[string]*TaskNode{
+								"application2": {
+									Name: "application2",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: &Graph{
+				Name: "firstGraph",
+				Nodes: map[string]*AppNode{
+					"application1": {
+						Name: "application1",
+						Tasks: map[string]*TaskNode{
+							"application1": {
+								Name: "application1",
+							},
+						},
+					},
+					"application2": {
+						Name: "application2",
+						Tasks: map[string]*TaskNode{
+							"subtask1": {
+								Name: "subtask1",
+							},
+							"subtask2": {
+								Name: "subtask2",
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -771,6 +892,98 @@ func Test_Combine(t *testing.T) {
 						Tasks: map[string]*TaskNode{
 							"application2": {
 								Name: "application2",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "Combine Graphs that have Subtasks",
+			args: args{
+				a: &Graph{
+					Name: "firstGraph",
+					Nodes: map[string]*AppNode{
+						"application1": {
+							Name: "application1",
+							Tasks: map[string]*TaskNode{
+								"application1": {
+									Name: "application1",
+								},
+							},
+						},
+						"application2": {
+							Name: "application2",
+							Tasks: map[string]*TaskNode{
+								"application2": {
+									Name: "application2",
+								},
+								"subtask1": {
+									Name: "subtask1",
+								},
+								"subtask2": {
+									Name: "subtask2",
+								},
+							},
+						},
+					},
+				},
+				b: &Graph{
+					Name: "secondGraph",
+					Nodes: map[string]*AppNode{
+						"application3": {
+							Name: "application3",
+							Tasks: map[string]*TaskNode{
+								"application3": {
+									Name: "application3",
+								},
+								"subtask1": {
+									Name: "subtask1",
+								},
+								"subtask2": {
+									Name: "subtask2",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: &Graph{
+				Name: "firstGraph",
+				Nodes: map[string]*AppNode{
+					"application1": {
+						Name: "application1",
+						Tasks: map[string]*TaskNode{
+							"application1": {
+								Name: "application1",
+							},
+						},
+					},
+					"application2": {
+						Name: "application2",
+						Tasks: map[string]*TaskNode{
+							"application2": {
+								Name: "application2",
+							},
+							"subtask1": {
+								Name: "subtask1",
+							},
+							"subtask2": {
+								Name: "subtask2",
+							},
+						},
+					},
+					"application3": {
+						Name: "application3",
+						Tasks: map[string]*TaskNode{
+							"application3": {
+								Name: "application3",
+							},
+							"subtask1": {
+								Name: "subtask1",
+							},
+							"subtask2": {
+								Name: "subtask2",
 							},
 						},
 					},

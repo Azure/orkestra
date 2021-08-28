@@ -3,7 +3,6 @@ package workflow
 import (
 	"context"
 	"fmt"
-	"github.com/Azure/Orkestra/pkg/executor"
 	"github.com/Azure/Orkestra/pkg/graph"
 	"github.com/Azure/Orkestra/pkg/templates"
 
@@ -60,15 +59,18 @@ func (wc *RollbackWorkflowClient) Generate(ctx context.Context) error {
 	diffGraph := graph.Diff(currGraph, lastGraph)
 
 	wc.workflow = templates.GenerateWorkflow(wc.GetName(), wc.Namespace, wc.Parallelism)
-	forwardGraph := graph.NewForwardGraph(rollbackAppGroup)
-	entryTemplate, tpls, err := templates.GenerateTemplates(graph.Combine(forwardGraph, diffGraph.Reverse()), wc.Namespace, wc.Parallelism)
+	combinedGraph := graph.Combine(lastGraph, diffGraph.Reverse())
+	entryTemplate, tpls, err := templates.GenerateTemplates(combinedGraph, wc.Namespace, wc.Parallelism)
 	if err != nil {
 		return fmt.Errorf("failed to generate workflow: %w", err)
 	}
 
 	// Update with the app dag templates, entry template, and executor template
 	templates.UpdateWorkflowTemplates(wc.workflow, tpls...)
-	templates.UpdateWorkflowTemplates(wc.workflow, *entryTemplate, wc.executor(HelmReleaseExecutorName, executor.Install))
+	templates.UpdateWorkflowTemplates(wc.workflow, *entryTemplate)
+	for _, executor := range combinedGraph.AllExecutors {
+		templates.UpdateWorkflowTemplates(wc.workflow, executor.GetTemplate())
+	}
 	return nil
 }
 

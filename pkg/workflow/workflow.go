@@ -3,7 +3,6 @@ package workflow
 import (
 	"context"
 	"fmt"
-	"github.com/Azure/Orkestra/pkg/executor"
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/Azure/Orkestra/pkg/meta"
@@ -15,13 +14,7 @@ import (
 	"github.com/go-logr/logr"
 )
 
-const (
-	HelmReleaseExecutorName = "helmrelease-executor"
-)
-
 type ClientType string
-
-type ExecutorFunc func(string, executor.Action) v1alpha13.Template
 
 var _ = ForwardWorkflowClient{}
 var _ = ReverseWorkflowClient{}
@@ -66,7 +59,6 @@ type Builder struct {
 	client     client.Client
 	clientType v1alpha1.WorkflowType
 	options    ClientOptions
-	executor   ExecutorFunc
 	logger     logr.Logger
 
 	workflow *v1alpha13.Workflow
@@ -77,7 +69,6 @@ type ForwardWorkflowClient struct {
 	client.Client
 	logr.Logger
 	ClientOptions
-	executor ExecutorFunc
 
 	workflow *v1alpha13.Workflow
 	appGroup *v1alpha1.ApplicationGroup
@@ -87,17 +78,6 @@ type RollbackWorkflowClient struct {
 	client.Client
 	logr.Logger
 	ClientOptions
-	executor ExecutorFunc
-
-	workflow *v1alpha13.Workflow
-	appGroup *v1alpha1.ApplicationGroup
-}
-
-type NewApplicationRollbackWorkflowClient struct {
-	client.Client
-	logr.Logger
-	ClientOptions
-	executor ExecutorFunc
 
 	workflow *v1alpha13.Workflow
 	appGroup *v1alpha1.ApplicationGroup
@@ -107,7 +87,6 @@ type ReverseWorkflowClient struct {
 	client.Client
 	logr.Logger
 	ClientOptions
-	executor ExecutorFunc
 
 	workflow *v1alpha13.Workflow
 	appGroup *v1alpha1.ApplicationGroup
@@ -163,11 +142,6 @@ func (builder *Builder) InNamespace(namespace string) *Builder {
 	return builder
 }
 
-func (builder *Builder) WithExecutor(executor ExecutorFunc) *Builder {
-	builder.executor = executor
-	return builder
-}
-
 func (builder *Builder) Build() Client {
 	switch builder.clientType {
 	case v1alpha1.Forward:
@@ -176,10 +150,6 @@ func (builder *Builder) Build() Client {
 			Logger:        builder.logger,
 			ClientOptions: builder.options,
 			appGroup:      builder.appGroup,
-			executor:      builder.executor,
-		}
-		if builder.executor == nil {
-			forwardClient.executor = executor.Default
 		}
 		return forwardClient
 	case v1alpha1.Reverse:
@@ -188,10 +158,6 @@ func (builder *Builder) Build() Client {
 			Logger:        builder.logger,
 			ClientOptions: builder.options,
 			appGroup:      builder.appGroup,
-			executor:      builder.executor,
-		}
-		if builder.executor == nil {
-			reverseClient.executor = executor.Default
 		}
 		return reverseClient
 	default:
@@ -200,10 +166,6 @@ func (builder *Builder) Build() Client {
 			Logger:        builder.logger,
 			ClientOptions: builder.options,
 			appGroup:      builder.appGroup,
-			executor:      builder.executor,
-		}
-		if builder.executor == nil {
-			rollbackClient.executor = executor.Default
 		}
 		return rollbackClient
 	}
