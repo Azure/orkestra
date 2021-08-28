@@ -148,12 +148,6 @@ func (builder *Builder) Rollback(appGroup *v1alpha1.ApplicationGroup) *Builder {
 	return builder
 }
 
-func (builder *Builder) NewApplicationRollback(appGroup *v1alpha1.ApplicationGroup) *Builder {
-	builder.clientType = v1alpha1.NewApplicationRollback
-	builder.appGroup = appGroup
-	return builder
-}
-
 func (builder *Builder) WithParallelism(numNodes int64) *Builder {
 	builder.options.Parallelism = &numNodes
 	return builder
@@ -200,7 +194,7 @@ func (builder *Builder) Build() Client {
 			reverseClient.executor = executor.Default
 		}
 		return reverseClient
-	case v1alpha1.Rollback:
+	default:
 		rollbackClient := &RollbackWorkflowClient{
 			Client:        builder.client,
 			Logger:        builder.logger,
@@ -212,18 +206,6 @@ func (builder *Builder) Build() Client {
 			rollbackClient.executor = executor.Default
 		}
 		return rollbackClient
-	default:
-		newApplicationRollbackClient := &NewApplicationRollbackWorkflowClient{
-			Client:        builder.client,
-			Logger:        builder.logger,
-			ClientOptions: builder.options,
-			appGroup:      builder.appGroup,
-			executor:      builder.executor,
-		}
-		if builder.executor == nil {
-			newApplicationRollbackClient.executor = executor.Default
-		}
-		return newApplicationRollbackClient
 	}
 }
 

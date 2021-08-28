@@ -17,10 +17,9 @@ import (
 type WorkflowType string
 
 const (
-	Forward                WorkflowType = "forward"
-	Reverse                WorkflowType = "reverse"
-	Rollback               WorkflowType = "rollback"
-	NewApplicationRollback WorkflowType = "newApplicationRollback"
+	Forward  WorkflowType = "forward"
+	Reverse  WorkflowType = "reverse"
+	Rollback WorkflowType = "rollback"
 )
 
 var WorkflowConditionMap = map[WorkflowType]string{
@@ -248,14 +247,6 @@ func GetJSON(values map[string]interface{}) (*apiextensionsv1.JSON, error) {
 	return &apiextensionsv1.JSON{
 		Raw: bytes,
 	}, nil
-}
-
-func (in *ApplicationGroup) GetApplicationNames() []string {
-	var names []string
-	for _, application := range in.Spec.Applications {
-		names = append(names, application.Name)
-	}
-	return names
 }
 
 // SetValues marshals the raw values into the JSON values

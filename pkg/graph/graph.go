@@ -65,6 +65,9 @@ func (taskNode *TaskNode) DeepCopy() *TaskNode {
 	}
 }
 
+// NewForwardGraph takes in an ApplicationGroup and forms an abstracted
+// DAG graph interface with app nodes and task nodes that can be passed into
+// the template generation functions
 func NewForwardGraph(appGroup *v1alpha1.ApplicationGroup) *Graph {
 	g := &Graph{
 		Name:  appGroup.Name,
@@ -112,10 +115,13 @@ func NewForwardGraph(appGroup *v1alpha1.ApplicationGroup) *Graph {
 	return g
 }
 
+// NewReverseGraph creates a new reversed DAG based off the passed ApplicationGroup
 func NewReverseGraph(appGroup *v1alpha1.ApplicationGroup) *Graph {
 	return NewForwardGraph(appGroup).Reverse()
 }
 
+// Reverse method reverses the app node dependencies and the task node dependencies
+// of the received graph
 func (g *Graph) Reverse() *Graph {
 	// DeepCopy so that we can clear dependencies
 	reverseGraph := g.DeepCopy()
@@ -141,9 +147,9 @@ func (g *Graph) Reverse() *Graph {
 	return reverseGraph
 }
 
-// GetDiff returns the difference between two graphs
+// Diff returns the difference between two graphs
 // It is the equivalent of performing A - B
-func GetDiff(a, b *Graph) *Graph {
+func Diff(a, b *Graph) *Graph {
 	diffGraph := a.DeepCopy()
 	for name, appA := range a.Nodes {
 		if appB, ok := b.Nodes[name]; ok {
@@ -161,6 +167,19 @@ func GetDiff(a, b *Graph) *Graph {
 		}
 	}
 	return diffGraph
+}
+
+// Combine adds app nodes from the second graph to the first graph
+// If an app node with the same name exists in second graph from the first
+// graph, it is ignored.
+func Combine(a, b *Graph) *Graph {
+	combinedGraph := a.DeepCopy()
+	for name, node := range b.Nodes {
+		if _, ok := a.Nodes[name]; !ok {
+			combinedGraph.Nodes[name] = node
+		}
+	}
+	return combinedGraph
 }
 
 func (g *Graph) clearDependencies() *Graph {
@@ -190,6 +209,8 @@ func NewTaskNode(application *v1alpha1.Application) *TaskNode {
 	}
 }
 
+// SubChartValues is the equivalent function to what helm client does with the global
+// values file and its subchart values
 func SubChartValues(subChartName string, values map[string]interface{}) (*apiextensionsv1.JSON, error) {
 	data := make(map[string]interface{})
 	if scVals, ok := values[subChartName]; ok {

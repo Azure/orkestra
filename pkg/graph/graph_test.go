@@ -650,7 +650,7 @@ func Test_NewReverseGraph(t *testing.T) {
 	}
 }
 
-func Test_GetDiff(t *testing.T) {
+func Test_Diff(t *testing.T) {
 	type args struct {
 		a *Graph
 		b *Graph
@@ -707,7 +707,80 @@ func Test_GetDiff(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := GetDiff(tt.args.a, tt.args.b)
+			got := Diff(tt.args.a, tt.args.b)
+			if !cmp.Equal(got, tt.want) {
+				t.Errorf("GetDiff() = %v", cmp.Diff(got, tt.want))
+			}
+		})
+	}
+}
+
+func Test_Combine(t *testing.T) {
+	type args struct {
+		a *Graph
+		b *Graph
+	}
+	tests := []struct {
+		name string
+		args args
+		want *Graph
+	}{
+		{
+			name: "Basic Combine",
+			args: args{
+				a: &Graph{
+					Name: "firstGraph",
+					Nodes: map[string]*AppNode{
+						"application1": {
+							Name: "application1",
+							Tasks: map[string]*TaskNode{
+								"application1": {
+									Name: "application1",
+								},
+							},
+						},
+					},
+				},
+				b: &Graph{
+					Name: "secondGraph",
+					Nodes: map[string]*AppNode{
+						"application2": {
+							Name: "application2",
+							Tasks: map[string]*TaskNode{
+								"application2": {
+									Name: "application2",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: &Graph{
+				Name: "firstGraph",
+				Nodes: map[string]*AppNode{
+					"application1": {
+						Name: "application1",
+						Tasks: map[string]*TaskNode{
+							"application1": {
+								Name: "application1",
+							},
+						},
+					},
+					"application2": {
+						Name: "application2",
+						Tasks: map[string]*TaskNode{
+							"application2": {
+								Name: "application2",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := Combine(tt.args.a, tt.args.b)
 			if !cmp.Equal(got, tt.want) {
 				t.Errorf("GetDiff() = %v", cmp.Diff(got, tt.want))
 			}
