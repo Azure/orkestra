@@ -11,8 +11,8 @@ import (
 type Action string
 
 const (
-	HelmReleaseForwardExecutorName                = "helmrelease-forward-executor"
-	HelmReleaseReverseExecutorName                = "helmrelease-reverse-executor"
+	HelmReleaseForwardExecutorName        = "helmrelease-forward-executor"
+	HelmReleaseReverseExecutorName        = "helmrelease-reverse-executor"
 	Install                        Action = "install"
 	Delete                         Action = "delete"
 )

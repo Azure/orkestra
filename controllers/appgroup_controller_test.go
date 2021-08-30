@@ -14,11 +14,12 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 var _ = Describe("ApplicationGroup Controller", func() {
@@ -422,7 +423,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 		}, time.Second*30, time.Second).Should(BeTrue())
 	})
 
-	FIt("should succeed to remove the new helm releases on application rollback", func() {
+	It("should succeed to remove the new helm releases on application rollback", func() {
 		applicationGroup := &v1alpha1.ApplicationGroup{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,

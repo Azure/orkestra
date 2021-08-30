@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/Azure/Orkestra/api/v1alpha1"
+	"github.com/Azure/Orkestra/pkg/executor"
 	"github.com/Azure/Orkestra/pkg/utils"
 	"github.com/google/go-cmp/cmp"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -73,7 +74,8 @@ func Test_NewForwardGraph(t *testing.T) {
 				},
 			},
 			want: &Graph{
-				Name: "application",
+				Name:         "application",
+				AllExecutors: []executor.Executor{executor.DefaultForward{}},
 				Nodes: map[string]*AppNode{
 					"application1": {
 						Name: "application1",
@@ -87,6 +89,7 @@ func Test_NewForwardGraph(t *testing.T) {
 										Raw: []byte(`{}`),
 									},
 								},
+								Executors: []executor.Executor{executor.DefaultForward{}},
 							},
 						},
 					},
@@ -103,6 +106,7 @@ func Test_NewForwardGraph(t *testing.T) {
 										Raw: []byte(`{}`),
 									},
 								},
+								Executors: []executor.Executor{executor.DefaultForward{}},
 							},
 						},
 					},
@@ -119,6 +123,7 @@ func Test_NewForwardGraph(t *testing.T) {
 										Raw: []byte(`{}`),
 									},
 								},
+								Executors: []executor.Executor{executor.DefaultForward{}},
 							},
 						},
 					},
@@ -219,7 +224,8 @@ func Test_NewForwardGraph(t *testing.T) {
 				},
 			},
 			want: &Graph{
-				Name: "application",
+				Name:         "application",
+				AllExecutors: []executor.Executor{executor.DefaultForward{}},
 				Nodes: map[string]*AppNode{
 					"application1": {
 						Name: "application1",
@@ -234,6 +240,7 @@ func Test_NewForwardGraph(t *testing.T) {
 									},
 								},
 								Dependencies: []string{"subchart1", "subchart2", "subchart3"},
+								Executors:    []executor.Executor{executor.DefaultForward{}},
 							},
 							"subchart1": {
 								Name:         "subchart1",
@@ -246,6 +253,7 @@ func Test_NewForwardGraph(t *testing.T) {
 								},
 								Parent:       "application1",
 								Dependencies: []string{"subchart2"},
+								Executors:    []executor.Executor{executor.DefaultForward{}},
 							},
 							"subchart2": {
 								Name:         "subchart2",
@@ -256,7 +264,8 @@ func Test_NewForwardGraph(t *testing.T) {
 										Raw: []byte(`{}`),
 									},
 								},
-								Parent: "application1",
+								Parent:    "application1",
+								Executors: []executor.Executor{executor.DefaultForward{}},
 							},
 							"subchart3": {
 								Name:         "subchart3",
@@ -269,6 +278,7 @@ func Test_NewForwardGraph(t *testing.T) {
 								},
 								Parent:       "application1",
 								Dependencies: []string{"subchart1", "subchart2"},
+								Executors:    []executor.Executor{executor.DefaultForward{}},
 							},
 						},
 					},
@@ -286,6 +296,7 @@ func Test_NewForwardGraph(t *testing.T) {
 									},
 								},
 								Dependencies: []string{"subchart1"},
+								Executors:    []executor.Executor{executor.DefaultForward{}},
 							},
 							"subchart1": {
 								Name:         "subchart1",
@@ -296,7 +307,8 @@ func Test_NewForwardGraph(t *testing.T) {
 										Raw: []byte(`{}`),
 									},
 								},
-								Parent: "application2",
+								Parent:    "application2",
+								Executors: []executor.Executor{executor.DefaultForward{}},
 							},
 						},
 					},
@@ -313,6 +325,7 @@ func Test_NewForwardGraph(t *testing.T) {
 										Raw: []byte(`{}`),
 									},
 								},
+								Executors: []executor.Executor{executor.DefaultForward{}},
 							},
 						},
 					},
@@ -391,7 +404,8 @@ func Test_NewReverseGraph(t *testing.T) {
 				},
 			},
 			want: &Graph{
-				Name: "application",
+				Name:         "application",
+				AllExecutors: []executor.Executor{executor.DefaultReverse{}},
 				Nodes: map[string]*AppNode{
 					"application1": {
 						Name:         "application1",
@@ -406,6 +420,7 @@ func Test_NewReverseGraph(t *testing.T) {
 										Raw: []byte(`{}`),
 									},
 								},
+								Executors: []executor.Executor{executor.DefaultReverse{}},
 							},
 						},
 					},
@@ -422,6 +437,7 @@ func Test_NewReverseGraph(t *testing.T) {
 										Raw: []byte(`{}`),
 									},
 								},
+								Executors: []executor.Executor{executor.DefaultReverse{}},
 							},
 						},
 					},
@@ -437,6 +453,7 @@ func Test_NewReverseGraph(t *testing.T) {
 										Raw: []byte(`{}`),
 									},
 								},
+								Executors: []executor.Executor{executor.DefaultReverse{}},
 							},
 						},
 					},
@@ -537,7 +554,8 @@ func Test_NewReverseGraph(t *testing.T) {
 				},
 			},
 			want: &Graph{
-				Name: "application",
+				Name:         "application",
+				AllExecutors: []executor.Executor{executor.DefaultReverse{}},
 				Nodes: map[string]*AppNode{
 					"application1": {
 						Name:         "application1",
@@ -552,6 +570,7 @@ func Test_NewReverseGraph(t *testing.T) {
 										Raw: []byte(`{"subchart1":{"enabled":false},"subchart2":{"enabled":false},"subchart3":{"enabled":false}}`),
 									},
 								},
+								Executors: []executor.Executor{executor.DefaultReverse{}},
 							},
 							"subchart1": {
 								Name:         "subchart1",
@@ -564,6 +583,7 @@ func Test_NewReverseGraph(t *testing.T) {
 								},
 								Parent:       "application1",
 								Dependencies: []string{"application1", "subchart3"},
+								Executors:    []executor.Executor{executor.DefaultReverse{}},
 							},
 							"subchart2": {
 								Name:         "subchart2",
@@ -576,6 +596,7 @@ func Test_NewReverseGraph(t *testing.T) {
 								},
 								Dependencies: []string{"application1", "subchart1", "subchart3"},
 								Parent:       "application1",
+								Executors:    []executor.Executor{executor.DefaultReverse{}},
 							},
 							"subchart3": {
 								Name:         "subchart3",
@@ -588,6 +609,7 @@ func Test_NewReverseGraph(t *testing.T) {
 								},
 								Parent:       "application1",
 								Dependencies: []string{"application1"},
+								Executors:    []executor.Executor{executor.DefaultReverse{}},
 							},
 						},
 					},
@@ -604,6 +626,7 @@ func Test_NewReverseGraph(t *testing.T) {
 										Raw: []byte(`{"subchart1":{"enabled":false}}`),
 									},
 								},
+								Executors: []executor.Executor{executor.DefaultReverse{}},
 							},
 							"subchart1": {
 								Name:         "subchart1",
@@ -616,6 +639,7 @@ func Test_NewReverseGraph(t *testing.T) {
 								},
 								Parent:       "application2",
 								Dependencies: []string{"application2"},
+								Executors:    []executor.Executor{executor.DefaultReverse{}},
 							},
 						},
 					},
@@ -631,6 +655,7 @@ func Test_NewReverseGraph(t *testing.T) {
 										Raw: []byte(`{}`),
 									},
 								},
+								Executors: []executor.Executor{executor.DefaultReverse{}},
 							},
 						},
 					},
@@ -719,10 +744,10 @@ func Test_Diff(t *testing.T) {
 							},
 						},
 						"application2": {
-							Name: "application1",
+							Name: "application2",
 							Tasks: map[string]*TaskNode{
-								"application1": {
-									Name: "application1",
+								"application2": {
+									Name: "application2",
 								},
 							},
 						},

@@ -10,7 +10,7 @@ const (
 	DefaultTimeout   = "5m"
 	ExecutorName     = "executor"
 	ExecutorImage    = "azureorkestra/executor"
-	ExecutorImageTag = "v0.4.1"
+	ExecutorImageTag = "v0.4.2"
 
 	HelmReleaseArg = "helmrelease"
 	TimeoutArg     = "timeout"
