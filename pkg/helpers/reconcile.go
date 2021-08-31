@@ -249,11 +249,10 @@ func (helper *ReconcileHelper) reconcileApplications() error {
 			if appCh.Templates == nil {
 				appCh.Templates = make([]*chart.File, 0)
 			}
-			dummy := &chart.File{
+			appCh.Templates = append(appCh.Templates, &chart.File{
 				Name: dummyConfigmapYAMLName,
 				Data: []byte(dummyConfigmapYAMLSpec),
-			}
-			appCh.Templates = append(appCh.Templates, dummy)
+			})
 		}
 
 		if err := appCh.Validate(); err != nil {
