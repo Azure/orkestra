@@ -1,9 +1,12 @@
-package workflow
+package templates
 
 import (
 	"encoding/json"
 	"sort"
 	"testing"
+
+	"github.com/Azure/Orkestra/pkg/executor"
+	"github.com/Azure/Orkestra/pkg/graph"
 
 	"github.com/Azure/Orkestra/api/v1alpha1"
 	"github.com/Azure/Orkestra/pkg/utils"
@@ -15,13 +18,13 @@ import (
 )
 
 func subChartHelper(values map[string]interface{}, subChartName string) *apiextensionsv1.JSON {
-	scValues, _ := subChartValues(subChartName, values)
+	scValues, _ := graph.SubChartValues(subChartName, values)
 	return scValues
 }
 
 func Test_generateAppDAGTemplates(t *testing.T) {
 	type args struct {
-		graph       *Graph
+		graph       *graph.Graph
 		namespace   string
 		parallelism *int64
 	}
@@ -43,12 +46,13 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 		{
 			name: "testing singleApplicationWithSubchartDAG",
 			args: args{
-				graph: &Graph{
-					Name: "bookinfo",
-					Nodes: map[string]*AppNode{
+				graph: &graph.Graph{
+					Name:         "bookinfo",
+					AllExecutors: []executor.Executor{executor.DefaultForward{}},
+					Nodes: map[string]*graph.AppNode{
 						"ambassador": {
 							Name: "ambassador",
-							Tasks: map[string]*TaskNode{
+							Tasks: map[string]*graph.TaskNode{
 								"ambassador": {
 									Name:         "ambassador",
 									ChartName:    "ambassador",
@@ -58,13 +62,14 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 											Raw: bytesRelValues,
 										},
 									},
+									Executors: []executor.Executor{executor.DefaultForward{}},
 								},
 							},
 						},
 						"bookinfo": {
 							Name:         "bookinfo",
 							Dependencies: []string{"ambassador"},
-							Tasks: map[string]*TaskNode{
+							Tasks: map[string]*graph.TaskNode{
 								"bookinfo": {
 									Name:         "bookinfo",
 									ChartName:    "bookinfo",
@@ -75,6 +80,7 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 										},
 									},
 									Dependencies: []string{"subchart-1", "subchart-2", "subchart-3"},
+									Executors:    []executor.Executor{executor.DefaultForward{}},
 								},
 								"subchart-1": {
 									Name:         "subchart-1",
@@ -84,6 +90,7 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 									Release: &v1alpha1.Release{
 										Values: subChartHelper(relValues, "subchart-1"),
 									},
+									Executors: []executor.Executor{executor.DefaultForward{}},
 								},
 								"subchart-2": {
 									Name:         "subchart-2",
@@ -93,6 +100,7 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 									Release: &v1alpha1.Release{
 										Values: subChartHelper(relValues, "subchart-2"),
 									},
+									Executors: []executor.Executor{executor.DefaultForward{}},
 								},
 								"subchart-3": {
 									Name:         "subchart-3",
@@ -103,6 +111,7 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 										Values: subChartHelper(relValues, "subchart-3"),
 									},
 									Dependencies: []string{"subchart-1", "subchart-2"},
+									Executors:    []executor.Executor{executor.DefaultForward{}},
 								},
 							},
 						},
@@ -116,7 +125,7 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 					Name: "bookinfo",
 					DAG: &v1alpha13.DAGTemplate{
 						Tasks: []v1alpha13.DAGTask{
-							appDAGTaskBuilder("bookinfo", []string{"subchart-1", "subchart-2", "subchart-3"}, getTimeout(nil), utils.HrToB64AnyStringPtr(
+							executor.DefaultForward{}.GetTask("bookinfo", []string{"subchart-1", "subchart-2", "subchart-3"}, getTimeout(nil), utils.HrToB64AnyStringPtr(
 								&fluxhelmv2beta1.HelmRelease{
 									TypeMeta: v1.TypeMeta{
 										Kind:       "HelmRelease",
@@ -125,9 +134,9 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 									ObjectMeta: v1.ObjectMeta{
 										Name: "bookinfo",
 										Labels: map[string]string{
-											ChartLabelKey:  "bookinfo",
-											OwnershipLabel: "bookinfo",
-											HeritageLabel:  "orkestra",
+											v1alpha1.ChartLabel:     "bookinfo",
+											v1alpha1.OwnershipLabel: "bookinfo",
+											v1alpha1.HeritageLabel:  "orkestra",
 										},
 									},
 									Spec: fluxhelmv2beta1.HelmReleaseSpec{
@@ -149,7 +158,7 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 									},
 								}),
 							),
-							appDAGTaskBuilder("subchart-1", nil, getTimeout(nil), utils.HrToB64AnyStringPtr(
+							executor.DefaultForward{}.GetTask("subchart-1", nil, getTimeout(nil), utils.HrToB64AnyStringPtr(
 								&fluxhelmv2beta1.HelmRelease{
 									TypeMeta: v1.TypeMeta{
 										Kind:       "HelmRelease",
@@ -158,9 +167,9 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 									ObjectMeta: v1.ObjectMeta{
 										Name: utils.GetSubchartName("bookinfo", "subchart-1"),
 										Labels: map[string]string{
-											ChartLabelKey:  utils.GetSubchartName("bookinfo", "subchart-1"),
-											OwnershipLabel: "bookinfo",
-											HeritageLabel:  "orkestra",
+											v1alpha1.ChartLabel:     utils.GetSubchartName("bookinfo", "subchart-1"),
+											v1alpha1.OwnershipLabel: "bookinfo",
+											v1alpha1.HeritageLabel:  "orkestra",
 										},
 										Annotations: map[string]string{
 											v1alpha1.ParentChartAnnotation: "bookinfo",
@@ -185,7 +194,7 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 									},
 								}),
 							),
-							appDAGTaskBuilder("subchart-2", nil, getTimeout(nil), utils.HrToB64AnyStringPtr(
+							executor.DefaultForward{}.GetTask("subchart-2", nil, getTimeout(nil), utils.HrToB64AnyStringPtr(
 								&fluxhelmv2beta1.HelmRelease{
 									TypeMeta: v1.TypeMeta{
 										Kind:       "HelmRelease",
@@ -194,9 +203,9 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 									ObjectMeta: v1.ObjectMeta{
 										Name: utils.GetSubchartName("bookinfo", "subchart-2"),
 										Labels: map[string]string{
-											ChartLabelKey:  utils.GetSubchartName("bookinfo", "subchart-2"),
-											OwnershipLabel: "bookinfo",
-											HeritageLabel:  "orkestra",
+											v1alpha1.ChartLabel:     utils.GetSubchartName("bookinfo", "subchart-2"),
+											v1alpha1.OwnershipLabel: "bookinfo",
+											v1alpha1.HeritageLabel:  "orkestra",
 										},
 										Annotations: map[string]string{
 											v1alpha1.ParentChartAnnotation: "bookinfo",
@@ -221,7 +230,7 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 									},
 								}),
 							),
-							appDAGTaskBuilder("subchart-3", []string{"subchart-1", "subchart-2"}, getTimeout(nil), utils.HrToB64AnyStringPtr(
+							executor.DefaultForward{}.GetTask("subchart-3", []string{"subchart-1", "subchart-2"}, getTimeout(nil), utils.HrToB64AnyStringPtr(
 								&fluxhelmv2beta1.HelmRelease{
 									TypeMeta: v1.TypeMeta{
 										Kind:       "HelmRelease",
@@ -230,9 +239,9 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 									ObjectMeta: v1.ObjectMeta{
 										Name: utils.GetSubchartName("bookinfo", "subchart-3"),
 										Labels: map[string]string{
-											ChartLabelKey:  utils.GetSubchartName("bookinfo", "subchart-3"),
-											OwnershipLabel: "bookinfo",
-											HeritageLabel:  "orkestra",
+											v1alpha1.ChartLabel:     utils.GetSubchartName("bookinfo", "subchart-3"),
+											v1alpha1.OwnershipLabel: "bookinfo",
+											v1alpha1.HeritageLabel:  "orkestra",
 										},
 										Annotations: map[string]string{
 											v1alpha1.ParentChartAnnotation: "bookinfo",
@@ -265,7 +274,7 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 					Name: "ambassador",
 					DAG: &v1alpha13.DAGTemplate{
 						Tasks: []v1alpha13.DAGTask{
-							appDAGTaskBuilder("ambassador", nil, getTimeout(nil), utils.HrToB64AnyStringPtr(
+							executor.DefaultForward{}.GetTask("ambassador", nil, getTimeout(nil), utils.HrToB64AnyStringPtr(
 								&fluxhelmv2beta1.HelmRelease{
 									TypeMeta: v1.TypeMeta{
 										Kind:       "HelmRelease",
@@ -274,9 +283,9 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 									ObjectMeta: v1.ObjectMeta{
 										Name: "ambassador",
 										Labels: map[string]string{
-											ChartLabelKey:  "ambassador",
-											OwnershipLabel: "bookinfo",
-											HeritageLabel:  "orkestra",
+											v1alpha1.ChartLabel:     "ambassador",
+											v1alpha1.OwnershipLabel: "bookinfo",
+											v1alpha1.HeritageLabel:  "orkestra",
 										},
 									},
 									Spec: fluxhelmv2beta1.HelmReleaseSpec{
@@ -308,12 +317,13 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 		{
 			name: "testing singleApplicationWithoutSubchartDAG",
 			args: args{
-				graph: &Graph{
-					Name: "bookinfo",
-					Nodes: map[string]*AppNode{
+				graph: &graph.Graph{
+					Name:         "bookinfo",
+					AllExecutors: []executor.Executor{executor.DefaultForward{}},
+					Nodes: map[string]*graph.AppNode{
 						"bookinfo": {
 							Name: "bookinfo",
-							Tasks: map[string]*TaskNode{
+							Tasks: map[string]*graph.TaskNode{
 								"bookinfo": {
 									Name:         "bookinfo",
 									ChartName:    "bookinfo",
@@ -323,6 +333,7 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 											Raw: bytesRelValues,
 										},
 									},
+									Executors: []executor.Executor{executor.DefaultForward{}},
 								},
 							},
 						},
@@ -338,7 +349,7 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 						Tasks: []v1alpha13.DAGTask{
 							{
 								Name:     "bookinfo",
-								Template: "helmrelease-executor",
+								Template: "helmrelease-forward-executor",
 								Arguments: v1alpha13.Arguments{
 									Parameters: []v1alpha13.Parameter{
 										{
@@ -351,9 +362,9 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 												ObjectMeta: v1.ObjectMeta{
 													Name: "bookinfo",
 													Labels: map[string]string{
-														ChartLabelKey:  "bookinfo",
-														OwnershipLabel: "bookinfo",
-														HeritageLabel:  "orkestra",
+														v1alpha1.ChartLabel:     "bookinfo",
+														v1alpha1.OwnershipLabel: "bookinfo",
+														v1alpha1.HeritageLabel:  "orkestra",
 													},
 												},
 												Spec: fluxhelmv2beta1.HelmReleaseSpec{

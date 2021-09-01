@@ -86,6 +86,7 @@ func (helper *StatusHelper) MarkSucceeded(ctx context.Context, instance *v1alpha
 // meta.StartingReason reason and message.
 func (helper *StatusHelper) MarkProgressing(ctx context.Context, instance *v1alpha1.ApplicationGroup) error {
 	instance.Status.Conditions = []metav1.Condition{}
+	instance.Status.ObservedGeneration = instance.Generation
 	meta.SetResourceCondition(instance, meta.ReadyCondition, metav1.ConditionUnknown, meta.ProgressingReason, "workflow is reconciling...")
 
 	return helper.PatchStatus(ctx, instance)
@@ -136,8 +137,8 @@ func (helper *StatusHelper) marshallChartStatus(ctx context.Context, appGroup *v
 	subChartConditionMap map[string]map[string][]metav1.Condition,
 	err error) {
 	listOption := client.MatchingLabels{
-		workflow.OwnershipLabel: appGroup.Name,
-		workflow.HeritageLabel:  workflow.Project,
+		v1alpha1.OwnershipLabel: appGroup.Name,
+		v1alpha1.HeritageLabel:  v1alpha1.HeritageValue,
 	}
 
 	// Init the mappings

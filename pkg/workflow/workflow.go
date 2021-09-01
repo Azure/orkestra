@@ -3,11 +3,11 @@ package workflow
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/Azure/Orkestra/pkg/meta"
 	v1alpha13 "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/Azure/Orkestra/api/v1alpha1"
@@ -15,8 +15,6 @@ import (
 )
 
 type ClientType string
-
-type ExecutorFunc func(string, ExecutorAction) v1alpha13.Template
 
 var _ = ForwardWorkflowClient{}
 var _ = ReverseWorkflowClient{}
@@ -35,14 +33,14 @@ type Client interface {
 	// GetLogger returns the logger associated with the workflow client
 	GetLogger() logr.Logger
 
+	// GetName returns the name associated with the workflow
+	GetName() string
+
 	// GetNamespace returns the namespace that the workflow should run in
 	GetNamespace() string
 
 	// GetOptions returns the client options used with the workflow client
 	GetOptions() ClientOptions
-
-	// GetWorkflow returns the workflow from the k8s apiserver associated with the workflow client
-	GetWorkflow(context.Context) (*v1alpha13.Workflow, error)
 
 	// GetClient returns the k8s client associated with the workflow
 	GetClient() client.Client
@@ -52,27 +50,25 @@ type Client interface {
 }
 
 type ClientOptions struct {
-	parallelism *int64
-	stagingRepo string
-	namespace   string
+	Parallelism *int64
+	StagingRepo string
+	Namespace   string
 }
 
 type Builder struct {
 	client     client.Client
 	clientType v1alpha1.WorkflowType
 	options    ClientOptions
-	executor   ExecutorFunc
 	logger     logr.Logger
 
-	forwardWorkflow *v1alpha13.Workflow
-	appGroup        *v1alpha1.ApplicationGroup
+	workflow *v1alpha13.Workflow
+	appGroup *v1alpha1.ApplicationGroup
 }
 
 type ForwardWorkflowClient struct {
 	client.Client
 	logr.Logger
 	ClientOptions
-	executor ExecutorFunc
 
 	workflow *v1alpha13.Workflow
 	appGroup *v1alpha1.ApplicationGroup
@@ -82,7 +78,6 @@ type RollbackWorkflowClient struct {
 	client.Client
 	logr.Logger
 	ClientOptions
-	executor ExecutorFunc
 
 	workflow *v1alpha13.Workflow
 	appGroup *v1alpha1.ApplicationGroup
@@ -92,11 +87,9 @@ type ReverseWorkflowClient struct {
 	client.Client
 	logr.Logger
 	ClientOptions
-	executor ExecutorFunc
 
-	forwardWorkflow *v1alpha13.Workflow
-	reverseWorkflow *v1alpha13.Workflow
-	appGroup        *v1alpha1.ApplicationGroup
+	workflow *v1alpha13.Workflow
+	appGroup *v1alpha1.ApplicationGroup
 }
 
 func NewBuilder(client client.Client, logger logr.Logger) *Builder {
@@ -135,22 +128,17 @@ func (builder *Builder) Rollback(appGroup *v1alpha1.ApplicationGroup) *Builder {
 }
 
 func (builder *Builder) WithParallelism(numNodes int64) *Builder {
-	builder.options.parallelism = &numNodes
+	builder.options.Parallelism = &numNodes
 	return builder
 }
 
 func (builder *Builder) WithStagingRepo(stagingURL string) *Builder {
-	builder.options.stagingRepo = stagingURL
+	builder.options.StagingRepo = stagingURL
 	return builder
 }
 
 func (builder *Builder) InNamespace(namespace string) *Builder {
-	builder.options.namespace = namespace
-	return builder
-}
-
-func (builder *Builder) WithExecutor(executor ExecutorFunc) *Builder {
-	builder.executor = executor
+	builder.options.Namespace = namespace
 	return builder
 }
 
@@ -162,10 +150,6 @@ func (builder *Builder) Build() Client {
 			Logger:        builder.logger,
 			ClientOptions: builder.options,
 			appGroup:      builder.appGroup,
-			executor:      builder.executor,
-		}
-		if builder.executor == nil {
-			forwardClient.executor = defaultExecutor
 		}
 		return forwardClient
 	case v1alpha1.Reverse:
@@ -174,10 +158,6 @@ func (builder *Builder) Build() Client {
 			Logger:        builder.logger,
 			ClientOptions: builder.options,
 			appGroup:      builder.appGroup,
-			executor:      builder.executor,
-		}
-		if builder.executor == nil {
-			reverseClient.executor = defaultExecutor
 		}
 		return reverseClient
 	default:
@@ -186,10 +166,6 @@ func (builder *Builder) Build() Client {
 			Logger:        builder.logger,
 			ClientOptions: builder.options,
 			appGroup:      builder.appGroup,
-			executor:      builder.executor,
-		}
-		if builder.executor == nil {
-			rollbackClient.executor = defaultExecutor
 		}
 		return rollbackClient
 	}
@@ -210,7 +186,7 @@ func Run(ctx context.Context, wfClient Client) error {
 // if the workflow still exists on the cluster
 func Suspend(ctx context.Context, wfClient Client) error {
 	// suspend a workflow if it is not already finished or suspended
-	workflow, err := wfClient.GetWorkflow(ctx)
+	workflow, err := GetWorkflow(ctx, wfClient)
 	if client.IgnoreNotFound(err) != nil {
 		return fmt.Errorf("failed to suspend the workflow: %w", err)
 	} else if err != nil || !workflow.Status.FinishedAt.IsZero() {
@@ -231,12 +207,20 @@ func Suspend(ctx context.Context, wfClient Client) error {
 	return nil
 }
 
+func GetWorkflow(ctx context.Context, wc Client) (*v1alpha13.Workflow, error) {
+	workflow := &v1alpha13.Workflow{}
+	err := wc.GetClient().Get(ctx, types.NamespacedName{Namespace: wc.GetNamespace(), Name: wc.GetName()}, workflow)
+	return workflow, err
+}
+
 // DeleteWorkflow removes the workflow from the api server associated with
 // the workflow client
 func DeleteWorkflow(ctx context.Context, wfClient Client) error {
-	workflow, err := wfClient.GetWorkflow(ctx)
+	workflow, err := GetWorkflow(ctx, wfClient)
 	if client.IgnoreNotFound(err) != nil {
 		return err
+	} else if err != nil {
+		return nil
 	}
 	return wfClient.GetClient().Delete(ctx, workflow)
 }
@@ -244,7 +228,7 @@ func DeleteWorkflow(ctx context.Context, wfClient Client) error {
 // UpdateStatus updates the status of the owning appGroup with the workflow condition type
 // of the workflow client
 func UpdateStatus(ctx context.Context, wfClient Client) error {
-	wf, err := wfClient.GetWorkflow(ctx)
+	wf, err := GetWorkflow(ctx, wfClient)
 	if client.IgnoreNotFound(err) != nil {
 		return err
 	} else if err != nil {
@@ -295,7 +279,7 @@ func SetSuspended(wfClient Client) {
 
 // IsFailed checks if the workflow created by the workflow client is in a failed state
 func IsFailed(ctx context.Context, wfClient Client) (bool, error) {
-	wf, err := wfClient.GetWorkflow(ctx)
+	wf, err := GetWorkflow(ctx, wfClient)
 	if client.IgnoreNotFound(err) != nil {
 		return false, fmt.Errorf("failed to get workflow: %w", err)
 	}
@@ -307,7 +291,7 @@ func IsFailed(ctx context.Context, wfClient Client) (bool, error) {
 
 // IsSucceeded checks if the workflow created by the workflow client is in a succeeded state
 func IsSucceeded(ctx context.Context, wfClient Client) (bool, error) {
-	wf, err := wfClient.GetWorkflow(ctx)
+	wf, err := GetWorkflow(ctx, wfClient)
 	if client.IgnoreNotFound(err) != nil {
 		return false, fmt.Errorf("failed to get workflow: %w", err)
 	}
@@ -326,30 +310,4 @@ func toConditionReason(nodePhase v1alpha13.WorkflowPhase) string {
 	default:
 		return meta.ProgressingReason
 	}
-}
-
-func initWorkflowObject(name, namespace string, parallelism *int64) *v1alpha13.Workflow {
-	return &v1alpha13.Workflow{
-		ObjectMeta: v1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-			Labels:    map[string]string{HeritageLabel: Project},
-		},
-		TypeMeta: v1.TypeMeta{
-			APIVersion: v1alpha13.WorkflowSchemaGroupVersionKind.GroupVersion().String(),
-			Kind:       v1alpha13.WorkflowSchemaGroupVersionKind.Kind,
-		},
-		Spec: v1alpha13.WorkflowSpec{
-			Entrypoint:  EntrypointTemplateName,
-			Templates:   make([]v1alpha13.Template, 0),
-			Parallelism: parallelism,
-			PodGC: &v1alpha13.PodGC{
-				Strategy: v1alpha13.PodGCOnWorkflowCompletion,
-			},
-		},
-	}
-}
-
-func updateWorkflowTemplates(wf *v1alpha13.Workflow, tpls ...v1alpha13.Template) {
-	wf.Spec.Templates = append(wf.Spec.Templates, tpls...)
 }

@@ -35,8 +35,14 @@ const (
 	AppGroupNameKey   = "appgroup"
 	AppGroupFinalizer = "application-group-finalizer"
 
-	LastSuccessfulAnnotation = "orkestra/last-successful-applicationgroup"
-	ParentChartAnnotation    = "orkestra/parent-chart"
+	LastSuccessfulAnnotation = "orkestra.azure.microsoft.com/last-successful-applicationgroup"
+	ParentChartAnnotation    = "orkestra.azure.microsoft.com/parent-chart"
+
+	HeritageLabel = "orkestra.azure.microsoft.com/heritage"
+	HeritageValue = "orkestra"
+
+	OwnershipLabel = "orkestra.azure.microsoft.com/owner"
+	ChartLabel     = "orkestra.azure.microsoft.com/chart"
 
 	ForwardWorkflow  WorkflowType = "forward"
 	ReverseWorkflow  WorkflowType = "reverse"
