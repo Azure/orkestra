@@ -14,8 +14,6 @@ import (
 	"github.com/go-logr/logr"
 )
 
-type ClientType string
-
 var _ = ForwardWorkflowClient{}
 var _ = ReverseWorkflowClient{}
 var _ = RollbackWorkflowClient{}
@@ -57,7 +55,6 @@ type ClientOptions struct {
 
 type Builder struct {
 	client     client.Client
-	clientType v1alpha1.WorkflowType
 	options    ClientOptions
 	logger     logr.Logger
 
@@ -100,31 +97,13 @@ func NewBuilder(client client.Client, logger logr.Logger) *Builder {
 	}
 }
 
-func NewBuilderFromClient(client Client) *Builder {
-	return &Builder{
+func NewClientFromClient(client Client, clientType v1alpha1.WorkflowType) Client {
+	builder := &Builder{
 		client:   client.GetClient(),
 		options:  client.GetOptions(),
-		appGroup: client.GetAppGroup(),
 		logger:   client.GetLogger(),
 	}
-}
-
-func (builder *Builder) Forward(appGroup *v1alpha1.ApplicationGroup) *Builder {
-	builder.clientType = v1alpha1.Forward
-	builder.appGroup = appGroup
-	return builder
-}
-
-func (builder *Builder) Reverse(appGroup *v1alpha1.ApplicationGroup) *Builder {
-	builder.clientType = v1alpha1.Reverse
-	builder.appGroup = appGroup
-	return builder
-}
-
-func (builder *Builder) Rollback(appGroup *v1alpha1.ApplicationGroup) *Builder {
-	builder.clientType = v1alpha1.Rollback
-	builder.appGroup = appGroup
-	return builder
+	return builder.Build(clientType, client.GetAppGroup())
 }
 
 func (builder *Builder) WithParallelism(numNodes int64) *Builder {
@@ -142,14 +121,14 @@ func (builder *Builder) InNamespace(namespace string) *Builder {
 	return builder
 }
 
-func (builder *Builder) Build() Client {
-	switch builder.clientType {
+func (builder *Builder) Build(clientType v1alpha1.WorkflowType, appGroup *v1alpha1.ApplicationGroup) Client {
+	switch clientType {
 	case v1alpha1.Forward:
 		forwardClient := &ForwardWorkflowClient{
 			Client:        builder.client,
 			Logger:        builder.logger,
 			ClientOptions: builder.options,
-			appGroup:      builder.appGroup,
+			appGroup: appGroup,
 		}
 		return forwardClient
 	case v1alpha1.Reverse:
@@ -157,7 +136,7 @@ func (builder *Builder) Build() Client {
 			Client:        builder.client,
 			Logger:        builder.logger,
 			ClientOptions: builder.options,
-			appGroup:      builder.appGroup,
+			appGroup: appGroup,
 		}
 		return reverseClient
 	default:
@@ -165,7 +144,7 @@ func (builder *Builder) Build() Client {
 			Client:        builder.client,
 			Logger:        builder.logger,
 			ClientOptions: builder.options,
-			appGroup:      builder.appGroup,
+			appGroup: appGroup,
 		}
 		return rollbackClient
 	}
@@ -225,48 +204,24 @@ func DeleteWorkflow(ctx context.Context, wfClient Client) error {
 	return wfClient.GetClient().Delete(ctx, workflow)
 }
 
-// UpdateStatus updates the status of the owning appGroup with the workflow condition type
-// of the workflow client
-func UpdateStatus(ctx context.Context, wfClient Client) error {
-	wf, err := GetWorkflow(ctx, wfClient)
-	if client.IgnoreNotFound(err) != nil {
-		return err
-	} else if err != nil {
-		// We just return and don't update if we don't find the workflow
-		return nil
-	}
-	switch toConditionReason(wf.Status.Phase) {
-	case meta.FailedReason:
-		wfClient.GetLogger().Info("workflow node is in failed state")
-		SetFailed(wfClient, "workflow node is in failed state")
-	case meta.SucceededReason:
-		wfClient.GetLogger().Info("workflow has succeeded")
-		SetSucceeded(wfClient)
-	default:
-		wfClient.GetLogger().Info("workflow is still progressing")
-		SetProgressing(wfClient)
-	}
-	return nil
-}
-
 // SetProgressing sets one of the workflow conditions in the progressing state
-func SetProgressing(wfClient Client) {
-	if condition, ok := v1alpha1.WorkflowConditionMap[wfClient.GetType()]; ok {
-		meta.SetResourceCondition(wfClient.GetAppGroup(), condition, metav1.ConditionUnknown, meta.ProgressingReason, "workflow is progressing...")
+func SetProgressing(parent *v1alpha1.ApplicationGroup, wfType v1alpha1.WorkflowType) {
+	if condition, ok := v1alpha1.WorkflowConditionMap[wfType]; ok {
+		meta.SetResourceCondition(parent, condition, metav1.ConditionUnknown, meta.ProgressingReason, "workflow is progressing...")
 	}
 }
 
 // SetSucceeded sets one of the workflow conditions in the succeeded state
-func SetSucceeded(wfClient Client) {
-	if condition, ok := v1alpha1.WorkflowConditionMap[wfClient.GetType()]; ok {
-		meta.SetResourceCondition(wfClient.GetAppGroup(), condition, metav1.ConditionTrue, meta.SucceededReason, "workflow succeeded")
+func SetSucceeded(parent *v1alpha1.ApplicationGroup, wfType v1alpha1.WorkflowType) {
+	if condition, ok := v1alpha1.WorkflowConditionMap[wfType]; ok {
+		meta.SetResourceCondition(parent, condition, metav1.ConditionTrue, meta.SucceededReason, "workflow succeeded")
 	}
 }
 
 // SetFailed sets one of the workflow conditions in the failed state
-func SetFailed(wfClient Client, message string) {
-	if condition, ok := v1alpha1.WorkflowConditionMap[wfClient.GetType()]; ok {
-		meta.SetResourceCondition(wfClient.GetAppGroup(), condition, metav1.ConditionFalse, meta.FailedReason, message)
+func SetFailed(parent *v1alpha1.ApplicationGroup, wfType v1alpha1.WorkflowType, message string) {
+	if condition, ok := v1alpha1.WorkflowConditionMap[wfType]; ok {
+		meta.SetResourceCondition(parent, condition, metav1.ConditionFalse, meta.FailedReason, message)
 	}
 }
 
@@ -283,7 +238,7 @@ func IsFailed(ctx context.Context, wfClient Client) (bool, error) {
 	if client.IgnoreNotFound(err) != nil {
 		return false, fmt.Errorf("failed to get workflow: %w", err)
 	}
-	if toConditionReason(wf.Status.Phase) == meta.FailedReason {
+	if ToConditionReason(wf.Status.Phase) == meta.FailedReason {
 		return true, nil
 	}
 	return false, nil
@@ -295,13 +250,13 @@ func IsSucceeded(ctx context.Context, wfClient Client) (bool, error) {
 	if client.IgnoreNotFound(err) != nil {
 		return false, fmt.Errorf("failed to get workflow: %w", err)
 	}
-	if toConditionReason(wf.Status.Phase) == meta.SucceededReason {
+	if ToConditionReason(wf.Status.Phase) == meta.SucceededReason {
 		return true, nil
 	}
 	return false, nil
 }
 
-func toConditionReason(nodePhase v1alpha13.WorkflowPhase) string {
+func ToConditionReason(nodePhase v1alpha13.WorkflowPhase) string {
 	switch nodePhase {
 	case v1alpha13.WorkflowFailed:
 		return meta.FailedReason

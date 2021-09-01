@@ -47,8 +47,8 @@ func (wc *ReverseWorkflowClient) GetNamespace() string {
 func (wc *ReverseWorkflowClient) Generate(ctx context.Context) error {
 	var err error
 
-	forwardClient := NewBuilderFromClient(wc).Forward(wc.appGroup).Build()
-	rollbackClient := NewBuilderFromClient(wc).Rollback(wc.appGroup).Build()
+	forwardClient := NewClientFromClient(wc, v1alpha1.ForwardWorkflow)
+	rollbackClient := NewClientFromClient(wc, v1alpha1.RollbackWorkflow)
 
 	if err := Suspend(ctx, forwardClient); err != nil {
 		return fmt.Errorf("failed to suspend forward workflow: %w", err)
@@ -74,7 +74,7 @@ func (wc *ReverseWorkflowClient) Generate(ctx context.Context) error {
 }
 
 func (wc *ReverseWorkflowClient) Submit(ctx context.Context) error {
-	forwardClient := NewBuilderFromClient(wc).Forward(wc.appGroup).Build()
+	forwardClient := NewClientFromClient(wc, v1alpha1.ForwardWorkflow)
 	forwardWorkflow, err := GetWorkflow(ctx, forwardClient)
 	if err != nil {
 		return err
@@ -85,6 +85,8 @@ func (wc *ReverseWorkflowClient) Submit(ctx context.Context) error {
 			Namespace: wc.workflow.Namespace,
 		},
 	}
+	wc.workflow.Labels[v1alpha1.OwnershipLabel] = wc.appGroup.Name
+	wc.workflow.Labels[v1alpha1.WorkflowTypeLabel] = string(v1alpha1.ReverseWorkflow)
 	if err := wc.Get(ctx, client.ObjectKeyFromObject(obj), obj); client.IgnoreNotFound(err) != nil {
 		return fmt.Errorf("failed to GET workflow object with an unrecoverable error: %w", err)
 	} else if err != nil {

@@ -3,6 +3,7 @@ package helpers
 import (
 	"context"
 	"fmt"
+	v1alpha13 "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
 
 	"github.com/Azure/Orkestra/api/v1alpha1"
 	"github.com/Azure/Orkestra/pkg/meta"
@@ -11,7 +12,6 @@ import (
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -19,51 +19,40 @@ type StatusHelper struct {
 	client.Client
 	logr.Logger
 	PatchFrom             client.Patch
-	WorkflowClientBuilder *workflow.Builder
 	Recorder              record.EventRecorder
 }
 
-func (helper *StatusHelper) UpdateStatus(ctx context.Context, instance *v1alpha1.ApplicationGroup) (ctrl.Result, error) {
+func (helper *StatusHelper) UpdateStatus(ctx context.Context, instance *v1alpha1.ApplicationGroup) error {
 	chartConditionMap, subChartConditionMap, err := helper.marshallChartStatus(ctx, instance)
 	if err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 	instance.Status.Applications = getAppStatus(instance, chartConditionMap, subChartConditionMap)
-
-	// update the workflow status
-	result, err := helper.updateWorkflowStatus(ctx, instance)
-	if err != nil {
-		return result, err
-	}
-	return result, nil
+	return nil
 }
 
-func (helper *StatusHelper) updateWorkflowStatus(ctx context.Context, instance *v1alpha1.ApplicationGroup) (ctrl.Result, error) {
-	forwardClient := helper.WorkflowClientBuilder.Forward(instance).Build()
-	reverseClient := helper.WorkflowClientBuilder.Reverse(instance).Build()
-	rollbackClient := helper.WorkflowClientBuilder.Rollback(instance).Build()
-
-	for _, wfClient := range []workflow.Client{forwardClient, reverseClient, rollbackClient} {
-		if err := workflow.UpdateStatus(ctx, wfClient); err != nil {
-			return ctrl.Result{}, err
+func (helper *StatusHelper) UpdateFromWorkflowStatus(ctx context.Context, parent *v1alpha1.ApplicationGroup, instance *v1alpha13.Workflow, wfType v1alpha1.WorkflowType) error {
+	switch workflow.ToConditionReason(instance.Status.Phase) {
+	case meta.FailedReason:
+		helper.Logger.Info("workflow node is in failed state")
+		workflow.SetFailed(parent, wfType, "workflow node is in failed state")
+	case meta.SucceededReason:
+		helper.Logger.Info("workflow has succeeded")
+		workflow.SetSucceeded(parent, wfType)
+	default:
+		helper.Logger.Info("workflow is still progressing")
+		workflow.SetProgressing(parent, wfType)
+	}
+	if wfType == v1alpha1.ForwardWorkflow {
+		if workflow.ToConditionReason(instance.Status.Phase) == meta.FailedReason {
+			helper.MarkFailed(parent, fmt.Errorf("workflow in failed state"))
+			return nil
+		}
+		if workflow.ToConditionReason(instance.Status.Phase) == meta.SucceededReason {
+			return helper.MarkSucceeded(ctx, parent)
 		}
 	}
-	if isFailed, err := workflow.IsFailed(ctx, forwardClient); err != nil {
-		return ctrl.Result{}, err
-	} else if isFailed {
-		// TODO: make this error come from the node itself
-		helper.MarkFailed(instance, fmt.Errorf("workflow in failed state"))
-		return ctrl.Result{RequeueAfter: v1alpha1.GetInterval(instance)}, nil
-	}
-	if isSucceeded, err := workflow.IsSucceeded(ctx, forwardClient); err != nil {
-		return ctrl.Result{}, err
-	} else if isSucceeded {
-		if err := helper.MarkSucceeded(ctx, instance); err != nil {
-			return ctrl.Result{}, err
-		}
-		return ctrl.Result{RequeueAfter: v1alpha1.GetInterval(instance)}, nil
-	}
-	return ctrl.Result{RequeueAfter: v1alpha1.DefaultProgressingRequeue}, nil
+	return nil
 }
 
 func (helper *StatusHelper) MarkSucceeded(ctx context.Context, instance *v1alpha1.ApplicationGroup) error {

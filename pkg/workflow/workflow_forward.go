@@ -49,8 +49,8 @@ func (wc *ForwardWorkflowClient) Generate(ctx context.Context) error {
 	}
 
 	// Suspend the rollback or reverse workflows if they are running
-	reverseClient := NewBuilderFromClient(wc).Reverse(wc.appGroup).Build()
-	rollbackClient := NewBuilderFromClient(wc).Rollback(wc.appGroup).Build()
+	reverseClient := NewClientFromClient(wc, v1alpha1.ReverseWorkflow)
+	rollbackClient := NewClientFromClient(wc, v1alpha1.RollbackWorkflow)
 	if err := Suspend(ctx, reverseClient); err != nil {
 		return fmt.Errorf("failed to suspend reverse workflow: %w", err)
 	}
@@ -89,6 +89,7 @@ func (wc *ForwardWorkflowClient) Submit(ctx context.Context) error {
 
 	// Create the Workflow
 	wc.workflow.Labels[v1alpha1.OwnershipLabel] = wc.appGroup.Name
+	wc.workflow.Labels[v1alpha1.WorkflowTypeLabel] = string(v1alpha1.ForwardWorkflow)
 	if err := controllerutil.SetControllerReference(wc.appGroup, wc.workflow, wc.Scheme()); err != nil {
 		return fmt.Errorf("unable to set ApplicationGroup as owner of Argo Workflow: %w", err)
 	}

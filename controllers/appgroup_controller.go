@@ -75,7 +75,6 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		Logger:                logr,
 		PatchFrom:             patch,
 		Recorder:              r.Recorder,
-		WorkflowClientBuilder: r.WorkflowClientBuilder,
 	}
 	reconcileHelper := helpers.ReconcileHelper{
 		Client:                r.Client,
@@ -134,23 +133,7 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			return ctrl.Result{}, err
 		}
 	}
-
-	// Update the status based on the current state of the helm charts
-	// and the status of the workflows
-	result, err = statusHelper.UpdateStatus(ctx, appGroup)
-	if err != nil {
-		logr.Error(err, "failed to update the status of the app group")
-		return ctrl.Result{}, err
-	}
-	if shouldRemediate, err := r.ShouldRemediate(ctx, appGroup); err != nil {
-		return ctrl.Result{}, err
-	} else if shouldRemediate {
-		if lastSuccessfulSpec := appGroup.GetLastSuccessful(); lastSuccessfulSpec != nil {
-			return reconcileHelper.Rollback(ctx, patch)
-		}
-		return reconcileHelper.Reverse(ctx)
-	}
-	return result, nil
+	return ctrl.Result{}, nil
 }
 
 func (r *ApplicationGroupReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -158,14 +141,4 @@ func (r *ApplicationGroupReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&v1alpha1.ApplicationGroup{}).
 		WithEventFilter(predicate.GenerationChangedPredicate{}).
 		Complete(r)
-}
-
-func (r *ApplicationGroupReconciler) ShouldRemediate(ctx context.Context, instance *v1alpha1.ApplicationGroup) (bool, error) {
-	forwardClient := r.WorkflowClientBuilder.Forward(instance).Build()
-
-	isFailed, err := workflow.IsFailed(ctx, forwardClient)
-	if err != nil {
-		return false, err
-	}
-	return isFailed && !r.DisableRemediation, nil
 }

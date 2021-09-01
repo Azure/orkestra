@@ -77,6 +77,7 @@ func (wc *RollbackWorkflowClient) Generate(ctx context.Context) error {
 func (wc *RollbackWorkflowClient) Submit(ctx context.Context) error {
 	// Create the new workflow, only if there is not already a rollback workflow that has been created
 	wc.workflow.Labels[v1alpha1.OwnershipLabel] = wc.appGroup.Name
+	wc.workflow.Labels[v1alpha1.WorkflowTypeLabel] = string(v1alpha1.RollbackWorkflow)
 	if err := controllerutil.SetControllerReference(wc.appGroup, wc.workflow, wc.Scheme()); err != nil {
 		return fmt.Errorf("unable to set ApplicationGroup as owner of Argo Workflow: %w", err)
 	}
