@@ -6,6 +6,8 @@ const (
 	HelmReleaseArg                 = "helmrelease"
 	TimeoutArg                     = "timeout"
 	ActionArg                      = "action"
+	KeptnConfigmapNameArg          = "keptn-configmap-name"
+	KeptnConfigmapNamespaceArg     = "keptn-configmap-namespace"
 	HelmReleaseExecutorName        = "helmrelease-executor"
 	HelmReleaseReverseExecutorName = "helmrelease-reverse-executor"
 
@@ -19,9 +21,9 @@ const (
 	ExecutorImageTag = "v0.4.1"
 
 	KeptnExecutor         = "azureorkestra/keptn-executor"
-	KeptnExecutorImageTag = "v0.1.1"
+	KeptnExecutorImageTag = "v0.1.0"
 
-	defaultExecutorName = "default"
+	DefaultExecutorName = "default"
 	KeptnExecutorName   = "keptn"
 
 	ChartMuseumName = "chartmuseum"

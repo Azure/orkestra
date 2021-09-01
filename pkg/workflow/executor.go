@@ -19,7 +19,7 @@ const (
 func defaultExecutor() v1alpha13.Template {
 	executorArgs := []string{"--spec", "{{inputs.parameters.helmrelease}}", "--action", "{{inputs.parameters.action}}", "--timeout", "{{inputs.parameters.timeout}}", "--interval", "1s"}
 	return v1alpha13.Template{
-		Name:               "default",
+		Name:               DefaultExecutorName,
 		ServiceAccountName: workflowServiceAccountName(),
 		Inputs: v1alpha13.Inputs{
 			Parameters: []v1alpha13.Parameter{
@@ -49,7 +49,7 @@ func defaultExecutor() v1alpha13.Template {
 }
 
 func keptnExecutor() v1alpha13.Template {
-	executorArgs := []string{"--spec", "{{inputs.parameters.helmrelease}}", "--action", "{{inputs.parameters.action}}", "--timeout", "{{inputs.parameters.timeout}}", "--interval", "1s", "--configmap-name", "foobar", "--configmap-namespace", "default"}
+	executorArgs := []string{"--spec", "{{inputs.parameters.helmrelease}}", "--action", "{{inputs.parameters.action}}", "--timeout", "{{inputs.parameters.timeout}}", "--interval", "1s", "--configmap-name", "{{inputs.parameters.keptn-configmap-name}}", "--configmap-namespace", "{{inputs.parameters.keptn-configmap-namespace}}"}
 	return v1alpha13.Template{
 		Name:               KeptnExecutorName,
 		ServiceAccountName: workflowServiceAccountName(),
@@ -64,6 +64,12 @@ func keptnExecutor() v1alpha13.Template {
 				},
 				{
 					Name: ActionArg,
+				},
+				{
+					Name: KeptnConfigmapNameArg,
+				},
+				{
+					Name: KeptnConfigmapNamespaceArg,
 				},
 			},
 		},
@@ -90,6 +96,12 @@ func chainedDefaultKeptnExecutor(templateName string, action ExecutorAction) v1a
 				{
 					Name:    TimeoutArg,
 					Default: utils.ToAnyStringPtr(DefaultTimeout),
+				},
+				{
+					Name: KeptnConfigmapNameArg,
+				},
+				{
+					Name: KeptnConfigmapNamespaceArg,
 				},
 			},
 		},
@@ -128,6 +140,14 @@ func chainedDefaultKeptnExecutor(templateName string, action ExecutorAction) v1a
 							{
 								Name:  TimeoutArg,
 								Value: utils.ToAnyStringPtr("{{inputs.parameters.timeout}}"),
+							},
+							{
+								Name:  KeptnConfigmapNameArg,
+								Value: utils.ToAnyStringPtr("{{inputs.parameters.keptn-configmap-name}}"),
+							},
+							{
+								Name:  KeptnConfigmapNamespaceArg,
+								Value: utils.ToAnyStringPtr("{{inputs.parameters.keptn-configmap-namespace}}"),
 							},
 							{
 								Name:  ActionArg,
