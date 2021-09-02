@@ -100,7 +100,9 @@ type Executor struct {
 	// DAG contains the dependency information
 	// +required
 	DAG `json:",inline"`
+
 	// Type specifies the executor type to be run
+	// +kubebuilder:validation:Enum=helmrelease;keptn;custom
 	// +required
 	Type ExecutorType `json:"type,omitempty"`
 
@@ -108,6 +110,7 @@ type Executor struct {
 	// to be executed by the workflow node
 	// +optional
 	Image string `json:"image,omitempty"`
+
 	// Params hold executor specific properties
 	// +optional
 	Params *apiextensionsv1.JSON `json:"params,omitempty"`
