@@ -2,7 +2,7 @@ package graph
 
 import (
 	"github.com/Azure/Orkestra/api/v1alpha1"
-	"github.com/Azure/Orkestra/pkg/executor"
+	executorpkg "github.com/Azure/Orkestra/pkg/executor"
 	"github.com/Azure/Orkestra/pkg/utils"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
@@ -13,7 +13,7 @@ const (
 
 type Graph struct {
 	Name         string
-	AllExecutors []executor.Executor
+	AllExecutors map[string]executorpkg.Executor
 	Nodes        map[string]*AppNode
 }
 
@@ -55,18 +55,35 @@ type TaskNode struct {
 	Parent       string
 	Release      *v1alpha1.Release
 	Dependencies []string
-	Executors    []executor.Executor
+	Executors    map[string]*ExecutorNode
 }
 
 func (taskNode *TaskNode) DeepCopy() *TaskNode {
-	return &TaskNode{
+	newTaskNode := &TaskNode{
 		Name:         taskNode.Name,
 		ChartName:    taskNode.ChartName,
 		ChartVersion: taskNode.ChartVersion,
 		Parent:       taskNode.Parent,
 		Release:      taskNode.Release.DeepCopy(),
 		Dependencies: taskNode.Dependencies,
-		Executors:    taskNode.Executors,
+		Executors:    make(map[string]*ExecutorNode),
+	}
+	for name, executor := range taskNode.Executors {
+		newTaskNode.Executors[name] = executor.DeepCopy()
+	}
+	return newTaskNode
+}
+
+type ExecutorNode struct {
+	Name         string
+	Dependencies []string
+	Executor     executorpkg.Executor
+}
+
+func (executorNode *ExecutorNode) DeepCopy() *ExecutorNode {
+	return &ExecutorNode{
+		Name:     executorNode.Name,
+		Executor: executorNode.Executor,
 	}
 }
 
@@ -75,9 +92,8 @@ func (taskNode *TaskNode) DeepCopy() *TaskNode {
 // the template generation functions
 func NewForwardGraph(appGroup *v1alpha1.ApplicationGroup) *Graph {
 	g := &Graph{
-		Name:         appGroup.Name,
-		Nodes:        make(map[string]*AppNode),
-		AllExecutors: []executor.Executor{executor.DefaultForward{}},
+		Name:  appGroup.Name,
+		Nodes: make(map[string]*AppNode),
 	}
 
 	for i, application := range appGroup.Spec.Applications {
@@ -102,7 +118,12 @@ func NewForwardGraph(appGroup *v1alpha1.ApplicationGroup) *Graph {
 				Release:      release,
 				Parent:       application.Name,
 				Dependencies: subChart.Dependencies,
-				Executors:    []executor.Executor{executor.DefaultForward{}},
+				Executors:    make(map[string]*ExecutorNode),
+			}
+
+			for _, item := range application.Spec.Workflow {
+				subChartNode.Executors[item.Name] = NewExecutorNode(&item)
+				g.addExecutorIfNotExist(executorpkg.ExecutorFactory(item.Type))
 			}
 
 			applicationNode.Tasks[subChart.Name] = subChartNode
@@ -132,8 +153,7 @@ func NewReverseGraph(appGroup *v1alpha1.ApplicationGroup) *Graph {
 func (g *Graph) Reverse() *Graph {
 	// DeepCopy so that we can clear dependencies
 	reverseGraph := g.DeepCopy()
-	reverseGraph.AssignExecutors(executor.DefaultReverse{})
-	reverseGraph.clearDependencies()
+	reverseGraph.clear()
 
 	for _, application := range g.Nodes {
 		// Iterate through the application dependencies and reverse the dependency relationship
@@ -150,19 +170,26 @@ func (g *Graph) Reverse() *Graph {
 					node.Dependencies = append(node.Dependencies, subChartNode.Name)
 				}
 			}
+
+			// Reverse the dependencies and the execution of the executors
+			for _, executor := range subTask.Executors {
+				for _, dep := range executor.Dependencies {
+					if node, ok := subChartNode.Executors[dep]; ok {
+						node.Dependencies = append(node.Dependencies, executor.Name)
+					}
+				}
+				subChartNode.Executors[executor.Name].Executor = subChartNode.Executors[executor.Name].Executor.Reverse()
+				reverseGraph.addExecutorIfNotExist(subChartNode.Executors[executor.Name].Executor.Reverse())
+			}
 		}
 	}
 	return reverseGraph
 }
 
-func (g *Graph) AssignExecutors(executors ...executor.Executor) *Graph {
-	g.AllExecutors = executors
-	for _, appNode := range g.Nodes {
-		for _, taskNode := range appNode.Tasks {
-			taskNode.Executors = executors
-		}
+func (g *Graph) addExecutorIfNotExist(executor executorpkg.Executor) {
+	if _, ok := g.AllExecutors[executor.GetName()]; !ok {
+		g.AllExecutors[executor.GetName()] = executor
 	}
-	return g
 }
 
 // Diff returns the difference between two graphs
@@ -192,20 +219,26 @@ func Diff(a, b *Graph) *Graph {
 // graph, it is ignored.
 func Combine(a, b *Graph) *Graph {
 	combinedGraph := a.DeepCopy()
-	combinedGraph.AllExecutors = append(combinedGraph.AllExecutors, b.AllExecutors...)
 	for name, node := range b.Nodes {
 		if _, ok := a.Nodes[name]; !ok {
 			combinedGraph.Nodes[name] = node.DeepCopy()
 		}
 	}
+	for _, item := range b.AllExecutors {
+		combinedGraph.addExecutorIfNotExist(item)
+	}
 	return combinedGraph
 }
 
-func (g *Graph) clearDependencies() *Graph {
+func (g *Graph) clear() *Graph {
+	g.AllExecutors = make(map[string]executorpkg.Executor)
 	for _, node := range g.Nodes {
 		node.Dependencies = nil
 		for _, task := range node.Tasks {
 			task.Dependencies = nil
+			for _, executor := range task.Executors {
+				executor.Dependencies = nil
+			}
 		}
 	}
 	return g
@@ -220,12 +253,24 @@ func NewAppNode(application *v1alpha1.Application) *AppNode {
 }
 
 func NewTaskNode(application *v1alpha1.Application) *TaskNode {
-	return &TaskNode{
+	taskNode := &TaskNode{
 		Name:         application.Name,
 		ChartName:    application.Spec.Chart.Name,
 		ChartVersion: application.Spec.Chart.Version,
 		Release:      application.Spec.Release,
-		Executors:    []executor.Executor{executor.DefaultForward{}},
+		Executors:    make(map[string]*ExecutorNode),
+	}
+	for _, item := range application.Spec.Workflow {
+		taskNode.Executors[item.Name] = NewExecutorNode(&item)
+	}
+	return taskNode
+}
+
+func NewExecutorNode(executor *v1alpha1.Executor) *ExecutorNode {
+	return &ExecutorNode{
+		Name:         executor.Name,
+		Dependencies: executor.Dependencies,
+		Executor:     executorpkg.ExecutorFactory(executor.Type),
 	}
 }
 

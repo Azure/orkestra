@@ -43,10 +43,6 @@ const (
 
 	OwnershipLabel = "orkestra.azure.microsoft.com/owner"
 	ChartLabel     = "orkestra.azure.microsoft.com/chart"
-
-	ForwardWorkflow  WorkflowType = "forward"
-	ReverseWorkflow  WorkflowType = "reverse"
-	RollbackWorkflow WorkflowType = "rollback"
 )
 
 // GetInterval returns the interval if specified in the application group
