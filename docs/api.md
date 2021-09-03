@@ -101,6 +101,21 @@ Release
 <p>Subcharts provides the dependency order among the subcharts of the application</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>workflow</code><br>
+<em>
+<a href="#orkestra.azure.microsoft.com/v1alpha1.Executor">
+[]Executor
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Workflow provides an option to specify one or more workflow executors to run
+as a DAG</p>
+</td>
+</tr>
 </table>
 </td>
 </tr>
@@ -376,6 +391,21 @@ Release
 <p>Subcharts provides the dependency order among the subcharts of the application</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>workflow</code><br>
+<em>
+<a href="#orkestra.azure.microsoft.com/v1alpha1.Executor">
+[]Executor
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Workflow provides an option to specify one or more workflow executors to run
+as a DAG</p>
+</td>
+</tr>
 </tbody>
 </table>
 </div>
@@ -591,7 +621,8 @@ staging helm repo</p>
 <p>
 (<em>Appears on:</em>
 <a href="#orkestra.azure.microsoft.com/v1alpha1.Application">Application</a>, 
-<a href="#orkestra.azure.microsoft.com/v1alpha1.ApplicationSpec">ApplicationSpec</a>)
+<a href="#orkestra.azure.microsoft.com/v1alpha1.ApplicationSpec">ApplicationSpec</a>, 
+<a href="#orkestra.azure.microsoft.com/v1alpha1.Executor">Executor</a>)
 </p>
 <p>DAG contains the dependency information</p>
 <div class="md-typeset__scrollwrap">
@@ -631,6 +662,90 @@ string
 </table>
 </div>
 </div>
+<h3 id="orkestra.azure.microsoft.com/v1alpha1.Executor">Executor
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#orkestra.azure.microsoft.com/v1alpha1.ApplicationSpec">ApplicationSpec</a>)
+</p>
+<div class="md-typeset__scrollwrap">
+<div class="md-typeset__table">
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>DAG</code><br>
+<em>
+<a href="#orkestra.azure.microsoft.com/v1alpha1.DAG">
+DAG
+</a>
+</em>
+</td>
+<td>
+<p>
+(Members of <code>DAG</code> are embedded into this type.)
+</p>
+<p>DAG contains the dependency information</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>type</code><br>
+<em>
+<a href="#orkestra.azure.microsoft.com/v1alpha1.ExecutorType">
+ExecutorType
+</a>
+</em>
+</td>
+<td>
+<p>Type specifies the executor type to be run</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>image</code><br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Image allows the end user to specify the docker image name and tag
+to be executed by the workflow node</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>params</code><br>
+<em>
+<a href="https://pkg.go.dev/k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1?tab=doc#JSON">
+Kubernetes pkg/apis/apiextensions/v1.JSON
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Params hold executor specific properties</p>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<h3 id="orkestra.azure.microsoft.com/v1alpha1.ExecutorType">ExecutorType
+(<code>string</code> alias)</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#orkestra.azure.microsoft.com/v1alpha1.Executor">Executor</a>)
+</p>
+<p>ExecutorType can either refer to a native executor (helmrelease and/or keptn) or
+be a custom executor defined by the end-user</p>
 <h3 id="orkestra.azure.microsoft.com/v1alpha1.Release">Release
 </h3>
 <p>

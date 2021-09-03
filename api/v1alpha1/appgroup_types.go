@@ -71,6 +71,49 @@ type ApplicationSpec struct {
 	// Subcharts provides the dependency order among the subcharts of the application
 	// +optional
 	Subcharts []DAG `json:"subcharts,omitempty"`
+
+	// Workflow provides an option to specify one or more workflow executors to run
+	// as a DAG
+	// +optional
+	Workflow []Executor `json:"workflow,omitempty"`
+}
+
+// ExecutorType can either refer to a native executor (helmrelease and/or keptn) or
+// be a custom executor defined by the end-user
+type ExecutorType string
+
+const (
+	// HelmReleaseExecutor type is a "deployment" executor native to Orkestra that is responsible for
+	// deploying the application through the `HelmRelease` custom resource for the fluxcd helm-controller
+	HelmReleaseExecutor ExecutorType = "helmrelease"
+	// KeptnExecutor type is a "evaluation" executor native to Orkestra that is respnsible for running
+	// evaluations tests and quality gates based rollouts and promotions.
+	// Important : A testing executor may not be used as a standalone executor and must always
+	// be executed after a deployment executor (i.e. must depend on a deployment executor) .
+	KeptnExecutor ExecutorType = "keptn"
+	// CustomExecutor lets the user specify their own executor template to be used either as a deployment
+	// executor, a testing executor or for any other action to be taken on behalf of the application node.
+	CustomExecutor ExecutorType = "custom"
+)
+
+type Executor struct {
+	// DAG contains the dependency information
+	// +required
+	DAG `json:",inline"`
+
+	// Type specifies the executor type to be run
+	// +kubebuilder:validation:Enum=helmrelease;keptn;custom
+	// +required
+	Type ExecutorType `json:"type,omitempty"`
+
+	// Image allows the end user to specify the docker image name and tag
+	// to be executed by the workflow node
+	// +optional
+	Image string `json:"image,omitempty"`
+
+	// Params hold executor specific properties
+	// +optional
+	Params *apiextensionsv1.JSON `json:"params,omitempty"`
 }
 
 type Release struct {
