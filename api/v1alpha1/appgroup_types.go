@@ -86,13 +86,11 @@ const (
 	// HelmReleaseExecutor type is a "deployment" executor native to Orkestra that is responsible for
 	// deploying the application through the `HelmRelease` custom resource for the fluxcd helm-controller
 	HelmReleaseExecutor ExecutorType = "helmrelease"
-	
 	// KeptnExecutor type is a "evaluation" executor native to Orkestra that is respnsible for running
 	// evaluations tests and quality gates based rollouts and promotions.
 	// Important : A testing executor may not be used as a standalone executor and must always
 	// be executed after a deployment executor (i.e. must depend on a deployment executor) .
 	KeptnExecutor ExecutorType = "keptn"
-	
 	// CustomExecutor lets the user specify their own executor template to be used either as a deployment
 	// executor, a testing executor or for any other action to be taken on behalf of the application node.
 	CustomExecutor ExecutorType = "custom"
