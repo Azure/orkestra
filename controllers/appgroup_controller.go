@@ -71,10 +71,10 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	patch := client.MergeFrom(appGroup.DeepCopy())
 
 	statusHelper := &helpers.StatusHelper{
-		Client:                r.Client,
-		Logger:                logr,
-		PatchFrom:             patch,
-		Recorder:              r.Recorder,
+		Client:    r.Client,
+		Logger:    logr,
+		PatchFrom: patch,
+		Recorder:  r.Recorder,
 	}
 	reconcileHelper := helpers.ReconcileHelper{
 		Client:                r.Client,
@@ -101,15 +101,10 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	if !appGroup.DeletionTimestamp.IsZero() {
 		statusHelper.MarkTerminating(appGroup)
-		result, err := reconcileHelper.Reverse(ctx)
-		if !result.Requeue && err == nil {
-			// Remove the finalizer because we have finished reversing
-			controllerutil.RemoveFinalizer(appGroup, v1alpha1.AppGroupFinalizer)
-			if err := r.Patch(ctx, appGroup, patch); err != nil {
-				return result, err
-			}
+		if err := reconcileHelper.Reverse(ctx); err != nil {
+			logr.Error(err, "failed to generate the reverse workflow")
+			return ctrl.Result{}, err
 		}
-		return result, err
 	}
 	// Add finalizer if it doesn't already exist
 	if !controllerutil.ContainsFinalizer(appGroup, v1alpha1.AppGroupFinalizer) {

@@ -87,6 +87,7 @@ func (wc *ReverseWorkflowClient) Submit(ctx context.Context) error {
 	}
 	wc.workflow.Labels[v1alpha1.OwnershipLabel] = wc.appGroup.Name
 	wc.workflow.Labels[v1alpha1.WorkflowTypeLabel] = string(v1alpha1.ReverseWorkflow)
+	controllerutil.AddFinalizer(wc.workflow, v1alpha1.AppGroupFinalizer)
 	if err := wc.Get(ctx, client.ObjectKeyFromObject(obj), obj); client.IgnoreNotFound(err) != nil {
 		return fmt.Errorf("failed to GET workflow object with an unrecoverable error: %w", err)
 	} else if err != nil {

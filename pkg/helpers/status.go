@@ -18,8 +18,8 @@ import (
 type StatusHelper struct {
 	client.Client
 	logr.Logger
-	PatchFrom             client.Patch
-	Recorder              record.EventRecorder
+	PatchFrom client.Patch
+	Recorder  record.EventRecorder
 }
 
 func (helper *StatusHelper) UpdateStatus(ctx context.Context, instance *v1alpha1.ApplicationGroup) error {

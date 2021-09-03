@@ -54,9 +54,9 @@ type ClientOptions struct {
 }
 
 type Builder struct {
-	client     client.Client
-	options    ClientOptions
-	logger     logr.Logger
+	client  client.Client
+	options ClientOptions
+	logger  logr.Logger
 
 	workflow *v1alpha13.Workflow
 	appGroup *v1alpha1.ApplicationGroup
@@ -99,9 +99,9 @@ func NewBuilder(client client.Client, logger logr.Logger) *Builder {
 
 func NewClientFromClient(client Client, clientType v1alpha1.WorkflowType) Client {
 	builder := &Builder{
-		client:   client.GetClient(),
-		options:  client.GetOptions(),
-		logger:   client.GetLogger(),
+		client:  client.GetClient(),
+		options: client.GetOptions(),
+		logger:  client.GetLogger(),
 	}
 	return builder.Build(clientType, client.GetAppGroup())
 }
@@ -128,7 +128,7 @@ func (builder *Builder) Build(clientType v1alpha1.WorkflowType, appGroup *v1alph
 			Client:        builder.client,
 			Logger:        builder.logger,
 			ClientOptions: builder.options,
-			appGroup: appGroup,
+			appGroup:      appGroup,
 		}
 		return forwardClient
 	case v1alpha1.Reverse:
@@ -136,7 +136,7 @@ func (builder *Builder) Build(clientType v1alpha1.WorkflowType, appGroup *v1alph
 			Client:        builder.client,
 			Logger:        builder.logger,
 			ClientOptions: builder.options,
-			appGroup: appGroup,
+			appGroup:      appGroup,
 		}
 		return reverseClient
 	default:
@@ -144,7 +144,7 @@ func (builder *Builder) Build(clientType v1alpha1.WorkflowType, appGroup *v1alph
 			Client:        builder.client,
 			Logger:        builder.logger,
 			ClientOptions: builder.options,
-			appGroup: appGroup,
+			appGroup:      appGroup,
 		}
 		return rollbackClient
 	}

@@ -42,6 +42,7 @@ const (
 	HeritageValue = "orkestra"
 
 	OwnershipLabel = "orkestra.azure.microsoft.com/owner"
+	WorkflowTypeLabel = "orkestra.azure.microsoft.com/workflow-type"
 	ChartLabel     = "orkestra.azure.microsoft.com/chart"
 
 	ForwardWorkflow  WorkflowType = "forward"

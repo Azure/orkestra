@@ -176,10 +176,10 @@ func main() {
 	}
 
 	if err = (&controllers.WorkflowStatusReconciler{
-		Client:                  mgr.GetClient(),
-		Log:                     baseLogger,
-		Scheme:                  mgr.GetScheme(),
-		WorkflowClientBuilder:   workflow.NewBuilder(mgr.GetClient(), baseLogger).WithStagingRepo(workflowHelmURL).WithParallelism(workflowParallelism).InNamespace(workflow.GetNamespace()),
+		Client:                mgr.GetClient(),
+		Log:                   baseLogger,
+		Scheme:                mgr.GetScheme(),
+		WorkflowClientBuilder: workflow.NewBuilder(mgr.GetClient(), baseLogger).WithStagingRepo(workflowHelmURL).WithParallelism(workflowParallelism).InNamespace(workflow.GetNamespace()),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "WorkflowStatus")
 		os.Exit(1)
