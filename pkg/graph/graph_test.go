@@ -74,14 +74,16 @@ func Test_NewForwardGraph(t *testing.T) {
 				},
 			},
 			want: &Graph{
-				Name:         "application",
-				AllExecutors: []executor.Executor{executor.DefaultForward{}},
+				Name: "application",
+				AllExecutors: map[string]executor.Executor{
+					executor.HelmReleaseForward{}.GetName(): executor.HelmReleaseForward{},
+				},
 				Nodes: map[string]*AppNode{
 					"application1": {
 						Name: "application1",
 						Tasks: map[string]*TaskNode{
-							"application1": {
-								Name:         "application1",
+							"application1-application1": {
+								Name:         "application1-application1",
 								ChartName:    "application1",
 								ChartVersion: "0.1.0",
 								Release: &v1alpha1.Release{
@@ -89,7 +91,12 @@ func Test_NewForwardGraph(t *testing.T) {
 										Raw: []byte(`{}`),
 									},
 								},
-								Executors: []executor.Executor{executor.DefaultForward{}},
+								Executors: map[string]*ExecutorNode{
+									"helmrelease": {
+										Name:     "helmrelease",
+										Executor: executor.HelmReleaseForward{},
+									},
+								},
 							},
 						},
 					},
@@ -97,8 +104,8 @@ func Test_NewForwardGraph(t *testing.T) {
 						Name:         "application2",
 						Dependencies: []string{"application1"},
 						Tasks: map[string]*TaskNode{
-							"application2": {
-								Name:         "application2",
+							"application2-application2": {
+								Name:         "application2-application2",
 								ChartName:    "application2",
 								ChartVersion: "0.1.0",
 								Release: &v1alpha1.Release{
@@ -106,7 +113,12 @@ func Test_NewForwardGraph(t *testing.T) {
 										Raw: []byte(`{}`),
 									},
 								},
-								Executors: []executor.Executor{executor.DefaultForward{}},
+								Executors: map[string]*ExecutorNode{
+									"helmrelease": {
+										Name:     "helmrelease",
+										Executor: executor.HelmReleaseForward{},
+									},
+								},
 							},
 						},
 					},
@@ -114,8 +126,8 @@ func Test_NewForwardGraph(t *testing.T) {
 						Name:         "application3",
 						Dependencies: []string{"application2"},
 						Tasks: map[string]*TaskNode{
-							"application3": {
-								Name:         "application3",
+							"application3-application3": {
+								Name:         "application3-application3",
 								ChartName:    "application3",
 								ChartVersion: "0.1.0",
 								Release: &v1alpha1.Release{
@@ -123,7 +135,12 @@ func Test_NewForwardGraph(t *testing.T) {
 										Raw: []byte(`{}`),
 									},
 								},
-								Executors: []executor.Executor{executor.DefaultForward{}},
+								Executors: map[string]*ExecutorNode{
+									"helmrelease": {
+										Name:     "helmrelease",
+										Executor: executor.HelmReleaseForward{},
+									},
+								},
 							},
 						},
 					},
@@ -224,14 +241,16 @@ func Test_NewForwardGraph(t *testing.T) {
 				},
 			},
 			want: &Graph{
-				Name:         "application",
-				AllExecutors: []executor.Executor{executor.DefaultForward{}},
+				Name: "application",
+				AllExecutors: map[string]executor.Executor{
+					executor.HelmReleaseForward{}.GetName(): executor.HelmReleaseForward{},
+				},
 				Nodes: map[string]*AppNode{
 					"application1": {
 						Name: "application1",
 						Tasks: map[string]*TaskNode{
-							"application1": {
-								Name:         "application1",
+							"application1-application1": {
+								Name:         "application1-application1",
 								ChartName:    "application1",
 								ChartVersion: "0.1.0",
 								Release: &v1alpha1.Release{
@@ -239,11 +258,16 @@ func Test_NewForwardGraph(t *testing.T) {
 										Raw: []byte(`{"subchart1":{"enabled":false},"subchart2":{"enabled":false},"subchart3":{"enabled":false}}`),
 									},
 								},
-								Dependencies: []string{"subchart1", "subchart2", "subchart3"},
-								Executors:    []executor.Executor{executor.DefaultForward{}},
+								Dependencies: []string{"application1-subchart1", "application1-subchart2", "application1-subchart3"},
+								Executors: map[string]*ExecutorNode{
+									"helmrelease": {
+										Name:     "helmrelease",
+										Executor: executor.HelmReleaseForward{},
+									},
+								},
 							},
-							"subchart1": {
-								Name:         "subchart1",
+							"application1-subchart1": {
+								Name:         "application1-subchart1",
 								ChartName:    utils.GetSubchartName("application1", "subchart1"),
 								ChartVersion: "0.1.0",
 								Release: &v1alpha1.Release{
@@ -252,11 +276,16 @@ func Test_NewForwardGraph(t *testing.T) {
 									},
 								},
 								Parent:       "application1",
-								Dependencies: []string{"subchart2"},
-								Executors:    []executor.Executor{executor.DefaultForward{}},
+								Dependencies: []string{"application1-subchart2"},
+								Executors: map[string]*ExecutorNode{
+									"helmrelease": {
+										Name:     "helmrelease",
+										Executor: executor.HelmReleaseForward{},
+									},
+								},
 							},
-							"subchart2": {
-								Name:         "subchart2",
+							"application1-subchart2": {
+								Name:         "application1-subchart2",
 								ChartName:    utils.GetSubchartName("application1", "subchart2"),
 								ChartVersion: "0.1.0",
 								Release: &v1alpha1.Release{
@@ -264,11 +293,16 @@ func Test_NewForwardGraph(t *testing.T) {
 										Raw: []byte(`{}`),
 									},
 								},
-								Parent:    "application1",
-								Executors: []executor.Executor{executor.DefaultForward{}},
+								Parent: "application1",
+								Executors: map[string]*ExecutorNode{
+									"helmrelease": {
+										Name:     "helmrelease",
+										Executor: executor.HelmReleaseForward{},
+									},
+								},
 							},
-							"subchart3": {
-								Name:         "subchart3",
+							"application1-subchart3": {
+								Name:         "application1-subchart3",
 								ChartName:    utils.GetSubchartName("application1", "subchart3"),
 								ChartVersion: "0.1.0",
 								Release: &v1alpha1.Release{
@@ -277,8 +311,13 @@ func Test_NewForwardGraph(t *testing.T) {
 									},
 								},
 								Parent:       "application1",
-								Dependencies: []string{"subchart1", "subchart2"},
-								Executors:    []executor.Executor{executor.DefaultForward{}},
+								Dependencies: []string{"application1-subchart1", "application1-subchart2"},
+								Executors: map[string]*ExecutorNode{
+									"helmrelease": {
+										Name:     "helmrelease",
+										Executor: executor.HelmReleaseForward{},
+									},
+								},
 							},
 						},
 					},
@@ -286,8 +325,8 @@ func Test_NewForwardGraph(t *testing.T) {
 						Name:         "application2",
 						Dependencies: []string{"application1"},
 						Tasks: map[string]*TaskNode{
-							"application2": {
-								Name:         "application2",
+							"application2-application2": {
+								Name:         "application2-application2",
 								ChartName:    "application2",
 								ChartVersion: "0.1.0",
 								Release: &v1alpha1.Release{
@@ -295,11 +334,16 @@ func Test_NewForwardGraph(t *testing.T) {
 										Raw: []byte(`{"subchart1":{"enabled":false}}`),
 									},
 								},
-								Dependencies: []string{"subchart1"},
-								Executors:    []executor.Executor{executor.DefaultForward{}},
+								Dependencies: []string{"application2-subchart1"},
+								Executors: map[string]*ExecutorNode{
+									"helmrelease": {
+										Name:     "helmrelease",
+										Executor: executor.HelmReleaseForward{},
+									},
+								},
 							},
-							"subchart1": {
-								Name:         "subchart1",
+							"application2-subchart1": {
+								Name:         "application2-subchart1",
 								ChartName:    utils.GetSubchartName("application2", "subchart1"),
 								ChartVersion: "0.1.0",
 								Release: &v1alpha1.Release{
@@ -307,8 +351,13 @@ func Test_NewForwardGraph(t *testing.T) {
 										Raw: []byte(`{}`),
 									},
 								},
-								Parent:    "application2",
-								Executors: []executor.Executor{executor.DefaultForward{}},
+								Parent: "application2",
+								Executors: map[string]*ExecutorNode{
+									"helmrelease": {
+										Name:     "helmrelease",
+										Executor: executor.HelmReleaseForward{},
+									},
+								},
 							},
 						},
 					},
@@ -316,8 +365,8 @@ func Test_NewForwardGraph(t *testing.T) {
 						Name:         "application3",
 						Dependencies: []string{"application2"},
 						Tasks: map[string]*TaskNode{
-							"application3": {
-								Name:         "application3",
+							"application3-application3": {
+								Name:         "application3-application3",
 								ChartName:    "application3",
 								ChartVersion: "0.1.0",
 								Release: &v1alpha1.Release{
@@ -325,7 +374,12 @@ func Test_NewForwardGraph(t *testing.T) {
 										Raw: []byte(`{}`),
 									},
 								},
-								Executors: []executor.Executor{executor.DefaultForward{}},
+								Executors: map[string]*ExecutorNode{
+									"helmrelease": {
+										Name:     "helmrelease",
+										Executor: executor.HelmReleaseForward{},
+									},
+								},
 							},
 						},
 					},
@@ -404,15 +458,17 @@ func Test_NewReverseGraph(t *testing.T) {
 				},
 			},
 			want: &Graph{
-				Name:         "application",
-				AllExecutors: []executor.Executor{executor.DefaultReverse{}},
+				Name: "application",
+				AllExecutors: map[string]executor.Executor{
+					executor.HelmReleaseReverse{}.GetName(): executor.HelmReleaseReverse{},
+				},
 				Nodes: map[string]*AppNode{
 					"application1": {
 						Name:         "application1",
 						Dependencies: []string{"application2"},
 						Tasks: map[string]*TaskNode{
-							"application1": {
-								Name:         "application1",
+							"application1-application1": {
+								Name:         "application1-application1",
 								ChartName:    "application1",
 								ChartVersion: "0.1.0",
 								Release: &v1alpha1.Release{
@@ -420,7 +476,12 @@ func Test_NewReverseGraph(t *testing.T) {
 										Raw: []byte(`{}`),
 									},
 								},
-								Executors: []executor.Executor{executor.DefaultReverse{}},
+								Executors: map[string]*ExecutorNode{
+									"helmrelease": {
+										Name:     "helmrelease",
+										Executor: executor.HelmReleaseReverse{},
+									},
+								},
 							},
 						},
 					},
@@ -428,8 +489,8 @@ func Test_NewReverseGraph(t *testing.T) {
 						Name:         "application2",
 						Dependencies: []string{"application3"},
 						Tasks: map[string]*TaskNode{
-							"application2": {
-								Name:         "application2",
+							"application2-application2": {
+								Name:         "application2-application2",
 								ChartName:    "application2",
 								ChartVersion: "0.1.0",
 								Release: &v1alpha1.Release{
@@ -437,15 +498,20 @@ func Test_NewReverseGraph(t *testing.T) {
 										Raw: []byte(`{}`),
 									},
 								},
-								Executors: []executor.Executor{executor.DefaultReverse{}},
+								Executors: map[string]*ExecutorNode{
+									"helmrelease": {
+										Name:     "helmrelease",
+										Executor: executor.HelmReleaseReverse{},
+									},
+								},
 							},
 						},
 					},
 					"application3": {
 						Name: "application3",
 						Tasks: map[string]*TaskNode{
-							"application3": {
-								Name:         "application3",
+							"application3-application3": {
+								Name:         "application3-application3",
 								ChartName:    "application3",
 								ChartVersion: "0.1.0",
 								Release: &v1alpha1.Release{
@@ -453,7 +519,12 @@ func Test_NewReverseGraph(t *testing.T) {
 										Raw: []byte(`{}`),
 									},
 								},
-								Executors: []executor.Executor{executor.DefaultReverse{}},
+								Executors: map[string]*ExecutorNode{
+									"helmrelease": {
+										Name:     "helmrelease",
+										Executor: executor.HelmReleaseReverse{},
+									},
+								},
 							},
 						},
 					},
@@ -554,15 +625,17 @@ func Test_NewReverseGraph(t *testing.T) {
 				},
 			},
 			want: &Graph{
-				Name:         "application",
-				AllExecutors: []executor.Executor{executor.DefaultReverse{}},
+				Name: "application",
+				AllExecutors: map[string]executor.Executor{
+					executor.HelmReleaseReverse{}.GetName(): executor.HelmReleaseReverse{},
+				},
 				Nodes: map[string]*AppNode{
 					"application1": {
 						Name:         "application1",
 						Dependencies: []string{"application2"},
 						Tasks: map[string]*TaskNode{
-							"application1": {
-								Name:         "application1",
+							"application1-application1": {
+								Name:         "application1-application1",
 								ChartName:    "application1",
 								ChartVersion: "0.1.0",
 								Release: &v1alpha1.Release{
@@ -570,10 +643,15 @@ func Test_NewReverseGraph(t *testing.T) {
 										Raw: []byte(`{"subchart1":{"enabled":false},"subchart2":{"enabled":false},"subchart3":{"enabled":false}}`),
 									},
 								},
-								Executors: []executor.Executor{executor.DefaultReverse{}},
+								Executors: map[string]*ExecutorNode{
+									"helmrelease": {
+										Name:     "helmrelease",
+										Executor: executor.HelmReleaseReverse{},
+									},
+								},
 							},
-							"subchart1": {
-								Name:         "subchart1",
+							"application1-subchart1": {
+								Name:         "application1-subchart1",
 								ChartName:    utils.GetSubchartName("application1", "subchart1"),
 								ChartVersion: "0.1.0",
 								Release: &v1alpha1.Release{
@@ -582,11 +660,16 @@ func Test_NewReverseGraph(t *testing.T) {
 									},
 								},
 								Parent:       "application1",
-								Dependencies: []string{"application1", "subchart3"},
-								Executors:    []executor.Executor{executor.DefaultReverse{}},
+								Dependencies: []string{"application1-application1", "application1-subchart3"},
+								Executors: map[string]*ExecutorNode{
+									"helmrelease": {
+										Name:     "helmrelease",
+										Executor: executor.HelmReleaseReverse{},
+									},
+								},
 							},
-							"subchart2": {
-								Name:         "subchart2",
+							"application1-subchart2": {
+								Name:         "application1-subchart2",
 								ChartName:    utils.GetSubchartName("application1", "subchart2"),
 								ChartVersion: "0.1.0",
 								Release: &v1alpha1.Release{
@@ -594,12 +677,17 @@ func Test_NewReverseGraph(t *testing.T) {
 										Raw: []byte(`{}`),
 									},
 								},
-								Dependencies: []string{"application1", "subchart1", "subchart3"},
+								Dependencies: []string{"application1-application1", "application1-subchart1", "application1-subchart3"},
 								Parent:       "application1",
-								Executors:    []executor.Executor{executor.DefaultReverse{}},
+								Executors: map[string]*ExecutorNode{
+									"helmrelease": {
+										Name:     "helmrelease",
+										Executor: executor.HelmReleaseReverse{},
+									},
+								},
 							},
-							"subchart3": {
-								Name:         "subchart3",
+							"application1-subchart3": {
+								Name:         "application1-subchart3",
 								ChartName:    utils.GetSubchartName("application1", "subchart3"),
 								ChartVersion: "0.1.0",
 								Release: &v1alpha1.Release{
@@ -608,8 +696,13 @@ func Test_NewReverseGraph(t *testing.T) {
 									},
 								},
 								Parent:       "application1",
-								Dependencies: []string{"application1"},
-								Executors:    []executor.Executor{executor.DefaultReverse{}},
+								Dependencies: []string{"application1-application1"},
+								Executors: map[string]*ExecutorNode{
+									"helmrelease": {
+										Name:     "helmrelease",
+										Executor: executor.HelmReleaseReverse{},
+									},
+								},
 							},
 						},
 					},
@@ -617,8 +710,8 @@ func Test_NewReverseGraph(t *testing.T) {
 						Name:         "application2",
 						Dependencies: []string{"application3"},
 						Tasks: map[string]*TaskNode{
-							"application2": {
-								Name:         "application2",
+							"application2-application2": {
+								Name:         "application2-application2",
 								ChartName:    "application2",
 								ChartVersion: "0.1.0",
 								Release: &v1alpha1.Release{
@@ -626,10 +719,15 @@ func Test_NewReverseGraph(t *testing.T) {
 										Raw: []byte(`{"subchart1":{"enabled":false}}`),
 									},
 								},
-								Executors: []executor.Executor{executor.DefaultReverse{}},
+								Executors: map[string]*ExecutorNode{
+									"helmrelease": {
+										Name:     "helmrelease",
+										Executor: executor.HelmReleaseReverse{},
+									},
+								},
 							},
-							"subchart1": {
-								Name:         "subchart1",
+							"application2-subchart1": {
+								Name:         "application2-subchart1",
 								ChartName:    utils.GetSubchartName("application2", "subchart1"),
 								ChartVersion: "0.1.0",
 								Release: &v1alpha1.Release{
@@ -638,16 +736,21 @@ func Test_NewReverseGraph(t *testing.T) {
 									},
 								},
 								Parent:       "application2",
-								Dependencies: []string{"application2"},
-								Executors:    []executor.Executor{executor.DefaultReverse{}},
+								Dependencies: []string{"application2-application2"},
+								Executors: map[string]*ExecutorNode{
+									"helmrelease": {
+										Name:     "helmrelease",
+										Executor: executor.HelmReleaseReverse{},
+									},
+								},
 							},
 						},
 					},
 					"application3": {
 						Name: "application3",
 						Tasks: map[string]*TaskNode{
-							"application3": {
-								Name:         "application3",
+							"application3-application3": {
+								Name:         "application3-application3",
 								ChartName:    "application3",
 								ChartVersion: "0.1.0",
 								Release: &v1alpha1.Release{
@@ -655,7 +758,12 @@ func Test_NewReverseGraph(t *testing.T) {
 										Raw: []byte(`{}`),
 									},
 								},
-								Executors: []executor.Executor{executor.DefaultReverse{}},
+								Executors: map[string]*ExecutorNode{
+									"helmrelease": {
+										Name:     "helmrelease",
+										Executor: executor.HelmReleaseReverse{},
+									},
+								},
 							},
 						},
 					},
@@ -1079,7 +1187,8 @@ func Test_clearDependencies(t *testing.T) {
 				},
 			},
 			want: &Graph{
-				Name: "application",
+				Name:         "application",
+				AllExecutors: map[string]executor.Executor{},
 				Nodes: map[string]*AppNode{
 					"application1": {
 						Tasks: map[string]*TaskNode{
@@ -1104,9 +1213,9 @@ func Test_clearDependencies(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := tt.args.graph.clearDependencies()
+			got := tt.args.graph.clear()
 			if !cmp.Equal(got, tt.want) {
-				t.Errorf("NewReverseGraph() = %v", cmp.Diff(got, tt.want))
+				t.Errorf("clearDependencies() = %v", cmp.Diff(got, tt.want))
 			}
 		})
 	}

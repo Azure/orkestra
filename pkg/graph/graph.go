@@ -48,11 +48,12 @@ func (appNode *AppNode) DeepCopy() *AppNode {
 	newAppNode := &AppNode{
 		Name:         appNode.Name,
 		Dependencies: appNode.Dependencies,
-		Tasks:        make(map[string]*TaskNode),
 	}
-
-	for name, task := range appNode.Tasks {
-		newAppNode.Tasks[name] = task.DeepCopy()
+	if appNode.Tasks != nil {
+		newAppNode.Tasks = make(map[string]*TaskNode)
+		for name, task := range appNode.Tasks {
+			newAppNode.Tasks[name] = task.DeepCopy()
+		}
 	}
 	return newAppNode
 }
@@ -85,10 +86,12 @@ func (taskNode *TaskNode) DeepCopy() *TaskNode {
 		Parent:       taskNode.Parent,
 		Release:      taskNode.Release.DeepCopy(),
 		Dependencies: taskNode.Dependencies,
-		Executors:    make(map[string]*ExecutorNode),
 	}
-	for name, executor := range taskNode.Executors {
-		newTaskNode.Executors[name] = executor.DeepCopy()
+	if taskNode.Executors != nil {
+		newTaskNode.Executors = make(map[string]*ExecutorNode)
+		for name, executor := range taskNode.Executors {
+			newTaskNode.Executors[name] = executor.DeepCopy()
+		}
 	}
 	return newTaskNode
 }
@@ -103,14 +106,14 @@ func NewExecutorNode(executor *v1alpha1.Executor) *ExecutorNode {
 	return &ExecutorNode{
 		Name:         executor.Name,
 		Dependencies: executor.Dependencies,
-		Executor:     executorpkg.ExecutorFactory(executor.Type),
+		Executor:     executorpkg.Factory(executor.Type),
 	}
 }
 
 func NewDefaultExecutorNode() *ExecutorNode {
 	return &ExecutorNode{
 		Name:     string(v1alpha1.HelmReleaseExecutor),
-		Executor: executorpkg.ExecutorFactory(v1alpha1.HelmReleaseExecutor),
+		Executor: executorpkg.Factory(v1alpha1.HelmReleaseExecutor),
 	}
 }
 
@@ -170,7 +173,7 @@ func NewForwardGraph(appGroup *v1alpha1.ApplicationGroup) *Graph {
 			// Add the node to the set of parent node dependencies
 			applicationTaskNode.Dependencies = append(applicationTaskNode.Dependencies, subChartNode.Name)
 		}
-		applicationTaskNode.Release.SetValues(appValues)
+		_ = applicationTaskNode.Release.SetValues(appValues)
 		applicationNode.Tasks[applicationTaskNode.Name] = applicationTaskNode
 		g.Nodes[applicationNode.Name] = applicationNode
 	}
@@ -285,11 +288,11 @@ func getTaskName(appName, taskName string) string {
 func (g *Graph) assignExecutorsToTask(taskNode *TaskNode, workflow []v1alpha1.Executor) {
 	if len(workflow) == 0 {
 		taskNode.Executors[string(v1alpha1.HelmReleaseExecutor)] = NewDefaultExecutorNode()
-		g.addExecutorIfNotExist(executorpkg.ExecutorFactory(v1alpha1.HelmReleaseExecutor))
+		g.addExecutorIfNotExist(executorpkg.Factory(v1alpha1.HelmReleaseExecutor))
 	} else {
 		for _, item := range workflow {
 			taskNode.Executors[item.Name] = NewExecutorNode(&item)
-			g.addExecutorIfNotExist(executorpkg.ExecutorFactory(item.Type))
+			g.addExecutorIfNotExist(executorpkg.Factory(item.Type))
 		}
 	}
 }

@@ -37,7 +37,7 @@ type Executor interface {
 	GetTask(name string, dependencies []string, timeout, hrStr *v1alpha13.AnyString) v1alpha13.DAGTask
 }
 
-func ExecutorFactory(executorType v1alpha1.ExecutorType) Executor {
+func Factory(executorType v1alpha1.ExecutorType) Executor {
 	switch executorType {
 	case v1alpha1.KeptnExecutor:
 		return KeptnForward{}
