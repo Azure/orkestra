@@ -112,6 +112,13 @@ spec:
                             install:
                               description: Install holds the configuration for Helm install actions for this HelmRelease.
                               properties:
+                                crds:
+                                  description: "CRDs upgrade CRDs from the Helm Chart's crds directory according to the CRD upgrade policy provided here. Valid values are `Skip`, `Create` or `CreateReplace`. Default is `Create` and if omitted CRDs are installed but not updated. \n Skip: do neither install nor replace (update) any CRDs. \n Create: new CRDs are created, existing CRDs are neither updated nor deleted. \n CreateReplace: new CRDs are created, existing CRDs are updated (replaced) but not deleted. \n By default, CRDs are applied (installed) during Helm install action. With this option users can opt-in to CRD replace existing CRDs on Helm install actions, which is not (yet) natively supported by Helm. https://helm.sh/docs/chart_best_practices/custom_resource_definitions."
+                                  enum:
+                                  - Skip
+                                  - Create
+                                  - CreateReplace
+                                  type: string
                                 createNamespace:
                                   description: CreateNamespace tells the Helm install action to create the HelmReleaseSpec.TargetNamespace if it does not exist yet. On uninstall, the namespace will not be garbage collected.
                                   type: boolean
@@ -123,6 +130,9 @@ spec:
                                   type: boolean
                                 disableWait:
                                   description: DisableWait disables the waiting for resources to be ready after a Helm install has been performed.
+                                  type: boolean
+                                disableWaitForJobs:
+                                  description: DisableWaitForJobs disables waiting for jobs to complete after a Helm install has been performed.
                                   type: boolean
                                 remediation:
                                   description: Remediation holds the remediation configuration for when the Helm install action for the HelmRelease fails. The default is to not perform any action.
@@ -141,7 +151,7 @@ spec:
                                   description: Replace tells the Helm install action to re-use the 'ReleaseName', but only if that name is a deleted release which remains in the history.
                                   type: boolean
                                 skipCRDs:
-                                  description: SkipCRDs tells the Helm install action to not install any CRDs. By default, CRDs are installed if not already present.
+                                  description: "SkipCRDs tells the Helm install action to not install any CRDs. By default, CRDs are installed if not already present. \n Deprecated use CRD policy (`crds`) attribute with value `Skip` instead."
                                   type: boolean
                                 timeout:
                                   description: Timeout is the time to wait for any individual Kubernetes operation (like Jobs for hooks) during the performance of a Helm install action. Defaults to 'HelmReleaseSpec.Timeout'.
@@ -162,6 +172,9 @@ spec:
                                   type: boolean
                                 disableWait:
                                   description: DisableWait disables the waiting for resources to be ready after a Helm rollback has been performed.
+                                  type: boolean
+                                disableWaitForJobs:
+                                  description: DisableWaitForJobs disables waiting for jobs to complete after a Helm rollback has been performed.
                                   type: boolean
                                 force:
                                   description: Force forces resource updates through a replacement strategy.
@@ -200,6 +213,13 @@ spec:
                                 cleanupOnFail:
                                   description: CleanupOnFail allows deletion of new resources created during the Helm upgrade action when it fails.
                                   type: boolean
+                                crds:
+                                  description: "CRDs upgrade CRDs from the Helm Chart's crds directory according to the CRD upgrade policy provided here. Valid values are `Skip`, `Create` or `CreateReplace`. Default is `Skip` and if omitted CRDs are neither installed nor upgraded. \n Skip: do neither install nor replace (update) any CRDs. \n Create: new CRDs are created, existing CRDs are neither updated nor deleted. \n CreateReplace: new CRDs are created, existing CRDs are updated (replaced) but not deleted. \n By default, CRDs are not applied during Helm upgrade action. With this option users can opt-in to CRD upgrade, which is not (yet) natively supported by Helm. https://helm.sh/docs/chart_best_practices/custom_resource_definitions."
+                                  enum:
+                                  - Skip
+                                  - Create
+                                  - CreateReplace
+                                  type: string
                                 disableHooks:
                                   description: DisableHooks prevents hooks from running during the Helm upgrade action.
                                   type: boolean
@@ -208,6 +228,9 @@ spec:
                                   type: boolean
                                 disableWait:
                                   description: DisableWait disables the waiting for resources to be ready after a Helm upgrade has been performed.
+                                  type: boolean
+                                disableWaitForJobs:
+                                  description: DisableWaitForJobs disables waiting for jobs to complete after a Helm upgrade has been performed.
                                   type: boolean
                                 force:
                                   description: Force forces resource updates through a replacement strategy.
@@ -254,6 +277,35 @@ spec:
                                 type: array
                               name:
                                 description: Name of the application
+                                type: string
+                            required:
+                            - name
+                            type: object
+                          type: array
+                        workflow:
+                          description: Workflow provides an option to specify one or more workflow executors to run as a DAG
+                          items:
+                            properties:
+                              dependencies:
+                                description: Dependencies on other applications by name
+                                items:
+                                  type: string
+                                type: array
+                              image:
+                                description: Image allows the end user to specify the docker image name and tag to be executed by the workflow node
+                                type: string
+                              name:
+                                description: Name of the application
+                                type: string
+                              params:
+                                description: Params hold executor specific properties
+                                x-kubernetes-preserve-unknown-fields: true
+                              type:
+                                description: Type specifies the executor type to be run
+                                enum:
+                                - helmrelease
+                                - keptn
+                                - custom
                                 type: string
                             required:
                             - name
