@@ -1,6 +1,7 @@
 package graph
 
 import (
+	"fmt"
 	"github.com/Azure/Orkestra/api/v1alpha1"
 	executorpkg "github.com/Azure/Orkestra/pkg/executor"
 	"github.com/Azure/Orkestra/pkg/utils"
@@ -35,6 +36,14 @@ type AppNode struct {
 	Tasks        map[string]*TaskNode
 }
 
+func NewAppNode(application *v1alpha1.Application) *AppNode {
+	return &AppNode{
+		Name:         application.Name,
+		Dependencies: application.Dependencies,
+		Tasks:        make(map[string]*TaskNode),
+	}
+}
+
 func (appNode *AppNode) DeepCopy() *AppNode {
 	newAppNode := &AppNode{
 		Name:         appNode.Name,
@@ -56,6 +65,16 @@ type TaskNode struct {
 	Release      *v1alpha1.Release
 	Dependencies []string
 	Executors    map[string]*ExecutorNode
+}
+
+func NewTaskNode(application *v1alpha1.Application) *TaskNode {
+	return &TaskNode{
+		Name:         getTaskName(application.Name, application.Name),
+		ChartName:    application.Spec.Chart.Name,
+		ChartVersion: application.Spec.Chart.Version,
+		Release:      application.Spec.Release,
+		Executors:    make(map[string]*ExecutorNode),
+	}
 }
 
 func (taskNode *TaskNode) DeepCopy() *TaskNode {
@@ -80,6 +99,21 @@ type ExecutorNode struct {
 	Executor     executorpkg.Executor
 }
 
+func NewExecutorNode(executor *v1alpha1.Executor) *ExecutorNode {
+	return &ExecutorNode{
+		Name:         executor.Name,
+		Dependencies: executor.Dependencies,
+		Executor:     executorpkg.ExecutorFactory(executor.Type),
+	}
+}
+
+func NewDefaultExecutorNode() *ExecutorNode {
+	return &ExecutorNode{
+		Name:     string(v1alpha1.HelmReleaseExecutor),
+		Executor: executorpkg.ExecutorFactory(v1alpha1.HelmReleaseExecutor),
+	}
+}
+
 func (executorNode *ExecutorNode) DeepCopy() *ExecutorNode {
 	return &ExecutorNode{
 		Name:     executorNode.Name,
@@ -92,13 +126,15 @@ func (executorNode *ExecutorNode) DeepCopy() *ExecutorNode {
 // the template generation functions
 func NewForwardGraph(appGroup *v1alpha1.ApplicationGroup) *Graph {
 	g := &Graph{
-		Name:  appGroup.Name,
-		Nodes: make(map[string]*AppNode),
+		AllExecutors: make(map[string]executorpkg.Executor),
+		Name:         appGroup.Name,
+		Nodes:        make(map[string]*AppNode),
 	}
 
 	for i, application := range appGroup.Spec.Applications {
 		applicationNode := NewAppNode(&application)
-		applicationNode.Tasks[application.Name] = NewTaskNode(&application)
+		applicationTaskNode := NewTaskNode(&application)
+		g.assignExecutorsToTask(applicationTaskNode, application.Spec.Workflow)
 		appValues := application.Spec.Release.GetValues()
 
 		// Iterate through the subchart nodes
@@ -112,21 +148,19 @@ func NewForwardGraph(appGroup *v1alpha1.ApplicationGroup) *Graph {
 			release.Values = values
 
 			subChartNode := &TaskNode{
-				Name:         subChart.Name,
+				Name:         getTaskName(application.Name, subChart.Name),
 				ChartName:    chartName,
 				ChartVersion: subChartVersion,
 				Release:      release,
 				Parent:       application.Name,
-				Dependencies: subChart.Dependencies,
 				Executors:    make(map[string]*ExecutorNode),
 			}
-
-			for _, item := range application.Spec.Workflow {
-				subChartNode.Executors[item.Name] = NewExecutorNode(&item)
-				g.addExecutorIfNotExist(executorpkg.ExecutorFactory(item.Type))
+			for _, dep := range subChart.Dependencies {
+				subChartNode.Dependencies = append(subChartNode.Dependencies, getTaskName(application.Name, dep))
 			}
 
-			applicationNode.Tasks[subChart.Name] = subChartNode
+			g.assignExecutorsToTask(subChartNode, application.Spec.Workflow)
+			applicationNode.Tasks[subChartNode.Name] = subChartNode
 
 			// Disable the sub-chart dependencies in the values of the parent chart
 			appValues[subChart.Name] = map[string]interface{}{
@@ -134,10 +168,10 @@ func NewForwardGraph(appGroup *v1alpha1.ApplicationGroup) *Graph {
 			}
 
 			// Add the node to the set of parent node dependencies
-			applicationNode.Tasks[application.Name].Dependencies = append(applicationNode.Tasks[application.Name].Dependencies, subChart.Name)
+			applicationTaskNode.Dependencies = append(applicationTaskNode.Dependencies, subChartNode.Name)
 		}
-		_ = applicationNode.Tasks[application.Name].Release.SetValues(appValues)
-
+		applicationTaskNode.Release.SetValues(appValues)
+		applicationNode.Tasks[applicationTaskNode.Name] = applicationTaskNode
 		g.Nodes[applicationNode.Name] = applicationNode
 	}
 	return g
@@ -179,17 +213,11 @@ func (g *Graph) Reverse() *Graph {
 					}
 				}
 				subChartNode.Executors[executor.Name].Executor = subChartNode.Executors[executor.Name].Executor.Reverse()
-				reverseGraph.addExecutorIfNotExist(subChartNode.Executors[executor.Name].Executor.Reverse())
+				reverseGraph.addExecutorIfNotExist(subChartNode.Executors[executor.Name].Executor)
 			}
 		}
 	}
 	return reverseGraph
-}
-
-func (g *Graph) addExecutorIfNotExist(executor executorpkg.Executor) {
-	if _, ok := g.AllExecutors[executor.GetName()]; !ok {
-		g.AllExecutors[executor.GetName()] = executor
-	}
 }
 
 // Diff returns the difference between two graphs
@@ -244,33 +272,25 @@ func (g *Graph) clear() *Graph {
 	return g
 }
 
-func NewAppNode(application *v1alpha1.Application) *AppNode {
-	return &AppNode{
-		Name:         application.Name,
-		Dependencies: application.Dependencies,
-		Tasks:        make(map[string]*TaskNode),
+func (g *Graph) addExecutorIfNotExist(executor executorpkg.Executor) {
+	if _, ok := g.AllExecutors[executor.GetName()]; !ok {
+		g.AllExecutors[executor.GetName()] = executor
 	}
 }
 
-func NewTaskNode(application *v1alpha1.Application) *TaskNode {
-	taskNode := &TaskNode{
-		Name:         application.Name,
-		ChartName:    application.Spec.Chart.Name,
-		ChartVersion: application.Spec.Chart.Version,
-		Release:      application.Spec.Release,
-		Executors:    make(map[string]*ExecutorNode),
-	}
-	for _, item := range application.Spec.Workflow {
-		taskNode.Executors[item.Name] = NewExecutorNode(&item)
-	}
-	return taskNode
+func getTaskName(appName, taskName string) string {
+	return fmt.Sprintf("%s-%s", appName, taskName)
 }
 
-func NewExecutorNode(executor *v1alpha1.Executor) *ExecutorNode {
-	return &ExecutorNode{
-		Name:         executor.Name,
-		Dependencies: executor.Dependencies,
-		Executor:     executorpkg.ExecutorFactory(executor.Type),
+func (g *Graph) assignExecutorsToTask(taskNode *TaskNode, workflow []v1alpha1.Executor) {
+	if len(workflow) == 0 {
+		taskNode.Executors[string(v1alpha1.HelmReleaseExecutor)] = NewDefaultExecutorNode()
+		g.addExecutorIfNotExist(executorpkg.ExecutorFactory(v1alpha1.HelmReleaseExecutor))
+	} else {
+		for _, item := range workflow {
+			taskNode.Executors[item.Name] = NewExecutorNode(&item)
+			g.addExecutorIfNotExist(executorpkg.ExecutorFactory(item.Type))
+		}
 	}
 }
 

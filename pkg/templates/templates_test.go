@@ -22,7 +22,7 @@ func subChartHelper(values map[string]interface{}, subChartName string) *apiexte
 	return scValues
 }
 
-func Test_generateAppDAGTemplates(t *testing.T) {
+func Test_GenerateTemplates(t *testing.T) {
 	type args struct {
 		graph       *graph.Graph
 		namespace   string
@@ -40,21 +40,23 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		want    map[string]v1alpha13.Template
+		want    []v1alpha13.Template
 		wantErr bool
 	}{
 		{
-			name: "testing singleApplicationWithSubchartDAG",
+			name: "Test Single Application with Sub-Charts",
 			args: args{
 				graph: &graph.Graph{
-					Name:         "bookinfo",
-					AllExecutors: []executor.Executor{executor.DefaultForward{}},
+					Name: "bookinfo",
+					AllExecutors: map[string]executor.Executor{
+						"helmrelease-forward-executor": executor.HelmReleaseForward{},
+					},
 					Nodes: map[string]*graph.AppNode{
 						"ambassador": {
 							Name: "ambassador",
 							Tasks: map[string]*graph.TaskNode{
-								"ambassador": {
-									Name:         "ambassador",
+								"ambassador-ambassador": {
+									Name:         "ambassador-ambassador",
 									ChartName:    "ambassador",
 									ChartVersion: "1.0.0",
 									Release: &v1alpha1.Release{
@@ -62,7 +64,12 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 											Raw: bytesRelValues,
 										},
 									},
-									Executors: []executor.Executor{executor.DefaultForward{}},
+									Executors: map[string]*graph.ExecutorNode{
+										"helmrelease": {
+											Name:     "helmrelease",
+											Executor: executor.HelmReleaseForward{},
+										},
+									},
 								},
 							},
 						},
@@ -70,8 +77,8 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 							Name:         "bookinfo",
 							Dependencies: []string{"ambassador"},
 							Tasks: map[string]*graph.TaskNode{
-								"bookinfo": {
-									Name:         "bookinfo",
+								"bookinfo-bookinfo": {
+									Name:         "bookinfo-bookinfo",
 									ChartName:    "bookinfo",
 									ChartVersion: "0.1.6",
 									Release: &v1alpha1.Release{
@@ -79,39 +86,59 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 											Raw: bytesRelValues,
 										},
 									},
-									Dependencies: []string{"subchart-1", "subchart-2", "subchart-3"},
-									Executors:    []executor.Executor{executor.DefaultForward{}},
+									Dependencies: []string{"bookinfo-subchart-1", "bookinfo-subchart-2", "bookinfo-subchart-3"},
+									Executors: map[string]*graph.ExecutorNode{
+										"helmrelease": {
+											Name:     "helmrelease",
+											Executor: executor.HelmReleaseForward{},
+										},
+									},
 								},
-								"subchart-1": {
-									Name:         "subchart-1",
+								"bookinfo-subchart-1": {
+									Name:         "bookinfo-subchart-1",
 									ChartName:    utils.GetSubchartName("bookinfo", "subchart-1"),
 									ChartVersion: "0.1.0",
 									Parent:       "bookinfo",
 									Release: &v1alpha1.Release{
 										Values: subChartHelper(relValues, "subchart-1"),
 									},
-									Executors: []executor.Executor{executor.DefaultForward{}},
+									Executors: map[string]*graph.ExecutorNode{
+										"helmrelease": {
+											Name:     "helmrelease",
+											Executor: executor.HelmReleaseForward{},
+										},
+									},
 								},
-								"subchart-2": {
-									Name:         "subchart-2",
+								"bookinfo-subchart-2": {
+									Name:         "bookinfo-subchart-2",
 									ChartName:    utils.GetSubchartName("bookinfo", "subchart-2"),
 									ChartVersion: "0.1.0",
 									Parent:       "bookinfo",
 									Release: &v1alpha1.Release{
 										Values: subChartHelper(relValues, "subchart-2"),
 									},
-									Executors: []executor.Executor{executor.DefaultForward{}},
+									Executors: map[string]*graph.ExecutorNode{
+										"helmrelease": {
+											Name:     "helmrelease",
+											Executor: executor.HelmReleaseForward{},
+										},
+									},
 								},
-								"subchart-3": {
-									Name:         "subchart-3",
+								"bookinfo-subchart-3": {
+									Name:         "bookinfo-subchart-3",
 									ChartName:    utils.GetSubchartName("bookinfo", "subchart-3"),
 									ChartVersion: "0.1.0",
 									Parent:       "bookinfo",
 									Release: &v1alpha1.Release{
 										Values: subChartHelper(relValues, "subchart-3"),
 									},
-									Dependencies: []string{"subchart-1", "subchart-2"},
-									Executors:    []executor.Executor{executor.DefaultForward{}},
+									Dependencies: []string{"bookinfo-subchart-1", "bookinfo-subchart-2"},
+									Executors: map[string]*graph.ExecutorNode{
+										"helmrelease": {
+											Name:     "helmrelease",
+											Executor: executor.HelmReleaseForward{},
+										},
+									},
 								},
 							},
 						},
@@ -120,12 +147,51 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 				namespace:   "testorkestra",
 				parallelism: &p,
 			},
-			want: map[string]v1alpha13.Template{
-				"bookinfo": {
-					Name: "bookinfo",
+			want: []v1alpha13.Template{
+				{
+					Name:        "bookinfo",
+					Parallelism: &p,
 					DAG: &v1alpha13.DAGTemplate{
 						Tasks: []v1alpha13.DAGTask{
-							executor.DefaultForward{}.GetTask("bookinfo", []string{"subchart-1", "subchart-2", "subchart-3"}, getTimeout(nil), utils.HrToB64AnyStringPtr(
+							{
+								Name:         "bookinfo-bookinfo",
+								Template:     "bookinfo-bookinfo",
+								Dependencies: []string{"bookinfo-subchart-1", "bookinfo-subchart-2", "bookinfo-subchart-3"},
+							},
+							{
+								Name:     "bookinfo-subchart-1",
+								Template: "bookinfo-subchart-1",
+							},
+							{
+								Name:     "bookinfo-subchart-2",
+								Template: "bookinfo-subchart-2",
+							},
+							{
+								Name:         "bookinfo-subchart-3",
+								Template:     "bookinfo-subchart-3",
+								Dependencies: []string{"bookinfo-subchart-1", "bookinfo-subchart-2"},
+							},
+						},
+					},
+				},
+				{
+					Name:        "ambassador",
+					Parallelism: &p,
+					DAG: &v1alpha13.DAGTemplate{
+						Tasks: []v1alpha13.DAGTask{
+							{
+								Name:     "ambassador-ambassador",
+								Template: "ambassador-ambassador",
+							},
+						},
+					},
+				},
+				{
+					Name:        "bookinfo-bookinfo",
+					Parallelism: &p,
+					DAG: &v1alpha13.DAGTemplate{
+						Tasks: []v1alpha13.DAGTask{
+							executor.HelmReleaseForward{}.GetTask("helmrelease", nil, getTimeout(nil), utils.HrToB64AnyStringPtr(
 								&fluxhelmv2beta1.HelmRelease{
 									TypeMeta: v1.TypeMeta{
 										Kind:       "HelmRelease",
@@ -158,7 +224,15 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 									},
 								}),
 							),
-							executor.DefaultForward{}.GetTask("subchart-1", nil, getTimeout(nil), utils.HrToB64AnyStringPtr(
+						},
+					},
+				},
+				{
+					Name:        "bookinfo-subchart-1",
+					Parallelism: &p,
+					DAG: &v1alpha13.DAGTemplate{
+						Tasks: []v1alpha13.DAGTask{
+							executor.HelmReleaseForward{}.GetTask("helmrelease", nil, getTimeout(nil), utils.HrToB64AnyStringPtr(
 								&fluxhelmv2beta1.HelmRelease{
 									TypeMeta: v1.TypeMeta{
 										Kind:       "HelmRelease",
@@ -194,7 +268,15 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 									},
 								}),
 							),
-							executor.DefaultForward{}.GetTask("subchart-2", nil, getTimeout(nil), utils.HrToB64AnyStringPtr(
+						},
+					},
+				},
+				{
+					Name:        "bookinfo-subchart-2",
+					Parallelism: &p,
+					DAG: &v1alpha13.DAGTemplate{
+						Tasks: []v1alpha13.DAGTask{
+							executor.HelmReleaseForward{}.GetTask("helmrelease", nil, getTimeout(nil), utils.HrToB64AnyStringPtr(
 								&fluxhelmv2beta1.HelmRelease{
 									TypeMeta: v1.TypeMeta{
 										Kind:       "HelmRelease",
@@ -230,7 +312,15 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 									},
 								}),
 							),
-							executor.DefaultForward{}.GetTask("subchart-3", []string{"subchart-1", "subchart-2"}, getTimeout(nil), utils.HrToB64AnyStringPtr(
+						},
+					},
+				},
+				{
+					Name:        "bookinfo-subchart-3",
+					Parallelism: &p,
+					DAG: &v1alpha13.DAGTemplate{
+						Tasks: []v1alpha13.DAGTask{
+							executor.HelmReleaseForward{}.GetTask("helmrelease", nil, getTimeout(nil), utils.HrToB64AnyStringPtr(
 								&fluxhelmv2beta1.HelmRelease{
 									TypeMeta: v1.TypeMeta{
 										Kind:       "HelmRelease",
@@ -268,13 +358,13 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 							),
 						},
 					},
-					Parallelism: &p,
 				},
-				"ambassador": {
-					Name: "ambassador",
+				{
+					Name:        "ambassador-ambassador",
+					Parallelism: &p,
 					DAG: &v1alpha13.DAGTemplate{
 						Tasks: []v1alpha13.DAGTask{
-							executor.DefaultForward{}.GetTask("ambassador", nil, getTimeout(nil), utils.HrToB64AnyStringPtr(
+							executor.HelmReleaseForward{}.GetTask("helmrelease", nil, getTimeout(nil), utils.HrToB64AnyStringPtr(
 								&fluxhelmv2beta1.HelmRelease{
 									TypeMeta: v1.TypeMeta{
 										Kind:       "HelmRelease",
@@ -309,23 +399,24 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 							),
 						},
 					},
-					Parallelism: &p,
 				},
 			},
 			wantErr: false,
 		},
 		{
-			name: "testing singleApplicationWithoutSubchartDAG",
+			name: "Test Single Application without Sub-chart",
 			args: args{
 				graph: &graph.Graph{
-					Name:         "bookinfo",
-					AllExecutors: []executor.Executor{executor.DefaultForward{}},
+					Name: "bookinfo",
+					AllExecutors: map[string]executor.Executor{
+						"helmrelease-forward-executor": executor.HelmReleaseForward{},
+					},
 					Nodes: map[string]*graph.AppNode{
 						"bookinfo": {
 							Name: "bookinfo",
 							Tasks: map[string]*graph.TaskNode{
-								"bookinfo": {
-									Name:         "bookinfo",
+								"bookinfo-bookinfo": {
+									Name:         "bookinfo-bookinfo",
 									ChartName:    "bookinfo",
 									ChartVersion: "0.1.6",
 									Release: &v1alpha1.Release{
@@ -333,7 +424,12 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 											Raw: bytesRelValues,
 										},
 									},
-									Executors: []executor.Executor{executor.DefaultForward{}},
+									Executors: map[string]*graph.ExecutorNode{
+										"helmrelease": {
+											Name:     "helmrelease",
+											Executor: executor.HelmReleaseForward{},
+										},
+									},
 								},
 							},
 						},
@@ -342,13 +438,25 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 				namespace:   "testorkestra",
 				parallelism: &p,
 			},
-			want: map[string]v1alpha13.Template{
-				"bookinfo": {
-					Name: "bookinfo",
+			want: []v1alpha13.Template{
+				{
+					Name:        "bookinfo",
+					Parallelism: &p,
 					DAG: &v1alpha13.DAGTemplate{
 						Tasks: []v1alpha13.DAGTask{
 							{
-								Name:     "bookinfo",
+								Name:     "bookinfo-bookinfo",
+								Template: "bookinfo-bookinfo",
+							},
+						},
+					},
+				},
+				{
+					Name: "bookinfo-bookinfo",
+					DAG: &v1alpha13.DAGTemplate{
+						Tasks: []v1alpha13.DAGTask{
+							{
+								Name:     "helmrelease",
 								Template: "helmrelease-forward-executor",
 								Arguments: v1alpha13.Arguments{
 									Parameters: []v1alpha13.Parameter{
@@ -404,7 +512,7 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := generateAppDAGTemplates(tt.args.graph, tt.args.namespace, tt.args.parallelism)
+			got, err := GenerateTemplates(tt.args.graph, tt.args.namespace, tt.args.parallelism)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("generateAppDAGTemplates() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -419,6 +527,12 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 					return tpl.DAG.Tasks[i].Name < tpl.DAG.Tasks[j].Name
 				})
 			}
+			sort.Slice(got, func(i, j int) bool {
+				return got[i].Name < got[j].Name
+			})
+			sort.Slice(tt.want, func(i, j int) bool {
+				return tt.want[i].Name < tt.want[j].Name
+			})
 			if !cmp.Equal(got, tt.want) {
 				t.Errorf("generateAppDAGTemplates() = %v", cmp.Diff(got, tt.want))
 			}

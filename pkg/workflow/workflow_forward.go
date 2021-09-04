@@ -60,18 +60,10 @@ func (wc *ForwardWorkflowClient) Generate(ctx context.Context) error {
 
 	wc.workflow = templates.GenerateWorkflow(wc.appGroup.Name, wc.Namespace, wc.Parallelism)
 	graph := graph.NewForwardGraph(wc.GetAppGroup())
-	entryTemplate, tpls, err := templates.GenerateTemplates(graph, wc.Namespace, wc.Parallelism)
-	if err != nil {
-		return fmt.Errorf("failed to generate workflow: %w", err)
-	}
 
-	// Update with the app dag templates, entry template, and executor template
-	templates.UpdateWorkflowTemplates(wc.workflow, tpls...)
-	templates.UpdateWorkflowTemplates(wc.workflow, *entryTemplate)
-	for _, executor := range graph.AllExecutors {
-		templates.UpdateWorkflowTemplates(wc.workflow, executor.GetTemplate())
-	}
-
+	templateGenerator := templates.NewTemplateGenerator(wc.Namespace, wc.Parallelism)
+	templateGenerator.GenerateTemplates(graph)
+	templateGenerator.AssignWorkflowTemplates(wc.workflow)
 	return nil
 }
 
