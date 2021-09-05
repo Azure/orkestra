@@ -22,16 +22,26 @@ type StatusHelper struct {
 	Recorder  record.EventRecorder
 }
 
-func (helper *StatusHelper) UpdateStatus(ctx context.Context, instance *v1alpha1.ApplicationGroup) error {
-	chartConditionMap, subChartConditionMap, err := helper.marshallChartStatus(ctx, instance)
+func (helper *StatusHelper) UpdateStatus(ctx context.Context, parent *v1alpha1.ApplicationGroup, instance *v1alpha13.Workflow, wfType v1alpha1.WorkflowType) error {
+	chartConditionMap, subChartConditionMap, err := helper.marshallChartStatus(ctx, parent)
 	if err != nil {
 		return err
 	}
-	instance.Status.Applications = getAppStatus(instance, chartConditionMap, subChartConditionMap)
+	parent.Status.Applications = getAppStatus(parent, chartConditionMap, subChartConditionMap)
+	switch wfType {
+	case v1alpha1.ForwardWorkflow:
+		if workflow.ToConditionReason(instance.Status.Phase) == meta.FailedReason {
+			helper.MarkFailed(parent, fmt.Errorf("workflow in failed state"))
+			return nil
+		}
+		if workflow.ToConditionReason(instance.Status.Phase) == meta.SucceededReason {
+			return helper.MarkSucceeded(ctx, parent)
+		}
+	}
 	return nil
 }
 
-func (helper *StatusHelper) UpdateFromWorkflowStatus(ctx context.Context, parent *v1alpha1.ApplicationGroup, instance *v1alpha13.Workflow, wfType v1alpha1.WorkflowType) error {
+func (helper *StatusHelper) UpdateFromWorkflowStatus(parent *v1alpha1.ApplicationGroup, instance *v1alpha13.Workflow, wfType v1alpha1.WorkflowType) error {
 	switch workflow.ToConditionReason(instance.Status.Phase) {
 	case meta.FailedReason:
 		helper.Logger.Info("workflow node is in failed state")
@@ -42,15 +52,6 @@ func (helper *StatusHelper) UpdateFromWorkflowStatus(ctx context.Context, parent
 	default:
 		helper.Logger.Info("workflow is still progressing")
 		workflow.SetProgressing(parent, wfType)
-	}
-	if wfType == v1alpha1.ForwardWorkflow {
-		if workflow.ToConditionReason(instance.Status.Phase) == meta.FailedReason {
-			helper.MarkFailed(parent, fmt.Errorf("workflow in failed state"))
-			return nil
-		}
-		if workflow.ToConditionReason(instance.Status.Phase) == meta.SucceededReason {
-			return helper.MarkSucceeded(ctx, parent)
-		}
 	}
 	return nil
 }
@@ -74,10 +75,7 @@ func (helper *StatusHelper) MarkSucceeded(ctx context.Context, instance *v1alpha
 // metav1.Condition of type meta.ReadyCondition with status 'Unknown' and
 // meta.StartingReason reason and message.
 func (helper *StatusHelper) MarkProgressing(ctx context.Context, instance *v1alpha1.ApplicationGroup) error {
-	instance.Status.Conditions = []metav1.Condition{}
-	instance.Status.ObservedGeneration = instance.Generation
-	meta.SetResourceCondition(instance, meta.ReadyCondition, metav1.ConditionUnknown, meta.ProgressingReason, "workflow is reconciling...")
-
+	instance.ReadyProgressing()
 	return helper.PatchStatus(ctx, instance)
 }
 

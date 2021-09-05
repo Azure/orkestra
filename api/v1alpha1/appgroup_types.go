@@ -306,6 +306,14 @@ func (in *Release) SetValues(values map[string]interface{}) error {
 	return nil
 }
 
+// ReadyProgressing sets the meta.ReadyCondition to 'Unknown', with the given
+// meta.Progressing reason and message
+func (in *ApplicationGroup) ReadyProgressing() {
+	in.Status.Conditions = []metav1.Condition{}
+	in.Status.ObservedGeneration = in.Generation
+	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionUnknown, meta.ProgressingReason, "workflow is reconciling...")
+}
+
 // ReadySucceeded sets the meta.ReadyCondition to 'True', with the given
 // meta.Succeeded reason and message
 func (in *ApplicationGroup) ReadySucceeded() {

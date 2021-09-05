@@ -50,9 +50,6 @@ func (r *WorkflowStatusReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		logr.Error(err, "failed to fetch workflow instance")
 		return ctrl.Result{}, err
 	}
-	if parent.Generation != parent.Status.ObservedGeneration {
-		return ctrl.Result{}, nil
-	}
 	labels := workflow.GetLabels()
 	if appGroupName, ok := labels[v1alpha1.OwnershipLabel]; ok {
 		if err := r.Get(ctx, types.NamespacedName{Name: appGroupName}, parent); err != nil {
@@ -82,15 +79,20 @@ func (r *WorkflowStatusReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		StatusHelper:          statusHelper,
 	}
 
-	if !workflow.DeletionTimestamp.IsZero() {
-		if err := statusHelper.UpdateFromWorkflowStatus(ctx, parent, workflow, v1alpha1.WorkflowType(workflowType)); err != nil {
-			logr.Error(err, "failed to update the workflow status of the app group")
-			return ctrl.Result{}, err
+	// Patch the status before returning from the reconcile loop
+	defer func() {
+		// Update the err value which is scoped outside the defer
+		patchErr := statusHelper.PatchStatus(ctx, parent)
+		if err == nil {
+			err = patchErr
 		}
-		controllerutil.RemoveFinalizer(workflow, v1alpha1.AppGroupFinalizer)
+	}()
+
+	if parent.Generation != parent.Status.ObservedGeneration {
 		return ctrl.Result{}, nil
 	}
 
+	// Remove the finalizer from the parent application group if we have just completed reversing
 	if !parent.DeletionTimestamp.IsZero() && v1alpha1.WorkflowType(workflowType) == v1alpha1.ReverseWorkflow {
 		if workflowpkg.ToConditionReason(workflow.Status.Phase) == meta.SucceededReason ||
 			workflowpkg.ToConditionReason(workflow.Status.Phase) == meta.FailedReason {
@@ -102,22 +104,13 @@ func (r *WorkflowStatusReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		}
 	}
 
-	// Patch the status before returning from the reconcile loop
-	defer func() {
-		// Update the err value which is scoped outside the defer
-		patchErr := statusHelper.PatchStatus(ctx, parent)
-		if err == nil {
-			err = patchErr
-		}
-	}()
-
 	// Update the status based on the current state of the helm charts
 	// and the status of the workflows
-	if err := statusHelper.UpdateStatus(ctx, parent); err != nil {
+	if err := statusHelper.UpdateStatus(ctx, parent, workflow, v1alpha1.WorkflowType(workflowType)); err != nil {
 		logr.Error(err, "failed to update the chart status of the app group")
 		return ctrl.Result{}, err
 	}
-	if err := statusHelper.UpdateFromWorkflowStatus(ctx, parent, workflow, v1alpha1.WorkflowType(workflowType)); err != nil {
+	if err := statusHelper.UpdateFromWorkflowStatus(parent, workflow, v1alpha1.WorkflowType(workflowType)); err != nil {
 		logr.Error(err, "failed to update the workflow status of the app group")
 		return ctrl.Result{}, err
 	}
@@ -128,10 +121,11 @@ func (r *WorkflowStatusReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 				logr.Error(err, "failed to generate the rollback workflow")
 				return ctrl.Result{}, err
 			}
-		}
-		if err := reconcileHelper.Reverse(ctx); err != nil {
-			logr.Error(err, "failed to generate the reverse workflow")
-			return ctrl.Result{}, err
+		} else {
+			if err := reconcileHelper.Reverse(ctx); err != nil {
+				logr.Error(err, "failed to generate the reverse workflow")
+				return ctrl.Result{}, err
+			}
 		}
 	}
 	return ctrl.Result{}, nil
