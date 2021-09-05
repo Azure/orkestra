@@ -33,7 +33,7 @@ const (
 	DefaultSucceededRequeue   = 5 * time.Minute
 
 	AppGroupNameKey   = "appgroup"
-	AppGroupFinalizer = "application-group-finalizer"
+	AppGroupFinalizer = "orkestra.azure.microsoft.com/finalizer"
 
 	LastSuccessfulAnnotation = "orkestra.azure.microsoft.com/last-successful-applicationgroup"
 	ParentChartAnnotation    = "orkestra.azure.microsoft.com/parent-chart"
@@ -396,6 +396,7 @@ func (in *ApplicationGroup) SetLastSuccessful() {
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].status"
 // +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].reason"
 // +kubebuilder:printcolumn:name="Message",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].message"
+// +kubebuilder:printcolumn:name="RolledBack",type="string",JSONPath=".status.conditions[?(@.type==\"RollbackWorkflowSucceeded\")].status"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 // ApplicationGroup is the Schema for the applicationgroups API

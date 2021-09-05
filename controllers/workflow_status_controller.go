@@ -11,6 +11,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/Azure/Orkestra/pkg/helpers"
 
@@ -53,6 +55,10 @@ func (r *WorkflowStatusReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	labels := workflow.GetLabels()
 	if appGroupName, ok := labels[v1alpha1.OwnershipLabel]; ok {
 		if err := r.Get(ctx, types.NamespacedName{Name: appGroupName}, parent); err != nil {
+			if errors.IsNotFound(err) {
+				logr.V(3).Info("parent application group not found in the cluser")
+				return ctrl.Result{}, nil
+			}
 			logr.Error(err, "failed to get the workflow application group parent")
 			return ctrl.Result{}, err
 		}
@@ -131,8 +137,42 @@ func (r *WorkflowStatusReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	return ctrl.Result{}, nil
 }
 
+func phaseChangedPredicate() predicate.Predicate {
+	return predicate.Funcs{
+		CreateFunc: func(e event.CreateEvent) bool {
+			return true
+		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			oldWorkflow := e.ObjectOld.(*v1alpha13.Workflow)
+			newWorkflow := e.ObjectNew.(*v1alpha13.Workflow)
+			return oldWorkflow.Status.Phase != newWorkflow.Status.Phase
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			return false
+		},
+	}
+}
+
+func orkestraOwnedPredicate() predicate.Predicate {
+	return predicate.Funcs{
+		CreateFunc: func(e event.CreateEvent) bool {
+			workflow := e.Object.(*v1alpha13.Workflow)
+			return workflow.GetLabels()[v1alpha1.OwnershipLabel] != ""
+		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			newWorkflow := e.ObjectNew.(*v1alpha13.Workflow)
+			return newWorkflow.GetLabels()[v1alpha1.OwnershipLabel] != ""
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			return false
+		},
+	}
+}
+
 func (r *WorkflowStatusReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha13.Workflow{}).
+		WithEventFilter(phaseChangedPredicate()).
+		WithEventFilter(orkestraOwnedPredicate()).
 		Complete(r)
 }

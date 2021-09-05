@@ -28,8 +28,7 @@ func (helper *StatusHelper) UpdateStatus(ctx context.Context, parent *v1alpha1.A
 		return err
 	}
 	parent.Status.Applications = getAppStatus(parent, chartConditionMap, subChartConditionMap)
-	switch wfType {
-	case v1alpha1.ForwardWorkflow:
+	if wfType == v1alpha1.ForwardWorkflow {
 		if workflow.ToConditionReason(instance.Status.Phase) == meta.FailedReason {
 			helper.MarkFailed(parent, fmt.Errorf("workflow in failed state"))
 			return nil

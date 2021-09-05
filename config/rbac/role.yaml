@@ -7,6 +7,26 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
+  - argoproj.io
+  resources:
+  - workflows
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - argoproj.io
+  resources:
+  - workflows/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - orkestra.azure.microsoft.com
   resources:
   - applicationgroups
