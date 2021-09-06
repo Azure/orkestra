@@ -30,10 +30,10 @@ func (helper *StatusHelper) UpdateStatus(ctx context.Context, parent *v1alpha1.A
 	parent.Status.Applications = getAppStatus(parent, chartConditionMap, subChartConditionMap)
 	if wfType == v1alpha1.ForwardWorkflow {
 		if workflow.ToConditionReason(instance.Status.Phase) == meta.FailedReason {
+			helper.Info("workflow rollout is in a failed state")
 			helper.MarkFailed(parent, fmt.Errorf("workflow in failed state"))
-			return nil
-		}
-		if workflow.ToConditionReason(instance.Status.Phase) == meta.SucceededReason {
+		} else if workflow.ToConditionReason(instance.Status.Phase) == meta.SucceededReason {
+			helper.Info("workflow rollout is in a succeeded state")
 			return helper.MarkSucceeded(ctx, parent)
 		}
 	}
@@ -57,9 +57,9 @@ func (helper *StatusHelper) UpdateFromWorkflowStatus(parent *v1alpha1.Applicatio
 
 func (helper *StatusHelper) MarkSucceeded(ctx context.Context, instance *v1alpha1.ApplicationGroup) error {
 	// Set the last successful annotation for rollback scenarios
-	instanceCopy := instance.DeepCopy()
-	instanceCopy.SetLastSuccessful()
-	if err := helper.Patch(ctx, instanceCopy, helper.PatchFrom); err != nil {
+	patch := client.MergeFrom(instance.DeepCopy())
+	instance.SetLastSuccessful()
+	if err := helper.Patch(ctx, instance, patch); err != nil {
 		helper.V(1).Error(err, "failed to patch the application group annotations")
 		return err
 	}
@@ -73,15 +73,14 @@ func (helper *StatusHelper) MarkSucceeded(ctx context.Context, instance *v1alpha
 // MarkProgressing resets the conditions of the ApplicationGroup to
 // metav1.Condition of type meta.ReadyCondition with status 'Unknown' and
 // meta.StartingReason reason and message.
-func (helper *StatusHelper) MarkProgressing(ctx context.Context, instance *v1alpha1.ApplicationGroup) error {
+func (helper *StatusHelper) MarkProgressing(instance *v1alpha1.ApplicationGroup) {
 	instance.ReadyProgressing()
-	return helper.PatchStatus(ctx, instance)
 }
 
 // MarkTerminating sets the meta.ReadyCondition to 'False', with the given
 // meta.Terminating reason and message
 func (helper *StatusHelper) MarkTerminating(instance *v1alpha1.ApplicationGroup) {
-	meta.SetResourceCondition(instance, meta.ReadyCondition, metav1.ConditionFalse, meta.TerminatingReason, "application group is terminating...")
+	instance.ReadyTerminating()
 }
 
 // MarkFailed sets the meta.ReadyCondition to 'False', with a failed reason
@@ -142,9 +141,9 @@ func (helper *StatusHelper) marshallChartStatus(ctx context.Context, appGroup *v
 
 	for _, hr := range helmReleases.Items {
 		parent := hr.Name
-		if v, ok := hr.GetAnnotations()["orkestra/parent-chart"]; ok {
+		if annotation, ok := hr.GetAnnotations()[v1alpha1.ParentChartAnnotation]; ok {
 			// Use the parent charts name
-			parent = v
+			parent = annotation
 		}
 
 		// Add the associated conditions for that helm chart to the helm chart condition

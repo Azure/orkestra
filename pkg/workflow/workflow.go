@@ -3,6 +3,9 @@ package workflow
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"strconv"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -43,6 +46,9 @@ type Client interface {
 
 	// GetClient returns the k8s client associated with the workflow
 	GetClient() client.Client
+
+	// GetWorkflow returns the workflow associated with the client
+	GetWorkflow() *v1alpha13.Workflow
 
 	// GetAppGroup returns the app group from the workflow client
 	GetAppGroup() *v1alpha1.ApplicationGroup
@@ -162,6 +168,30 @@ func Run(ctx context.Context, wfClient Client) error {
 	return nil
 }
 
+// Submit calls the base submit function for the workflow client
+func Submit(ctx context.Context, wfClient Client) error {
+	controllerutil.AddFinalizer(wfClient.GetWorkflow(), v1alpha1.AppGroupFinalizer)
+	wfClient.GetWorkflow().GetLabels()[v1alpha1.OwnershipLabel] = wfClient.GetAppGroup().Name
+	wfClient.GetWorkflow().GetLabels()[v1alpha1.WorkflowAppGroupGenerationLabel] = strconv.FormatInt(wfClient.GetAppGroup().Generation, 10)
+
+	if err := wfClient.GetClient().Create(ctx, wfClient.GetWorkflow()); !errors.IsAlreadyExists(err) && err != nil {
+		return fmt.Errorf("failed to CREATE argo workflow object: %w", err)
+	} else if errors.IsAlreadyExists(err) {
+		// If the workflow needs an update, delete the previous workflow and apply the new one
+		// Argo Workflow does not rerun the workflow on UPDATE, so instead we cleanup and re-apply
+		if err := DeleteWorkflow(ctx, wfClient); err != nil {
+			return fmt.Errorf("failed to DELETE argo workflow object: %w", err)
+		}
+		if err := controllerutil.SetControllerReference(wfClient.GetAppGroup(), wfClient.GetWorkflow(), wfClient.GetClient().Scheme()); err != nil {
+			return fmt.Errorf("unable to set ApplicationGroup as owner of Argo Workflow: %w", err)
+		}
+		if err := wfClient.GetClient().Create(ctx, wfClient.GetWorkflow()); err != nil {
+			return fmt.Errorf("failed to CREATE argo workflow object: %w", err)
+		}
+	}
+	return nil
+}
+
 // Suspend sets the suspend flag on the workflow associated with the workflow client
 // if the workflow still exists on the cluster
 func Suspend(ctx context.Context, wfClient Client) error {
@@ -176,7 +206,6 @@ func Suspend(ctx context.Context, wfClient Client) error {
 	if workflow.Spec.Suspend == nil || !*workflow.Spec.Suspend {
 		wfClient.GetLogger().Info("suspending the workflow")
 		patch := client.MergeFrom(workflow.DeepCopy())
-
 		suspend := true
 		workflow.Spec.Suspend = &suspend
 		if err := wfClient.GetClient().Patch(ctx, workflow, patch); err != nil {
@@ -196,13 +225,12 @@ func GetWorkflow(ctx context.Context, wc Client) (*v1alpha13.Workflow, error) {
 // DeleteWorkflow removes the workflow from the api server associated with
 // the workflow client
 func DeleteWorkflow(ctx context.Context, wfClient Client) error {
-	workflow, err := GetWorkflow(ctx, wfClient)
-	if client.IgnoreNotFound(err) != nil {
+	workflow := &v1alpha13.Workflow{}
+	if err := wfClient.GetClient().Get(ctx, types.NamespacedName{Name: wfClient.GetName(), Namespace: wfClient.GetNamespace()}, workflow); err != nil {
 		return err
-	} else if err != nil {
-		return nil
 	}
-	return wfClient.GetClient().Delete(ctx, workflow)
+	deletePropagation := metav1.DeletePropagationForeground
+	return wfClient.GetClient().Delete(ctx, workflow, &client.DeleteOptions{PropagationPolicy: &deletePropagation})
 }
 
 // SetProgressing sets one of the workflow conditions in the progressing state

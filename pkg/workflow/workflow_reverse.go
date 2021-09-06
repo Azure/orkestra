@@ -3,16 +3,14 @@ package workflow
 import (
 	"context"
 	"fmt"
-
-	"github.com/Azure/Orkestra/pkg/graph"
-	"github.com/Azure/Orkestra/pkg/templates"
-
 	"github.com/Azure/Orkestra/api/v1alpha1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
+	"github.com/Azure/Orkestra/pkg/graph"
+	"github.com/Azure/Orkestra/pkg/meta"
+	"github.com/Azure/Orkestra/pkg/templates"
+	v1alpha13 "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	v1alpha13 "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
@@ -31,6 +29,10 @@ func (wc *ReverseWorkflowClient) GetType() v1alpha1.WorkflowType {
 
 func (wc *ReverseWorkflowClient) GetAppGroup() *v1alpha1.ApplicationGroup {
 	return wc.appGroup
+}
+
+func (wc *ReverseWorkflowClient) GetWorkflow() *v1alpha13.Workflow {
+	return wc.workflow
 }
 
 func (wc *ReverseWorkflowClient) GetOptions() ClientOptions {
@@ -77,28 +79,17 @@ func (wc *ReverseWorkflowClient) Generate(ctx context.Context) error {
 func (wc *ReverseWorkflowClient) Submit(ctx context.Context) error {
 	forwardClient := NewClientFromClient(wc, v1alpha1.ForwardWorkflow)
 	forwardWorkflow, err := GetWorkflow(ctx, forwardClient)
-	if err != nil {
+	if errors.IsNotFound(err) {
+		return meta.ErrForwardWorkflowNotFound
+	} else if err != nil {
 		return err
 	}
-	obj := &v1alpha13.Workflow{
-		ObjectMeta: v1.ObjectMeta{
-			Name:      wc.workflow.Name,
-			Namespace: wc.workflow.Namespace,
-		},
-	}
-	wc.workflow.Labels[v1alpha1.OwnershipLabel] = wc.appGroup.Name
 	wc.workflow.Labels[v1alpha1.WorkflowTypeLabel] = string(v1alpha1.ReverseWorkflow)
-	if err := wc.Get(ctx, client.ObjectKeyFromObject(obj), obj); client.IgnoreNotFound(err) != nil {
-		return fmt.Errorf("failed to GET workflow object with an unrecoverable error: %w", err)
-	} else if err != nil {
-		if err := controllerutil.SetControllerReference(forwardWorkflow, wc.workflow, wc.Scheme()); err != nil {
-			return fmt.Errorf("unable to set forward workflow as owner of Argo reverse Workflow: %w", err)
-		}
-		// If the argo Workflow object is NotFound and not AlreadyExists on the cluster
-		// create a new object and submit it to the cluster
-		if err = wc.Create(ctx, wc.workflow); err != nil {
-			return fmt.Errorf("failed to CREATE argo workflow object: %w", err)
-		}
+	if err := controllerutil.SetControllerReference(forwardWorkflow, wc.workflow, wc.Scheme()); err != nil {
+		return fmt.Errorf("unable to set forward workflow as owner of Argo reverse Workflow: %w", err)
+	}
+	if err := Submit(ctx, wc); err != nil {
+		return err
 	}
 	return nil
 }

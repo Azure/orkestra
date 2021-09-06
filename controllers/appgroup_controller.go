@@ -5,6 +5,8 @@ package controllers
 
 import (
 	"context"
+	"errors"
+	"github.com/Azure/Orkestra/pkg/meta"
 
 	"github.com/Azure/Orkestra/pkg/helpers"
 
@@ -101,10 +103,17 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	if !appGroup.DeletionTimestamp.IsZero() {
 		statusHelper.MarkTerminating(appGroup)
-		if err := reconcileHelper.Reverse(ctx); err != nil {
+		if err := reconcileHelper.Reverse(ctx); errors.Is(err, meta.ErrForwardWorkflowNotFound) {
+			controllerutil.RemoveFinalizer(appGroup, v1alpha1.AppGroupFinalizer)
+			if err := r.Patch(ctx, appGroup, patch); err != nil {
+				logr.Error(err, "failed to patch the release to remove the appgroup finalizer")
+				return ctrl.Result{}, err
+			}
+		} else if err != nil {
 			logr.Error(err, "failed to generate the reverse workflow")
 			return ctrl.Result{}, err
 		}
+		return ctrl.Result{}, nil
 	}
 	// Add finalizer if it doesn't already exist
 	if !controllerutil.ContainsFinalizer(appGroup, v1alpha1.AppGroupFinalizer) {
@@ -119,14 +128,12 @@ func (r *ApplicationGroupReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// Only do this if we have successfully completed a rollback
 	if appGroup.Generation != appGroup.Status.ObservedGeneration {
 		// Change the app group spec into a progressing state
-		if err := statusHelper.MarkProgressing(ctx, appGroup); err != nil {
-			logr.Error(err, "failed to patch the status into a progressing state")
-			return ctrl.Result{}, err
-		}
+		statusHelper.MarkProgressing(appGroup)
 		if err := reconcileHelper.CreateOrUpdate(ctx); err != nil {
 			logr.Error(err, "failed to reconcile creating or updating the appgroup")
 			return ctrl.Result{}, err
 		}
+		appGroup.Status.ObservedGeneration = appGroup.Generation
 	}
 	return ctrl.Result{}, nil
 }

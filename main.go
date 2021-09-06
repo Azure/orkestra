@@ -180,6 +180,7 @@ func main() {
 		Log:                   baseLogger,
 		Scheme:                mgr.GetScheme(),
 		WorkflowClientBuilder: workflow.NewBuilder(mgr.GetClient(), baseLogger).WithStagingRepo(workflowHelmURL).WithParallelism(workflowParallelism).InNamespace(workflow.GetNamespace()),
+		Recorder:              mgr.GetEventRecorderFor("appgroup-controller"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "WorkflowStatus")
 		os.Exit(1)

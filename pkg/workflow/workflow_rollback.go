@@ -3,6 +3,7 @@ package workflow
 import (
 	"context"
 	"fmt"
+	v1alpha13 "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
 
 	"github.com/Azure/Orkestra/pkg/graph"
 	"github.com/Azure/Orkestra/pkg/templates"
@@ -10,7 +11,6 @@ import (
 	"github.com/Azure/Orkestra/api/v1alpha1"
 	"github.com/Azure/Orkestra/pkg/meta"
 	"github.com/go-logr/logr"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
@@ -41,6 +41,10 @@ func (wc *RollbackWorkflowClient) GetOptions() ClientOptions {
 
 func (wc *RollbackWorkflowClient) GetAppGroup() *v1alpha1.ApplicationGroup {
 	return wc.appGroup
+}
+
+func (wc *RollbackWorkflowClient) GetWorkflow() *v1alpha13.Workflow {
+	return wc.workflow
 }
 
 func (wc *RollbackWorkflowClient) Generate(ctx context.Context) error {
@@ -76,14 +80,12 @@ func (wc *RollbackWorkflowClient) Generate(ctx context.Context) error {
 }
 
 func (wc *RollbackWorkflowClient) Submit(ctx context.Context) error {
-	// Create the new workflow, only if there is not already a rollback workflow that has been created
-	wc.workflow.Labels[v1alpha1.OwnershipLabel] = wc.appGroup.Name
 	wc.workflow.Labels[v1alpha1.WorkflowTypeLabel] = string(v1alpha1.RollbackWorkflow)
 	if err := controllerutil.SetControllerReference(wc.appGroup, wc.workflow, wc.Scheme()); err != nil {
 		return fmt.Errorf("unable to set ApplicationGroup as owner of Argo Workflow: %w", err)
 	}
-	if err := wc.Create(ctx, wc.workflow); !errors.IsAlreadyExists(err) && err != nil {
-		return fmt.Errorf("failed to CREATE argo workflow object: %w", err)
+	if err := Submit(ctx, wc); err != nil {
+		return err
 	}
 	return nil
 }

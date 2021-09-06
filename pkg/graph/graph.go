@@ -89,35 +89,37 @@ func NewForwardGraph(appGroup *v1alpha1.ApplicationGroup) *Graph {
 		if len(appGroup.Status.Applications) > i {
 			// Iterate through the subchart nodes
 			for _, subChart := range application.Spec.Subcharts {
-				if data, ok := appGroup.Status.Applications[i].Subcharts[subChart.Name]; ok {
-					subChartVersion := data.Version
-					chartName := utils.GetSubchartName(application.Name, subChart.Name)
-
-					// Get the sub-chart values and assign that ot the release
-					values, _ := SubChartValues(subChart.Name, application.GetValues())
-					release := application.Spec.Release.DeepCopy()
-					release.Values = values
-
-					subChartNode := &TaskNode{
-						Name:         subChart.Name,
-						ChartName:    chartName,
-						ChartVersion: subChartVersion,
-						Release:      release,
-						Parent:       application.Name,
-						Dependencies: subChart.Dependencies,
-						Executors:    []executor.Executor{executor.DefaultForward{}},
-					}
-
-					applicationNode.Tasks[subChart.Name] = subChartNode
-
-					// Disable the sub-chart dependencies in the values of the parent chart
-					appValues[subChart.Name] = map[string]interface{}{
-						"enabled": false,
-					}
-
-					// Add the node to the set of parent node dependencies
-					applicationNode.Tasks[application.Name].Dependencies = append(applicationNode.Tasks[application.Name].Dependencies, subChart.Name)
+				subChartStatus, ok := appGroup.Status.Applications[i].Subcharts[subChart.Name]
+				if !ok {
+					continue
 				}
+				subChartVersion := subChartStatus.Version
+				chartName := utils.GetSubchartName(application.Name, subChart.Name)
+
+				// Get the sub-chart values and assign that ot the release
+				values, _ := SubChartValues(subChart.Name, application.GetValues())
+				release := application.Spec.Release.DeepCopy()
+				release.Values = values
+
+				subChartNode := &TaskNode{
+					Name:         subChart.Name,
+					ChartName:    chartName,
+					ChartVersion: subChartVersion,
+					Release:      release,
+					Parent:       application.Name,
+					Dependencies: subChart.Dependencies,
+					Executors:    []executor.Executor{executor.DefaultForward{}},
+				}
+
+				applicationNode.Tasks[subChart.Name] = subChartNode
+
+				// Disable the sub-chart dependencies in the values of the parent chart
+				appValues[subChart.Name] = map[string]interface{}{
+					"enabled": false,
+				}
+
+				// Add the node to the set of parent node dependencies
+				applicationNode.Tasks[application.Name].Dependencies = append(applicationNode.Tasks[application.Name].Dependencies, subChart.Name)
 			}
 		}
 		_ = applicationNode.Tasks[application.Name].Release.SetValues(appValues)

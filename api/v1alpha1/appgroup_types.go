@@ -35,15 +35,16 @@ const (
 	AppGroupNameKey   = "appgroup"
 	AppGroupFinalizer = "orkestra.azure.microsoft.com/finalizer"
 
-	LastSuccessfulAnnotation = "orkestra.azure.microsoft.com/last-successful-applicationgroup"
+	LastSuccessfulAnnotation = "orkestra.azure.microsoft.com/last-successful-appgroup"
 	ParentChartAnnotation    = "orkestra.azure.microsoft.com/parent-chart"
 
 	HeritageLabel = "orkestra.azure.microsoft.com/heritage"
 	HeritageValue = "orkestra"
 
-	OwnershipLabel    = "orkestra.azure.microsoft.com/owner"
-	WorkflowTypeLabel = "orkestra.azure.microsoft.com/workflow-type"
-	ChartLabel        = "orkestra.azure.microsoft.com/chart"
+	OwnershipLabel                  = "orkestra.azure.microsoft.com/owner"
+	WorkflowTypeLabel               = "orkestra.azure.microsoft.com/workflow-type"
+	WorkflowAppGroupGenerationLabel = "orkestra.azure.microsoft.com/appgroup-generation"
+	ChartLabel                      = "orkestra.azure.microsoft.com/chart"
 
 	ForwardWorkflow  WorkflowType = "forward"
 	ReverseWorkflow  WorkflowType = "reverse"
@@ -310,8 +311,15 @@ func (in *Release) SetValues(values map[string]interface{}) error {
 // meta.Progressing reason and message
 func (in *ApplicationGroup) ReadyProgressing() {
 	in.Status.Conditions = []metav1.Condition{}
-	in.Status.ObservedGeneration = in.Generation
 	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionUnknown, meta.ProgressingReason, "workflow is reconciling...")
+}
+
+// ReadyTerminating sets the meta.ReadyCondition to 'Unknown', with the given
+// meta.Progressing reason and message
+func (in *ApplicationGroup) ReadyTerminating() {
+	in.Status.Conditions = []metav1.Condition{}
+	in.Status.ObservedGeneration = in.Generation
+	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionFalse, meta.TerminatingReason, "application group is terminating...")
 }
 
 // ReadySucceeded sets the meta.ReadyCondition to 'True', with the given

@@ -84,8 +84,8 @@ func (helper *ReconcileHelper) Reverse(ctx context.Context) error {
 
 	// Re-running the workflow will not re-generate it since we check if we have already started it
 	if err := workflow.Run(ctx, reverseClient); errors.Is(err, meta.ErrForwardWorkflowNotFound) {
-		// Forward workflow wasn't found so we just return
-		return nil
+		// Forward workflow wasn't found so we just return the error
+		return err
 	} else if err != nil {
 		helper.Error(err, "failed to generate reverse workflow")
 		// if generation of reverse workflow failed, delete the forward workflow and return
