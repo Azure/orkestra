@@ -22,6 +22,11 @@ func subChartHelper(values map[string]interface{}, subChartName string) *apiexte
 	return scValues
 }
 
+func wrappedTaskHelper(executorType executor.Executor, name string, dependencies []string, timeout, hrStr string, parameters *apiextensionsv1.JSON) v1alpha13.DAGTask {
+	task, _ := executorType.GetTask(name, dependencies, timeout, hrStr, parameters)
+	return task
+}
+
 func Test_GenerateTemplates(t *testing.T) {
 	type args struct {
 		graph       *graph.Graph
@@ -73,6 +78,9 @@ func Test_GenerateTemplates(t *testing.T) {
 											Name:         "keptn",
 											Executor:     executor.KeptnForward{},
 											Dependencies: []string{"helmrelease"},
+											Params: &apiextensionsv1.JSON{
+												Raw: []byte(`{"configMapRef":{"name":"my-name","namespace":"my-namespace"}}`),
+											},
 										},
 									},
 								},
@@ -100,6 +108,9 @@ func Test_GenerateTemplates(t *testing.T) {
 											Name:         "keptn",
 											Executor:     executor.KeptnForward{},
 											Dependencies: []string{"helmrelease"},
+											Params: &apiextensionsv1.JSON{
+												Raw: []byte(`{"configMapRef":{"name":"my-name","namespace":"my-namespace"}}`),
+											},
 										},
 									},
 								},
@@ -140,7 +151,7 @@ func Test_GenerateTemplates(t *testing.T) {
 					Parallelism: &p,
 					DAG: &v1alpha13.DAGTemplate{
 						Tasks: []v1alpha13.DAGTask{
-							executor.HelmReleaseForward{}.GetTask("helmrelease", nil, getTimeout(nil), utils.HrToB64AnyStringPtr(
+							wrappedTaskHelper(executor.HelmReleaseForward{}, "helmrelease", nil, getTimeout(nil), utils.HrToB64(
 								&fluxhelmv2beta1.HelmRelease{
 									TypeMeta: v1.TypeMeta{
 										Kind:       "HelmRelease",
@@ -172,8 +183,9 @@ func Test_GenerateTemplates(t *testing.T) {
 										},
 									},
 								}),
+								nil,
 							),
-							executor.KeptnForward{}.GetTask("keptn", []string{"helmrelease"}, getTimeout(nil), utils.HrToB64AnyStringPtr(
+							wrappedTaskHelper(executor.KeptnForward{}, "keptn", []string{"helmrelease"}, getTimeout(nil), utils.HrToB64(
 								&fluxhelmv2beta1.HelmRelease{
 									TypeMeta: v1.TypeMeta{
 										Kind:       "HelmRelease",
@@ -205,6 +217,9 @@ func Test_GenerateTemplates(t *testing.T) {
 										},
 									},
 								}),
+								&apiextensionsv1.JSON{
+									Raw: []byte(`{"configMapRef":{"name":"my-name","namespace":"my-namespace"}}`),
+								},
 							),
 						},
 					},
@@ -214,7 +229,7 @@ func Test_GenerateTemplates(t *testing.T) {
 					Parallelism: &p,
 					DAG: &v1alpha13.DAGTemplate{
 						Tasks: []v1alpha13.DAGTask{
-							executor.HelmReleaseForward{}.GetTask("helmrelease", nil, getTimeout(nil), utils.HrToB64AnyStringPtr(
+							wrappedTaskHelper(executor.HelmReleaseForward{}, "helmrelease", nil, getTimeout(nil), utils.HrToB64(
 								&fluxhelmv2beta1.HelmRelease{
 									TypeMeta: v1.TypeMeta{
 										Kind:       "HelmRelease",
@@ -246,8 +261,9 @@ func Test_GenerateTemplates(t *testing.T) {
 										},
 									},
 								}),
+								nil,
 							),
-							executor.KeptnForward{}.GetTask("keptn", []string{"helmrelease"}, getTimeout(nil), utils.HrToB64AnyStringPtr(
+							wrappedTaskHelper(executor.KeptnForward{}, "keptn", []string{"helmrelease"}, getTimeout(nil), utils.HrToB64(
 								&fluxhelmv2beta1.HelmRelease{
 									TypeMeta: v1.TypeMeta{
 										Kind:       "HelmRelease",
@@ -279,6 +295,9 @@ func Test_GenerateTemplates(t *testing.T) {
 										},
 									},
 								}),
+								&apiextensionsv1.JSON{
+									Raw: []byte(`{"configMapRef":{"name":"my-name","namespace":"my-namespace"}}`),
+								},
 							),
 						},
 					},
@@ -397,7 +416,7 @@ func Test_GenerateTemplates(t *testing.T) {
 					Parallelism: &p,
 					DAG: &v1alpha13.DAGTemplate{
 						Tasks: []v1alpha13.DAGTask{
-							executor.HelmReleaseForward{}.GetTask("bookinfo-bookinfo", []string{"bookinfo-subchart-1", "bookinfo-subchart-2", "bookinfo-subchart-3"}, getTimeout(nil), utils.HrToB64AnyStringPtr(
+							wrappedTaskHelper(executor.HelmReleaseForward{}, "bookinfo-bookinfo", []string{"bookinfo-subchart-1", "bookinfo-subchart-2", "bookinfo-subchart-3"}, getTimeout(nil), utils.HrToB64(
 								&fluxhelmv2beta1.HelmRelease{
 									TypeMeta: v1.TypeMeta{
 										Kind:       "HelmRelease",
@@ -429,8 +448,9 @@ func Test_GenerateTemplates(t *testing.T) {
 										},
 									},
 								}),
+								nil,
 							),
-							executor.HelmReleaseForward{}.GetTask("bookinfo-subchart-1", nil, getTimeout(nil), utils.HrToB64AnyStringPtr(
+							wrappedTaskHelper(executor.HelmReleaseForward{}, "bookinfo-subchart-1", nil, getTimeout(nil), utils.HrToB64(
 								&fluxhelmv2beta1.HelmRelease{
 									TypeMeta: v1.TypeMeta{
 										Kind:       "HelmRelease",
@@ -465,8 +485,9 @@ func Test_GenerateTemplates(t *testing.T) {
 										},
 									},
 								}),
+								nil,
 							),
-							executor.HelmReleaseForward{}.GetTask("bookinfo-subchart-2", nil, getTimeout(nil), utils.HrToB64AnyStringPtr(
+							wrappedTaskHelper(executor.HelmReleaseForward{}, "bookinfo-subchart-2", nil, getTimeout(nil), utils.HrToB64(
 								&fluxhelmv2beta1.HelmRelease{
 									TypeMeta: v1.TypeMeta{
 										Kind:       "HelmRelease",
@@ -501,8 +522,9 @@ func Test_GenerateTemplates(t *testing.T) {
 										},
 									},
 								}),
+								nil,
 							),
-							executor.HelmReleaseForward{}.GetTask("bookinfo-subchart-3", []string{"bookinfo-subchart-1", "bookinfo-subchart-2"}, getTimeout(nil), utils.HrToB64AnyStringPtr(
+							wrappedTaskHelper(executor.HelmReleaseForward{}, "bookinfo-subchart-3", []string{"bookinfo-subchart-1", "bookinfo-subchart-2"}, getTimeout(nil), utils.HrToB64(
 								&fluxhelmv2beta1.HelmRelease{
 									TypeMeta: v1.TypeMeta{
 										Kind:       "HelmRelease",
@@ -537,6 +559,7 @@ func Test_GenerateTemplates(t *testing.T) {
 										},
 									},
 								}),
+								nil,
 							),
 						},
 					},
@@ -546,7 +569,7 @@ func Test_GenerateTemplates(t *testing.T) {
 					Parallelism: &p,
 					DAG: &v1alpha13.DAGTemplate{
 						Tasks: []v1alpha13.DAGTask{
-							executor.HelmReleaseForward{}.GetTask("ambassador-ambassador", nil, getTimeout(nil), utils.HrToB64AnyStringPtr(
+							wrappedTaskHelper(executor.HelmReleaseForward{}, "ambassador-ambassador", nil, getTimeout(nil), utils.HrToB64(
 								&fluxhelmv2beta1.HelmRelease{
 									TypeMeta: v1.TypeMeta{
 										Kind:       "HelmRelease",
@@ -578,6 +601,7 @@ func Test_GenerateTemplates(t *testing.T) {
 										},
 									},
 								}),
+								nil,
 							),
 						},
 					},
@@ -633,7 +657,7 @@ func Test_GenerateTemplates(t *testing.T) {
 									Parameters: []v1alpha13.Parameter{
 										{
 											Name: "helmrelease",
-											Value: utils.HrToB64AnyStringPtr(&fluxhelmv2beta1.HelmRelease{
+											Value: utils.ToAnyStringPtr(utils.HrToB64(&fluxhelmv2beta1.HelmRelease{
 												TypeMeta: v1.TypeMeta{
 													Kind:       "HelmRelease",
 													APIVersion: "helm.toolkit.fluxcd.io/v2beta1",
@@ -663,11 +687,11 @@ func Test_GenerateTemplates(t *testing.T) {
 														Raw: []byte(`{"global":{"keyG":"valueG"},"subchart-1":{"sc1-key":"sc1-value"},"subchart-2":{"sc2-key":"sc2-value"},"subchart-3":{"sc3-key":"sc3-value"}}`),
 													},
 												},
-											}),
+											})),
 										},
 										{
 											Name:  "timeout",
-											Value: getTimeout(nil),
+											Value: utils.ToAnyStringPtr(getTimeout(nil)),
 										},
 									},
 								},
@@ -683,7 +707,7 @@ func Test_GenerateTemplates(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tg := NewTemplateGenerator(tt.args.namespace, tt.args.parallelism)
-			tg.GenerateTemplates(tt.args.graph)
+			_ = tg.GenerateTemplates(tt.args.graph)
 
 			// Sort all the lists so that comparison is consistent
 			for _, item := range [][]v1alpha13.Template{tg.Templates, tt.want} {

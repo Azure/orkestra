@@ -56,7 +56,7 @@ func (tg *TemplateGenerator) AssignWorkflowTemplates(wf *v1alpha13.Workflow) {
 	wf.Spec.Templates = append(wf.Spec.Templates, tg.EntryTemplate)
 }
 
-func (tg *TemplateGenerator) GenerateTemplates(graph *graph.Graph) {
+func (tg *TemplateGenerator) GenerateTemplates(graph *graph.Graph) error {
 	tg.EntryTemplate = v1alpha13.Template{
 		Name:        EntrypointTemplateName,
 		DAG:         &v1alpha13.DAGTemplate{},
@@ -65,7 +65,10 @@ func (tg *TemplateGenerator) GenerateTemplates(graph *graph.Graph) {
 
 	// Create the entry template from the app dag templates
 	for _, node := range graph.Nodes {
-		template := tg.createNodeTemplate(node, graph.Name)
+		template, err := tg.createNodeTemplate(node, graph.Name)
+		if err != nil {
+			return err
+		}
 		tg.Templates = append(tg.Templates, template)
 		tg.EntryTemplate.DAG.Tasks = append(tg.EntryTemplate.DAG.Tasks, v1alpha13.DAGTask{
 			Name:         template.Name,
@@ -75,9 +78,10 @@ func (tg *TemplateGenerator) GenerateTemplates(graph *graph.Graph) {
 	}
 	// Finally, add the executor templates in the graph to the set of templates
 	tg.addExecutorTemplates(graph)
+	return nil
 }
 
-func (tg *TemplateGenerator) createNodeTemplate(node *graph.AppNode, graphName string) v1alpha13.Template {
+func (tg *TemplateGenerator) createNodeTemplate(node *graph.AppNode, graphName string) (v1alpha13.Template, error) {
 	template := v1alpha13.Template{
 		Name:        utils.ConvertToDNS1123(node.Name),
 		Parallelism: tg.Parallelism,
@@ -86,17 +90,24 @@ func (tg *TemplateGenerator) createNodeTemplate(node *graph.AppNode, graphName s
 		},
 	}
 	for _, task := range node.Tasks {
-		hrStr := utils.HrToB64AnyStringPtr(tg.createHelmRelease(task, graphName))
+		hrStr := utils.HrToB64(tg.createHelmRelease(task, graphName))
 		if len(task.Executors) == 1 {
 			// If we only have one executor, we don't need a sub-template
 			// Just add this task to the application template
 			for _, executorNode := range task.Executors {
-				template.DAG.Tasks = append(template.DAG.Tasks, executorNode.Executor.GetTask(task.Name, task.Dependencies, getTimeout(task.Release.Timeout), hrStr))
+				executorTask, err := executorNode.Executor.GetTask(task.Name, task.Dependencies, getTimeout(task.Release.Timeout), hrStr, executorNode.Params)
+				if err != nil {
+					return template, err
+				}
+				template.DAG.Tasks = append(template.DAG.Tasks, executorTask)
 			}
 		} else {
 			// If we have more than one executor, we need to create the task
 			// sub-template with executor dependencies
-			taskTemplate := tg.createTaskTemplate(task, graphName)
+			taskTemplate, err := tg.createTaskTemplate(task, graphName)
+			if err != nil {
+				return template, err
+			}
 			tg.Templates = append(tg.Templates, taskTemplate)
 			template.DAG.Tasks = append(template.DAG.Tasks, v1alpha13.DAGTask{
 				Name:         taskTemplate.Name,
@@ -105,11 +116,11 @@ func (tg *TemplateGenerator) createNodeTemplate(node *graph.AppNode, graphName s
 			})
 		}
 	}
-	return template
+	return template, nil
 }
 
-func (tg *TemplateGenerator) createTaskTemplate(task *graph.TaskNode, graphName string) v1alpha13.Template {
-	hrStr := utils.HrToB64AnyStringPtr(tg.createHelmRelease(task, graphName))
+func (tg *TemplateGenerator) createTaskTemplate(task *graph.TaskNode, graphName string) (v1alpha13.Template, error) {
+	hrStr := utils.HrToB64(tg.createHelmRelease(task, graphName))
 	taskTemplate := v1alpha13.Template{
 		Name:        utils.ConvertToDNS1123(task.Name),
 		Parallelism: tg.Parallelism,
@@ -118,9 +129,13 @@ func (tg *TemplateGenerator) createTaskTemplate(task *graph.TaskNode, graphName 
 		},
 	}
 	for _, executorNode := range task.Executors {
-		taskTemplate.DAG.Tasks = append(taskTemplate.DAG.Tasks, executorNode.Executor.GetTask(executorNode.Name, executorNode.Dependencies, getTimeout(task.Release.Timeout), hrStr))
+		executorTask, err := executorNode.Executor.GetTask(executorNode.Name, executorNode.Dependencies, getTimeout(task.Release.Timeout), hrStr, executorNode.Params)
+		if err != nil {
+			return taskTemplate, err
+		}
+		taskTemplate.DAG.Tasks = append(taskTemplate.DAG.Tasks, executorTask)
 	}
-	return taskTemplate
+	return taskTemplate, nil
 }
 
 func (tg *TemplateGenerator) addExecutorTemplates(g *graph.Graph) {

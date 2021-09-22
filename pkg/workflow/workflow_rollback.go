@@ -62,7 +62,9 @@ func (wc *RollbackWorkflowClient) Generate(ctx context.Context) error {
 	combinedGraph := graph.Combine(lastGraph, diffGraph.Reverse())
 
 	templateGenerator := templates.NewTemplateGenerator(wc.Namespace, wc.Parallelism)
-	templateGenerator.GenerateTemplates(combinedGraph)
+	if err := templateGenerator.GenerateTemplates(combinedGraph); err != nil {
+		return fmt.Errorf("failed to generate templates: %w", err)
+	}
 	templateGenerator.AssignWorkflowTemplates(wc.workflow)
 	return nil
 }

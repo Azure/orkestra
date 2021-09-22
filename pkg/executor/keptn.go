@@ -1,10 +1,12 @@
 package executor
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/Azure/Orkestra/pkg/utils"
 	v1alpha13 "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
 const (
@@ -12,10 +14,15 @@ const (
 	KeptnTag   = "v0.1.0"
 )
 
+const (
+	configMapName      = "configMapName"
+	configMapNamespace = "configMapNamespace"
+)
+
 type KeptnForward struct{}
 
 func (exec KeptnForward) Reverse() Executor {
-	return HelmReleaseReverse{}
+	return KeptnReverse{}
 }
 
 func (exec KeptnForward) GetName() string {
@@ -26,14 +33,14 @@ func (exec KeptnForward) GetTemplate() v1alpha13.Template {
 	return keptnBaseTemplate(exec.GetName(), Install)
 }
 
-func (exec KeptnForward) GetTask(name string, dependencies []string, timeout, hrStr *v1alpha13.AnyString) v1alpha13.DAGTask {
-	return keptnBaseTask(exec.GetName(), name, dependencies, timeout, hrStr)
+func (exec KeptnForward) GetTask(name string, dependencies []string, timeout, hrStr string, taskParams *apiextensionsv1.JSON) (v1alpha13.DAGTask, error) {
+	return keptnBaseTask(exec.GetName(), name, dependencies, timeout, hrStr, taskParams)
 }
 
 type KeptnReverse struct{}
 
 func (exec KeptnReverse) Reverse() Executor {
-	return HelmReleaseForward{}
+	return KeptnForward{}
 }
 
 func (exec KeptnReverse) GetName() string {
@@ -44,12 +51,12 @@ func (exec KeptnReverse) GetTemplate() v1alpha13.Template {
 	return keptnBaseTemplate(exec.GetName(), Delete)
 }
 
-func (exec KeptnReverse) GetTask(name string, dependencies []string, timeout, hrStr *v1alpha13.AnyString) v1alpha13.DAGTask {
-	return keptnBaseTask(exec.GetName(), name, dependencies, timeout, hrStr)
+func (exec KeptnReverse) GetTask(name string, dependencies []string, timeout, hrStr string, taskParams *apiextensionsv1.JSON) (v1alpha13.DAGTask, error) {
+	return keptnBaseTask(exec.GetName(), name, dependencies, timeout, hrStr, taskParams)
 }
 
 func keptnBaseTemplate(executorName string, action Action) v1alpha13.Template {
-	executorArgs := []string{"--spec", "{{inputs.parameters.helmrelease}}", "--action", string(action), "--timeout", "{{inputs.parameters.timeout}}", "--interval", "1s"}
+	executorArgs := []string{"--spec", "{{inputs.parameters.helmrelease}}", "--action", string(action), "--configmap-name", "{{inputs.parameters.configMapName}}", "configmap-namespace", "{{inputs.parameters.configMapNamespace}}", "--timeout", "{{inputs.parameters.timeout}}", "--interval", "1s"}
 	return v1alpha13.Template{
 		Name:               executorName,
 		ServiceAccountName: workflowServiceAccountName(),
@@ -61,6 +68,12 @@ func keptnBaseTemplate(executorName string, action Action) v1alpha13.Template {
 				{
 					Name:    TimeoutArg,
 					Default: utils.ToAnyStringPtr(DefaultTimeout),
+				},
+				{
+					Name: configMapName,
+				},
+				{
+					Name: configMapNamespace,
 				},
 			},
 		},
@@ -75,7 +88,14 @@ func keptnBaseTemplate(executorName string, action Action) v1alpha13.Template {
 	}
 }
 
-func keptnBaseTask(executorName, name string, dependencies []string, timeout, hrStr *v1alpha13.AnyString) v1alpha13.DAGTask {
+func keptnBaseTask(executorName, name string, dependencies []string, timeout, hrStr string, taskParams *apiextensionsv1.JSON) (v1alpha13.DAGTask, error) {
+	expectedParameters := &KeptnParameters{}
+	if taskParams == nil {
+		return v1alpha13.DAGTask{}, fmt.Errorf("task parameters are required for the keptn executor task")
+	}
+	if err := json.Unmarshal(taskParams.Raw, expectedParameters); err != nil {
+		return v1alpha13.DAGTask{}, err
+	}
 	return v1alpha13.DAGTask{
 		Name:     utils.ConvertToDNS1123(name),
 		Template: executorName,
@@ -83,14 +103,26 @@ func keptnBaseTask(executorName, name string, dependencies []string, timeout, hr
 			Parameters: []v1alpha13.Parameter{
 				{
 					Name:  HelmReleaseArg,
-					Value: hrStr,
+					Value: utils.ToAnyStringPtr(hrStr),
 				},
 				{
 					Name:  TimeoutArg,
-					Value: timeout,
+					Value: utils.ToAnyStringPtr(timeout),
+				},
+				{
+					Name:  configMapName,
+					Value: utils.ToAnyStringPtr(expectedParameters.ConfigMapRef.Name),
+				},
+				{
+					Name:  configMapNamespace,
+					Value: utils.ToAnyStringPtr(expectedParameters.ConfigMapRef.Namespace),
 				},
 			},
 		},
 		Dependencies: dependencies,
-	}
+	}, nil
+}
+
+type KeptnParameters struct {
+	ConfigMapRef corev1.ObjectReference `json:"configMapRef"`
 }

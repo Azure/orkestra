@@ -5,6 +5,7 @@ import (
 	"github.com/Azure/Orkestra/pkg/utils"
 	v1alpha13 "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
 const (
@@ -26,8 +27,8 @@ func (exec HelmReleaseForward) GetTemplate() v1alpha13.Template {
 	return helmReleaseBaseTemplate(exec.GetName(), Install)
 }
 
-func (exec HelmReleaseForward) GetTask(name string, dependencies []string, timeout, hrStr *v1alpha13.AnyString) v1alpha13.DAGTask {
-	return helmReleaseBaseTask(exec.GetName(), name, dependencies, timeout, hrStr)
+func (exec HelmReleaseForward) GetTask(name string, dependencies []string, timeout, hrStr string, taskParams *apiextensionsv1.JSON) (v1alpha13.DAGTask, error) {
+	return helmReleaseBaseTask(exec.GetName(), name, dependencies, timeout, hrStr), nil
 }
 
 type HelmReleaseReverse struct{}
@@ -44,8 +45,8 @@ func (exec HelmReleaseReverse) GetTemplate() v1alpha13.Template {
 	return helmReleaseBaseTemplate(exec.GetName(), Delete)
 }
 
-func (exec HelmReleaseReverse) GetTask(name string, dependencies []string, timeout, hrStr *v1alpha13.AnyString) v1alpha13.DAGTask {
-	return helmReleaseBaseTask(exec.GetName(), name, dependencies, timeout, hrStr)
+func (exec HelmReleaseReverse) GetTask(name string, dependencies []string, timeout, hrStr string, taskParams *apiextensionsv1.JSON) (v1alpha13.DAGTask, error) {
+	return helmReleaseBaseTask(exec.GetName(), name, dependencies, timeout, hrStr), nil
 }
 
 func helmReleaseBaseTemplate(executorName string, action Action) v1alpha13.Template {
@@ -75,7 +76,7 @@ func helmReleaseBaseTemplate(executorName string, action Action) v1alpha13.Templ
 	}
 }
 
-func helmReleaseBaseTask(executorName, name string, dependencies []string, timeout, hrStr *v1alpha13.AnyString) v1alpha13.DAGTask {
+func helmReleaseBaseTask(executorName, name string, dependencies []string, timeout, hrStr string) v1alpha13.DAGTask {
 	return v1alpha13.DAGTask{
 		Name:     utils.ConvertToDNS1123(name),
 		Template: executorName,
@@ -83,11 +84,11 @@ func helmReleaseBaseTask(executorName, name string, dependencies []string, timeo
 			Parameters: []v1alpha13.Parameter{
 				{
 					Name:  HelmReleaseArg,
-					Value: hrStr,
+					Value: utils.ToAnyStringPtr(hrStr),
 				},
 				{
 					Name:  TimeoutArg,
-					Value: timeout,
+					Value: utils.ToAnyStringPtr(timeout),
 				},
 			},
 		},
