@@ -3,6 +3,7 @@ package workflow
 import (
 	"context"
 	"fmt"
+
 	v1alpha13 "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
 
 	"github.com/Azure/Orkestra/pkg/graph"
@@ -55,8 +56,8 @@ func (wc *ForwardWorkflowClient) Generate(ctx context.Context) error {
 	}
 
 	// Suspend the rollback or reverse workflows if they are running
-	reverseClient := NewClientFromClient(wc, v1alpha1.ReverseWorkflow)
-	rollbackClient := NewClientFromClient(wc, v1alpha1.RollbackWorkflow)
+	reverseClient := NewClientFromClient(wc, v1alpha1.Reverse)
+	rollbackClient := NewClientFromClient(wc, v1alpha1.Rollback)
 	if err := Suspend(ctx, reverseClient); err != nil {
 		return fmt.Errorf("failed to suspend reverse workflow: %w", err)
 	}
@@ -66,18 +67,12 @@ func (wc *ForwardWorkflowClient) Generate(ctx context.Context) error {
 
 	wc.workflow = templates.GenerateWorkflow(wc.appGroup.Name, wc.Namespace, wc.Parallelism)
 	graph := graph.NewForwardGraph(wc.GetAppGroup())
-	entryTemplate, tpls, err := templates.GenerateTemplates(graph, wc.Namespace, wc.Parallelism)
-	if err != nil {
-		return fmt.Errorf("failed to generate workflow: %w", err)
-	}
 
-	// Update with the app dag templates, entry template, and executor template
-	templates.UpdateWorkflowTemplates(wc.workflow, tpls...)
-	templates.UpdateWorkflowTemplates(wc.workflow, *entryTemplate)
-	for _, executor := range graph.AllExecutors {
-		templates.UpdateWorkflowTemplates(wc.workflow, executor.GetTemplate())
+	templateGenerator := templates.NewTemplateGenerator(wc.Namespace, wc.Parallelism)
+	if err := templateGenerator.GenerateTemplates(graph); err != nil {
+		return fmt.Errorf("failed to generate templates: %w", err)
 	}
-
+	templateGenerator.AssignWorkflowTemplates(wc.workflow)
 	return nil
 }
 
@@ -85,7 +80,7 @@ func (wc *ForwardWorkflowClient) Submit(ctx context.Context) error {
 	if err := wc.createTargetNamespaces(ctx); err != nil {
 		return fmt.Errorf("failed to create the target namespaces: %w", err)
 	}
-	wc.workflow.Labels[v1alpha1.WorkflowTypeLabel] = string(v1alpha1.ForwardWorkflow)
+	wc.workflow.Labels[v1alpha1.WorkflowTypeLabel] = string(v1alpha1.Forward)
 	if err := controllerutil.SetControllerReference(wc.appGroup, wc.workflow, wc.Scheme()); err != nil {
 		return fmt.Errorf("unable to set ApplicationGroup as owner of Argo Workflow: %w", err)
 	}

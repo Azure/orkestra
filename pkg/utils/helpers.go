@@ -73,10 +73,9 @@ func HrToYaml(hr fluxhelmv2beta1.HelmRelease) string {
 	return string(b)
 }
 
-func HrToB64AnyStringPtr(hr *fluxhelmv2beta1.HelmRelease) *v1alpha13.AnyString {
+func HrToB64(hr *fluxhelmv2beta1.HelmRelease) string {
 	yaml := HrToYaml(*hr)
-	base64 := base64.StdEncoding.EncodeToString([]byte(yaml))
-	return ToAnyStringPtr(base64)
+	return base64.StdEncoding.EncodeToString([]byte(yaml))
 }
 
 func TemplateContainsYaml(ch *chart.Chart) (bool, error) {

@@ -73,7 +73,7 @@ func (r *WorkflowStatusReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			return ctrl.Result{}, err
 		}
 		logr = logr.WithValues("workflow_type", workflowType, "parent", parent.Name)
-		if !parent.DeletionTimestamp.IsZero() && workflowType == v1alpha1.ReverseWorkflow {
+		if !parent.DeletionTimestamp.IsZero() && workflowType == v1alpha1.Reverse {
 			patch := client.MergeFrom(parent.DeepCopy())
 			logr.V(2).Info("removing the finalizer from the parent due to us losing the reverse workflow")
 			controllerutil.RemoveFinalizer(parent, v1alpha1.AppGroupFinalizer)
@@ -128,7 +128,7 @@ func (r *WorkflowStatusReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	// Remove the finalizer from the parent application group if we have just completed reversing
-	if !parent.DeletionTimestamp.IsZero() && workflowType == v1alpha1.ReverseWorkflow &&
+	if !parent.DeletionTimestamp.IsZero() && workflowType == v1alpha1.Reverse &&
 		(workflowpkg.ToConditionReason(workflow.Status.Phase) == meta.SucceededReason || workflowpkg.ToConditionReason(workflow.Status.Phase) == meta.FailedReason) {
 		// Remove the finalizer because we have finished reversing
 		controllerutil.RemoveFinalizer(parent, v1alpha1.AppGroupFinalizer)
@@ -151,7 +151,7 @@ func (r *WorkflowStatusReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		logr.Error(err, "failed to patch the status of the parent based on the workflow")
 		return ctrl.Result{}, err
 	}
-	if workflowType == v1alpha1.ForwardWorkflow &&
+	if workflowType == v1alpha1.Forward &&
 		workflowpkg.ToConditionReason(workflow.Status.Phase) == meta.FailedReason {
 		if lastSuccessfulSpec := parent.GetLastSuccessful(); lastSuccessfulSpec != nil {
 			if err := reconcileHelper.Rollback(ctx); err != nil {

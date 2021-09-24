@@ -45,10 +45,6 @@ const (
 	WorkflowTypeLabel               = "orkestra.azure.microsoft.com/workflow-type"
 	WorkflowAppGroupGenerationLabel = "orkestra.azure.microsoft.com/appgroup-generation"
 	ChartLabel                      = "orkestra.azure.microsoft.com/chart"
-
-	ForwardWorkflow  WorkflowType = "forward"
-	ReverseWorkflow  WorkflowType = "reverse"
-	RollbackWorkflow WorkflowType = "rollback"
 )
 
 // GetInterval returns the interval if specified in the application group

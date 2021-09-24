@@ -3,6 +3,7 @@ package helpers
 import (
 	"context"
 	"fmt"
+
 	v1alpha13 "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
 
 	"github.com/Azure/Orkestra/api/v1alpha1"
@@ -28,7 +29,7 @@ func (helper *StatusHelper) UpdateStatus(ctx context.Context, parent *v1alpha1.A
 		return err
 	}
 	parent.Status.Applications = getAppStatus(parent, chartConditionMap, subChartConditionMap)
-	if wfType == v1alpha1.ForwardWorkflow {
+	if wfType == v1alpha1.Forward {
 		if workflow.ToConditionReason(instance.Status.Phase) == meta.FailedReason {
 			helper.Info("workflow rollout is in a failed state")
 			helper.MarkFailed(parent, fmt.Errorf("workflow in failed state"))

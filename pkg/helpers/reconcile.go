@@ -57,7 +57,7 @@ func (helper *ReconcileHelper) CreateOrUpdate(ctx context.Context) error {
 		return fmt.Errorf("failed to reconcile the applications with: %w", err)
 	}
 	// Generate the Workflow object to submit to Argo
-	forwardClient := helper.WorkflowClientBuilder.Build(v1alpha1.ForwardWorkflow, helper.Instance)
+	forwardClient := helper.WorkflowClientBuilder.Build(v1alpha1.Forward, helper.Instance)
 	if err := workflow.Run(ctx, forwardClient); err != nil {
 		helper.StatusHelper.MarkWorkflowTemplateGenerationFailed(helper.Instance, err)
 		return fmt.Errorf("failed to run forward workflow with: %w", err)
@@ -67,7 +67,7 @@ func (helper *ReconcileHelper) CreateOrUpdate(ctx context.Context) error {
 
 func (helper *ReconcileHelper) Rollback(ctx context.Context) error {
 	helper.Info("Rolling back to last successful application group spec")
-	rollbackClient := helper.WorkflowClientBuilder.Build(v1alpha1.RollbackWorkflow, helper.Instance)
+	rollbackClient := helper.WorkflowClientBuilder.Build(v1alpha1.Rollback, helper.Instance)
 
 	// Re-running the workflow will not re-generate it since we check if we have already started it
 	if err := workflow.Run(ctx, rollbackClient); err != nil {
@@ -78,8 +78,8 @@ func (helper *ReconcileHelper) Rollback(ctx context.Context) error {
 }
 
 func (helper *ReconcileHelper) Reverse(ctx context.Context) error {
-	reverseClient := helper.WorkflowClientBuilder.Build(v1alpha1.ReverseWorkflow, helper.Instance)
-	forwardClient := helper.WorkflowClientBuilder.Build(v1alpha1.ForwardWorkflow, helper.Instance)
+	reverseClient := helper.WorkflowClientBuilder.Build(v1alpha1.Reverse, helper.Instance)
+	forwardClient := helper.WorkflowClientBuilder.Build(v1alpha1.Forward, helper.Instance)
 	helper.Info("Reversing the workflow")
 
 	// Re-running the workflow will not re-generate it since we check if we have already started it
