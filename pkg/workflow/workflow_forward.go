@@ -3,14 +3,13 @@ package workflow
 import (
 	"context"
 	"fmt"
+
 	"github.com/Azure/Orkestra/pkg/graph"
 	"github.com/Azure/Orkestra/pkg/templates"
 
 	"github.com/Azure/Orkestra/api/v1alpha1"
 	"github.com/go-logr/logr"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
@@ -83,10 +82,6 @@ func (wc *ForwardWorkflowClient) Submit(ctx context.Context) error {
 		return fmt.Errorf("applicationGroup object cannot be nil")
 	}
 
-	if err := wc.createTargetNamespaces(ctx); err != nil {
-		return fmt.Errorf("failed to create the target namespaces: %w", err)
-	}
-
 	// Create the Workflow
 	wc.workflow.Labels[v1alpha1.OwnershipLabel] = wc.appGroup.Name
 	if err := controllerutil.SetControllerReference(wc.appGroup, wc.workflow, wc.Scheme()); err != nil {
@@ -107,42 +102,6 @@ func (wc *ForwardWorkflowClient) Submit(ctx context.Context) error {
 		// create a new object and submit it to the cluster
 		if err := wc.Create(ctx, wc.workflow); err != nil {
 			return fmt.Errorf("failed to CREATE argo workflow object: %w", err)
-		}
-	}
-	return nil
-}
-
-func (wc *ForwardWorkflowClient) createTargetNamespaces(ctx context.Context) error {
-	namespaces := []string{}
-	// Add namespaces we need to create while removing duplicates
-	for _, app := range wc.appGroup.Spec.Applications {
-		found := false
-		for _, namespace := range namespaces {
-			if app.Spec.Release.TargetNamespace == namespace {
-				found = true
-				break
-			}
-		}
-		if !found {
-			namespaces = append(namespaces, app.Spec.Release.TargetNamespace)
-		}
-	}
-
-	// Create any of the target namespaces
-	for _, namespace := range namespaces {
-		ns := &corev1.Namespace{
-			ObjectMeta: v1.ObjectMeta{
-				Name: namespace,
-				Labels: map[string]string{
-					"name": namespace,
-				},
-			},
-		}
-		if err := controllerutil.SetControllerReference(wc.appGroup, ns, wc.Scheme()); err != nil {
-			return fmt.Errorf("failed to set OwnerReference for Namespace %s: %w", ns.Name, err)
-		}
-		if err := wc.Create(ctx, ns); !errors.IsAlreadyExists(err) && err != nil {
-			return fmt.Errorf("failed to CREATE namespace %s object: %w", ns.Name, err)
 		}
 	}
 	return nil
