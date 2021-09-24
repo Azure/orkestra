@@ -1,15 +1,15 @@
-package controllers
+package controllers_test
 
 import (
 	"fmt"
 	"math/rand"
 	"time"
 
+	"github.com/Azure/Orkestra/api/v1alpha1"
+	"github.com/Azure/Orkestra/pkg/meta"
+	fluxhelmv2beta1 "github.com/fluxcd/helm-controller/api/v2beta1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/Azure/Orkestra/api/v1alpha1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -17,7 +17,7 @@ const (
 	ambassador = "ambassador"
 	podinfo    = "podinfo"
 
-	ambassadorChartURL        = "https://www.getambassador.io/helm"
+	ambassadorChartURL        = "https://nitishm.github.io/charts"
 	ambassadorOldChartVersion = "6.6.0"
 	ambassadorChartVersion    = "6.7.9"
 
@@ -29,21 +29,67 @@ const (
 )
 
 var (
-	defaultDuration = metav1.Duration{Duration: time.Minute * 5}
+	defaultDuration = metav1.Duration{Duration: time.Minute * 5}     // treat as const
+	letterRunes     = []rune("abcdefghijklmnopqrstuvwxyz1234567890") // treat as const
 )
 
-func defaultAppGroup(targetNamespace string) *v1alpha1.ApplicationGroup {
+func isAllHelmReleasesInReadyState(helmReleases []fluxhelmv2beta1.HelmRelease) bool {
+	allReady := true
+	for _, release := range helmReleases {
+		condition := meta.GetResourceCondition(&release, meta.ReadyCondition)
+		if condition.Reason == meta.SucceededReason {
+			allReady = false
+		}
+	}
+	return allReady
+}
+
+func addApplication(appGroup v1alpha1.ApplicationGroup, app v1alpha1.Application) v1alpha1.ApplicationGroup {
+	appGroup.Spec.Applications = append(appGroup.Spec.Applications, app)
+	return appGroup
+}
+
+func defaultAppGroup(groupName, groupNamespace, targetNamespace string) *v1alpha1.ApplicationGroup {
 	g := &v1alpha1.ApplicationGroup{
-		ObjectMeta: v1.ObjectMeta{
-			Name: targetNamespace,
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      groupName,
+			Namespace: groupNamespace,
 		},
 	}
 	g.Spec.Applications = make([]v1alpha1.Application, 0)
-	g.Spec.Applications = append(g.Spec.Applications, bookinfoApplication(targetNamespace), ambassadorApplication(targetNamespace))
+	g.Spec.Applications = append(g.Spec.Applications, bookinfoApplication(targetNamespace, ambassador), ambassadorApplication(targetNamespace))
 	return g
 }
 
-func ambassadorApplication(targetNamespace string) v1alpha1.Application {
+func smallAppGroup(groupName, groupNamespace, targetNamespace string) *v1alpha1.ApplicationGroup {
+	g := &v1alpha1.ApplicationGroup{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      groupName,
+			Namespace: groupNamespace,
+		},
+	}
+	g.Spec.Applications = make([]v1alpha1.Application, 0)
+	g.Spec.Applications = append(g.Spec.Applications, podinfoApplication(targetNamespace))
+	return g
+}
+
+func createUniqueAppGroupName(name string) string {
+	return name + "-" + getRandomStringRunes(10)
+}
+
+func getRandomStringRunes(n int) string {
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = letterRunes[rand.Intn(len(letterRunes))]
+	}
+	return string(b)
+}
+
+func boolToBoolPtr(in bool) *bool {
+	return &in
+}
+
+func ambassadorApplication(targetNamespace string, dependencies ...string) v1alpha1.Application {
 	values := []byte(fmt.Sprintf(`{
        "nameOverride": "%s",
 	   "service": {
@@ -55,7 +101,8 @@ func ambassadorApplication(targetNamespace string) v1alpha1.Application {
 	}`, targetNamespace))
 	return v1alpha1.Application{
 		DAG: v1alpha1.DAG{
-			Name: ambassador,
+			Name:         ambassador,
+			Dependencies: dependencies,
 		},
 		Spec: v1alpha1.ApplicationSpec{
 			Chart: &v1alpha1.ChartRef{
@@ -75,7 +122,7 @@ func ambassadorApplication(targetNamespace string) v1alpha1.Application {
 	}
 }
 
-func bookinfoApplication(targetNamespace string) v1alpha1.Application {
+func bookinfoApplication(targetNamespace string, dependencies ...string) v1alpha1.Application {
 	values := []byte(`{
 		"productpage": {
 			"replicaCount": 1
@@ -92,10 +139,8 @@ func bookinfoApplication(targetNamespace string) v1alpha1.Application {
 	}`)
 	return v1alpha1.Application{
 		DAG: v1alpha1.DAG{
-			Name: bookinfo,
-			Dependencies: []string{
-				ambassador,
-			},
+			Name:         bookinfo,
+			Dependencies: dependencies,
 		},
 		Spec: v1alpha1.ApplicationSpec{
 			Chart: &v1alpha1.ChartRef{
@@ -132,11 +177,11 @@ func bookinfoApplication(targetNamespace string) v1alpha1.Application {
 	}
 }
 
-func podinfoApplication(targetNamespace string) v1alpha1.Application {
+func podinfoApplication(targetNamespace string, dependencies ...string) v1alpha1.Application {
 	return v1alpha1.Application{
 		DAG: v1alpha1.DAG{
 			Name:         podinfo,
-			Dependencies: []string{},
+			Dependencies: dependencies,
 		},
 		Spec: v1alpha1.ApplicationSpec{
 			Chart: &v1alpha1.ChartRef{
@@ -150,19 +195,4 @@ func podinfoApplication(targetNamespace string) v1alpha1.Application {
 			},
 		},
 	}
-}
-
-func AddApplication(appGroup v1alpha1.ApplicationGroup, app v1alpha1.Application) v1alpha1.ApplicationGroup {
-	appGroup.Spec.Applications = append(appGroup.Spec.Applications, app)
-	return appGroup
-}
-
-var letterRunes = []rune("abcdefghijklmnopqrstuvwxyz1234567890")
-
-func randStringRunes(n int) string {
-	b := make([]rune, n)
-	for i := range b {
-		b[i] = letterRunes[rand.Intn(len(letterRunes))]
-	}
-	return string(b)
 }

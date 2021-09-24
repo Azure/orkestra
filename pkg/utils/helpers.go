@@ -2,17 +2,26 @@ package utils
 
 import (
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"strings"
 
+	v1alpha13 "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
 	fluxhelmv2beta1 "github.com/fluxcd/helm-controller/api/v2beta1"
 	"helm.sh/helm/v3/pkg/chart"
 	"sigs.k8s.io/yaml"
 )
 
 func ConvertToDNS1123(in string) string {
-	return strings.ReplaceAll(in, "_", "-")
+	name := strings.ToLower(in)
+	name = dns1123NotAllowedCharsRegexp.ReplaceAllString(name, "-")
+	name = dns1123NotAllowedStartCharsRegexp.ReplaceAllString(name, "")
+
+	if name == "" {
+		name = GetHash(in)
+	}
+	return TruncateString(name, DNS1123NameMaximumLength)
 }
 
 func ConvertSliceToDNS1123(in []string) []string {
@@ -37,8 +46,22 @@ func TruncateString(in string, num int) string {
 	return out
 }
 
-func ToStrPtr(in string) *string {
-	return &in
+func RemoveStringFromSlice(r string, s []string) []string {
+	for i, v := range s {
+		if v == r {
+			return append(s[:i], s[i+1:]...)
+		}
+	}
+	return s
+}
+
+func ToAnyString(in string) v1alpha13.AnyString {
+	return v1alpha13.AnyString(in)
+}
+
+func ToAnyStringPtr(in string) *v1alpha13.AnyString {
+	anystr := ToAnyString(in)
+	return &anystr
 }
 
 func HrToYaml(hr fluxhelmv2beta1.HelmRelease) string {
@@ -48,6 +71,12 @@ func HrToYaml(hr fluxhelmv2beta1.HelmRelease) string {
 	}
 
 	return string(b)
+}
+
+func HrToB64AnyStringPtr(hr *fluxhelmv2beta1.HelmRelease) *v1alpha13.AnyString {
+	yaml := HrToYaml(*hr)
+	base64 := base64.StdEncoding.EncodeToString([]byte(yaml))
+	return ToAnyStringPtr(base64)
 }
 
 func TemplateContainsYaml(ch *chart.Chart) (bool, error) {
@@ -65,7 +94,7 @@ func TemplateContainsYaml(ch *chart.Chart) (bool, error) {
 
 func IsFileYaml(f string) bool {
 	f = strings.ToLower(f)
-	if strings.HasSuffix(f, "yml") || strings.HasSuffix(f, "yaml") {
+	if strings.HasSuffix(f, ".yml") || strings.HasSuffix(f, ".yaml") {
 		return true
 	}
 	return false

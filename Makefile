@@ -5,6 +5,13 @@ IMG ?= azureorkestra/orkestra:latest
 CRD_OPTIONS ?= "crd:trivialVersions=true"
 DEBUG_LEVEL ?= 1
 CI_VALUES ?= "chart/orkestra/values-ci.yaml"
+
+# Directories
+ROOT_DIR := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
+BIN_DIR := $(abspath $(ROOT_DIR)/bin)
+
+reg_name='kind-registry'
+
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
 GOBIN=$(shell go env GOPATH)/bin
@@ -14,16 +21,12 @@ endif
 
 all: manager
 
-dev:
-	-kind create cluster --config .kind-cluster.yaml --name orkestra
+# Create a local docker registry, start kind cluster, and install Orkestra
+dev: kind-create
 	helm upgrade --install orkestra chart/orkestra --wait --atomic -n orkestra --create-namespace --values ${CI_VALUES}
 
 debug: dev
 	go run main.go --debug --log-level ${DEBUG_LEVEL}
-
-clean:
-	helm delete orkestra -n orkestra 2>&1
-	kind delete cluster --name orkestra 2>&1
 
 ginkgo-test: install
 	go get github.com/onsi/ginkgo/ginkgo
@@ -31,7 +34,7 @@ ginkgo-test: install
 
 # Run tests
 test: install
-	go test -v ./... -coverprofile coverage.txt -timeout 25m
+	go test -v ./... -coverprofile coverage.txt -timeout 35m
 
 # Build manager binary
 manager: generate fmt vet
@@ -59,6 +62,13 @@ manifests: controller-gen
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=chart/orkestra/crds
 
+# Prepare code for PR
+prepare-for-pr: vet fmt api-docs
+
+# Generate API reference documentation
+api-docs: gen-crd-api-reference-docs
+	$(API_REF_GEN) -api-dir=./api/v1alpha1 -config=./hack/api-docs/config.json -template-dir=./hack/api-docs/template -out-file=./docs/api.md
+
 # Run go fmt against code
 fmt:
 	go fmt ./...
@@ -81,8 +91,8 @@ docker-push:
 
 # setup kubebuilder
 setup-kubebuilder:
-	bash scripts/setup-envtest.sh;
-	bash scripts/setup-kubebuilder.sh
+	bash hack/setup-envtest.sh;
+	bash hack/setup-kubebuilder.sh
 
 # find or download controller-gen
 # download controller-gen if necessary
@@ -101,5 +111,37 @@ else
 CONTROLLER_GEN=$(shell which controller-gen)
 endif
 
-test-e2e:
-	./testing/validation.sh
+# Find or download gen-crd-api-reference-docs
+gen-crd-api-reference-docs:
+ifeq (, $(shell which gen-crd-api-reference-docs))
+	@{ \
+	set -e ;\
+	API_REF_GEN_TMP_DIR=$$(mktemp -d) ;\
+	cd $$API_REF_GEN_TMP_DIR ;\
+	go mod init tmp ;\
+	go get github.com/ahmetb/gen-crd-api-reference-docs@v0.2.0 ;\
+	rm -rf $$API_REF_GEN_TMP_DIR ;\
+	}
+API_REF_GEN=$(GOBIN)/gen-crd-api-reference-docs
+else
+API_REF_GEN=$(shell which gen-crd-api-reference-docs)
+endif
+## --------------------------------------
+## Kind
+## --------------------------------------
+KIND_CLUSTER_NAME ?= orkestra
+
+kind-create:
+	./hack/create-kind-cluster.sh
+	kind load docker-image $(IMG) --name $(KIND_CLUSTER_NAME)
+
+kind-delete: 
+	./hack/teardown-kind-with-registry.sh
+
+## --------------------------------------
+## Cleanup
+## --------------------------------------
+
+clean:
+	./hack/teardown-kind-with-registry.sh
+	@rm -rf $(BIN_DIR)

@@ -14,6 +14,20 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+type WorkflowType string
+
+const (
+	Forward  WorkflowType = "forward"
+	Reverse  WorkflowType = "reverse"
+	Rollback WorkflowType = "rollback"
+)
+
+var WorkflowConditionMap = map[WorkflowType]string{
+	Forward:  meta.ForwardWorkflowSucceededCondition,
+	Reverse:  meta.ReverseWorkflowSucceededCondition,
+	Rollback: meta.RollbackWorkflowSucceededCondition,
+}
+
 const (
 	DefaultProgressingRequeue = 5 * time.Second
 	DefaultSucceededRequeue   = 5 * time.Minute
@@ -21,8 +35,18 @@ const (
 	AppGroupNameKey   = "appgroup"
 	AppGroupFinalizer = "application-group-finalizer"
 
-	LastSuccessfulAnnotation = "orkestra/last-successful-applicationgroup"
-	ParentChartAnnotation    = "orkestra/parent-chart"
+	LastSuccessfulAnnotation = "orkestra.azure.microsoft.com/last-successful-applicationgroup"
+	ParentChartAnnotation    = "orkestra.azure.microsoft.com/parent-chart"
+
+	HeritageLabel = "orkestra.azure.microsoft.com/heritage"
+	HeritageValue = "orkestra"
+
+	OwnershipLabel = "orkestra.azure.microsoft.com/owner"
+	ChartLabel     = "orkestra.azure.microsoft.com/chart"
+
+	ForwardWorkflow  WorkflowType = "forward"
+	ReverseWorkflow  WorkflowType = "reverse"
+	RollbackWorkflow WorkflowType = "rollback"
 )
 
 // GetInterval returns the interval if specified in the application group
@@ -47,6 +71,49 @@ type ApplicationSpec struct {
 	// Subcharts provides the dependency order among the subcharts of the application
 	// +optional
 	Subcharts []DAG `json:"subcharts,omitempty"`
+
+	// Workflow provides an option to specify one or more workflow executors to run
+	// as a DAG
+	// +optional
+	Workflow []Executor `json:"workflow,omitempty"`
+}
+
+// ExecutorType can either refer to a native executor (helmrelease and/or keptn) or
+// be a custom executor defined by the end-user
+type ExecutorType string
+
+const (
+	// HelmReleaseExecutor type is a "deployment" executor native to Orkestra that is responsible for
+	// deploying the application through the `HelmRelease` custom resource for the fluxcd helm-controller
+	HelmReleaseExecutor ExecutorType = "helmrelease"
+	// KeptnExecutor type is a "evaluation" executor native to Orkestra that is respnsible for running
+	// evaluations tests and quality gates based rollouts and promotions.
+	// Important : A testing executor may not be used as a standalone executor and must always
+	// be executed after a deployment executor (i.e. must depend on a deployment executor) .
+	KeptnExecutor ExecutorType = "keptn"
+	// CustomExecutor lets the user specify their own executor template to be used either as a deployment
+	// executor, a testing executor or for any other action to be taken on behalf of the application node.
+	CustomExecutor ExecutorType = "custom"
+)
+
+type Executor struct {
+	// DAG contains the dependency information
+	// +required
+	DAG `json:",inline"`
+
+	// Type specifies the executor type to be run
+	// +kubebuilder:validation:Enum=helmrelease;keptn;custom
+	// +required
+	Type ExecutorType `json:"type,omitempty"`
+
+	// Image allows the end user to specify the docker image name and tag
+	// to be executed by the workflow node
+	// +optional
+	Image string `json:"image,omitempty"`
+
+	// Params hold executor specific properties
+	// +optional
+	Params *apiextensionsv1.JSON `json:"params,omitempty"`
 }
 
 type Release struct {
@@ -133,6 +200,8 @@ type ChartStatus struct {
 // ApplicationGroupSpec defines the desired state of ApplicationGroup
 type ApplicationGroupSpec struct {
 	// Applications that make up the application group
+	// +kubebuilder:validation:MinItems:=1
+	// +required
 	Applications []Application `json:"applications,omitempty"`
 
 	// Interval specifies the between reconciliations of the ApplicationGroup
@@ -180,11 +249,7 @@ type ApplicationStatus struct {
 type ApplicationGroupStatus struct {
 	// Applications status
 	// +optional
-	Applications []ApplicationStatus `json:"status,omitempty"`
-
-	// Phase is the reconciliation phase
-	// +optional
-	Update bool `json:"update,omitempty"`
+	Applications []ApplicationStatus `json:"applications,omitempty"`
 
 	// ObservedGeneration captures the last generation
 	// that was captured and completed by the reconciler
@@ -203,12 +268,18 @@ type ApplicationGroupStatus struct {
 
 // GetValues unmarshals the raw values to a map[string]interface{} and returns
 // the result.
-func (in *Application) GetValues() map[string]interface{} {
-	var values map[string]interface{}
-	if in.Spec.Release.Values != nil {
-		_ = json.Unmarshal(in.Spec.Release.Values.Raw, &values)
+func (in *Release) GetValues() map[string]interface{} {
+	values := make(map[string]interface{})
+	if in.Values != nil {
+		_ = json.Unmarshal(in.Values.Raw, &values)
 	}
 	return values
+}
+
+// GetValues unmarshals the raw values to a map[string]interface{} and returns
+// the result.
+func (in *Application) GetValues() map[string]interface{} {
+	return in.Spec.Release.GetValues()
 }
 
 func GetJSON(values map[string]interface{}) (*apiextensionsv1.JSON, error) {
@@ -222,12 +293,15 @@ func GetJSON(values map[string]interface{}) (*apiextensionsv1.JSON, error) {
 }
 
 // SetValues marshals the raw values into the JSON values
-func (in *Application) SetValues(values map[string]interface{}) error {
+func (in *Release) SetValues(values map[string]interface{}) error {
 	bytes, err := json.Marshal(values)
 	if err != nil {
 		return err
 	}
-	in.Spec.Release.Values.Raw = bytes
+	if in.Values == nil {
+		in.Values = &apiextensionsv1.JSON{}
+	}
+	in.Values.Raw = bytes
 	return nil
 }
 
@@ -238,22 +312,22 @@ func (in *ApplicationGroup) ReadySucceeded() {
 	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionTrue, meta.SucceededReason, "workflow and reconciliation succeeded")
 }
 
-// ReadyFailed sets the meta.ReadyCondition to 'True' and
-// meta.FailedReason reason and message
-func (in *ApplicationGroup) ReadyFailed(message string) {
-	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionTrue, meta.FailedReason, message)
+// WorkflowFailed sets the meta.ReadyCondition to 'False' and
+// meta.ReadyWorkflowFailed reason and message
+func (in *ApplicationGroup) WorkflowFailed(message string) {
+	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionFalse, meta.WorkflowFailedReason, message)
 }
 
-// DeploySucceeded sets the meta.DeployCondition to 'True', with the given
-// meta.Succeeded reason and message
-func (in *ApplicationGroup) DeploySucceeded() {
-	meta.SetResourceCondition(in, meta.DeployCondition, metav1.ConditionTrue, meta.SucceededReason, "application group reconciliation succeeded")
+// ChartPullFailed sets the meta.ReadyCondition to 'False' and
+// meta.ChartPullFailedReason reason and message
+func (in *ApplicationGroup) ChartPullFailed(message string) {
+	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionFalse, meta.ChartPullFailedReason, message)
 }
 
-// DeployFailed sets the meta.DeployCondition to 'True' and
-// meta.FailedReason reason and message
-func (in *ApplicationGroup) DeployFailed(message string) {
-	meta.SetResourceCondition(in, meta.DeployCondition, metav1.ConditionTrue, meta.FailedReason, message)
+// WorkflowTemplateGenerationFailed sets the meta.ReadyCondition to 'False' and
+// meta.TemplateGenerationFailed reason and message
+func (in *ApplicationGroup) WorkflowTemplateGenerationFailed(message string) {
+	meta.SetResourceCondition(in, meta.ReadyCondition, metav1.ConditionFalse, meta.WorkflowTemplateGenerationFailedReason, message)
 }
 
 // GetReadyCondition gets the string condition.Reason of the
@@ -266,10 +340,12 @@ func (in *ApplicationGroup) GetReadyCondition() string {
 	return condition.Reason
 }
 
-// GetDeployCondition gets the string condition.Reason of the
-// meta.ReadyCondition type
-func (in *ApplicationGroup) GetDeployCondition() string {
-	condition := meta.GetResourceCondition(in, meta.DeployCondition)
+// GetWorkflowCondition gets the string condition.Reason of the given workflow type
+func (in *ApplicationGroup) GetWorkflowCondition(wfType WorkflowType) string {
+	var condition *metav1.Condition
+	if wfCondition, ok := WorkflowConditionMap[wfType]; ok {
+		condition = meta.GetResourceCondition(in, wfCondition)
+	}
 	if condition == nil {
 		return meta.ProgressingReason
 	}
@@ -306,10 +382,10 @@ func (in *ApplicationGroup) SetLastSuccessful() {
 }
 
 // +kubebuilder:object:root=true
-// +kubebuilder:resource:path=applicationgroups,scope=Cluster,shortName=ag
+// +kubebuilder:resource:path=applicationgroups,scope=Cluster,shortName={"ag","appgroup"}
 // +kubebuilder:subresource:status
-// +kubebuilder:printcolumn:name="Deploy",type="string",JSONPath=".status.conditions[?(@.type==\"Deploy\")].reason"
-// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].reason"
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].status"
+// +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].reason"
 // +kubebuilder:printcolumn:name="Message",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].message"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 

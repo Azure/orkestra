@@ -5,7 +5,7 @@ nav_order: 1
 ---
 # Orkestra
 
-Find it on [Github](https://github.com/Azure/orkestra)
+Fork us on [Github](https://github.com/Azure/orkestra)
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/Azure/Orkestra.svg)](https://pkg.go.dev/github.com/Azure/Orkestra)
 ![GitHub Workflow Status](https://img.shields.io/github/workflow/status/azure/orkestra/E2E%20Testing?label=e2e)
@@ -113,6 +113,13 @@ INFO[2021-02-03T01:02:15.852Z] Argo UI is available at http://localhost:2746
 ## Developers 👩‍💻
 
 Follow the development [guide](./developers.md) to get started with building and debugging Orkestra
+
+## Community 🧑‍🤝‍🧑
+
+Connect with the Azure Orkestra community:
+
+- GitHub [issues](https://github.com/Azure/orkestra/issues) and [pull requests](https://github.com/Azure/orkestra/pulls) in this repo
+- Azure Orkestra Slack: Join the Azure Orkestra [Slack](https://join.slack.com/t/azureorkestra/shared_invite/zt-rowzrite-Hm_eaih4GyjjZXWftuoqPQ)
 
 ## Contributing 🎁
 
