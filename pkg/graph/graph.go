@@ -2,6 +2,7 @@ package graph
 
 import (
 	"fmt"
+
 	"github.com/Azure/Orkestra/api/v1alpha1"
 	executorpkg "github.com/Azure/Orkestra/pkg/executor"
 	"github.com/Azure/Orkestra/pkg/utils"
@@ -142,38 +143,45 @@ func NewForwardGraph(appGroup *v1alpha1.ApplicationGroup) *Graph {
 		g.assignExecutorsToTask(applicationTaskNode, application.Spec.Workflow)
 		appValues := application.GetValues()
 
-		// Iterate through the subchart nodes
-		for _, subChart := range application.Spec.Subcharts {
-			subChartVersion := appGroup.Status.Applications[i].Subcharts[subChart.Name].Version
-			chartName := utils.GetSubchartName(application.Name, subChart.Name)
+		// We need to know that the subcharts were staged in order to build this graph
+		if len(appGroup.Status.Applications) > i {
+			// Iterate through the subchart nodes
+			for _, subChart := range application.Spec.Subcharts {
+				subChartStatus, ok := appGroup.Status.Applications[i].Subcharts[subChart.Name]
+				if !ok {
+					continue
+				}
+				subChartVersion := subChartStatus.Version
+				chartName := utils.GetSubchartName(application.Name, subChart.Name)
 
-			// Get the sub-chart values and assign that ot the release
-			values, _ := SubChartValues(subChart.Name, application.GetValues())
-			release := application.Spec.Release.DeepCopy()
-			release.Values = values
+				// Get the sub-chart values and assign that ot the release
+				values, _ := SubChartValues(subChart.Name, application.GetValues())
+				release := application.Spec.Release.DeepCopy()
+				release.Values = values
 
-			subChartNode := &TaskNode{
-				Name:         getTaskName(application.Name, subChart.Name),
-				ChartName:    chartName,
-				ChartVersion: subChartVersion,
-				Release:      release,
-				Parent:       application.Name,
-				Executors:    make(map[string]*ExecutorNode),
+				subChartNode := &TaskNode{
+					Name:         getTaskName(application.Name, subChart.Name),
+					ChartName:    chartName,
+					ChartVersion: subChartVersion,
+					Release:      release,
+					Parent:       application.Name,
+					Executors:    make(map[string]*ExecutorNode),
+				}
+				for _, dep := range subChart.Dependencies {
+					subChartNode.Dependencies = append(subChartNode.Dependencies, getTaskName(application.Name, dep))
+				}
+
+				g.assignExecutorsToTask(subChartNode, application.Spec.Workflow)
+				applicationNode.Tasks[subChartNode.Name] = subChartNode
+
+				// Disable the sub-chart dependencies in the values of the parent chart
+				appValues[subChart.Name] = map[string]interface{}{
+					"enabled": false,
+				}
+
+				// Add the node to the set of parent node dependencies
+				applicationTaskNode.Dependencies = append(applicationTaskNode.Dependencies, subChartNode.Name)
 			}
-			for _, dep := range subChart.Dependencies {
-				subChartNode.Dependencies = append(subChartNode.Dependencies, getTaskName(application.Name, dep))
-			}
-
-			g.assignExecutorsToTask(subChartNode, application.Spec.Workflow)
-			applicationNode.Tasks[subChartNode.Name] = subChartNode
-
-			// Disable the sub-chart dependencies in the values of the parent chart
-			appValues[subChart.Name] = map[string]interface{}{
-				"enabled": false,
-			}
-
-			// Add the node to the set of parent node dependencies
-			applicationTaskNode.Dependencies = append(applicationTaskNode.Dependencies, subChartNode.Name)
 		}
 		_ = applicationTaskNode.Release.SetValues(appValues)
 		applicationNode.Tasks[applicationTaskNode.Name] = applicationTaskNode

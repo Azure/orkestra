@@ -119,6 +119,15 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
+	err = (&controllers.WorkflowStatusReconciler{
+		Client:                k8sManager.GetClient(),
+		Log:                   baseLogger,
+		Scheme:                k8sManager.GetScheme(),
+		WorkflowClientBuilder: workflowClientBuilder,
+		Recorder:              k8sManager.GetEventRecorderFor("appgroup-controller"),
+	}).SetupWithManager(k8sManager)
+	Expect(err).ToNot(HaveOccurred())
+
 	go func() {
 		err = k8sManager.Start(ctrl.SetupSignalHandler())
 		Expect(err).ToNot(HaveOccurred())
