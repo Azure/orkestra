@@ -2,6 +2,7 @@ package controllers_test
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/Azure/Orkestra/api/v1alpha1"
@@ -60,7 +61,7 @@ var _ = Describe("ApplicationGroup Controller", func() {
 		_ = k8sClient.DeleteAllOf(ctx, &v1alpha13.Workflow{}, client.InNamespace(name))
 	})
 
-	It("Should create Bookinfo spec successfully", func() {
+	It("Should create and delete Bookinfo spec successfully", func() {
 		By("Applying the bookinfo object to the cluster")
 		err := k8sClient.Create(ctx, appGroup)
 		Expect(err).ToNot(HaveOccurred())
@@ -103,7 +104,8 @@ var _ = Describe("ApplicationGroup Controller", func() {
 			if err := k8sClient.List(ctx, helmReleases, client.InNamespace(name)); err != nil {
 				return false
 			}
-			return len(helmReleases.Items) == 0
+			getErr := k8sClient.Get(ctx, key, appGroup)
+			return len(helmReleases.Items) == 0 && errors.IsNotFound(getErr)
 		}, defaultTimeout, time.Second).Should(BeTrue())
 	})
 
@@ -409,18 +411,17 @@ var _ = Describe("ApplicationGroup Controller", func() {
 		By("Deleting the application group and deleting the workflow")
 		err = k8sClient.Delete(ctx, appGroup)
 		Expect(err).To(BeNil())
-		wf := &v1alpha13.Workflow{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name,
-				Namespace: defaultNamespace,
-			},
-		}
+
+		wf := &v1alpha13.Workflow{}
+		Eventually(func() error {
+			return k8sClient.Get(ctx, types.NamespacedName{Name: fmt.Sprintf("%s-reverse", name), Namespace: defaultNamespace}, wf)
+		}, time.Second*20, time.Second).Should(BeNil())
 		err = k8sClient.Delete(ctx, wf)
 		Expect(err).To(BeNil())
 
 		Eventually(func() bool {
 			return errors.IsNotFound(k8sClient.Get(ctx, key, appGroup))
-		}, time.Second*30, time.Second).Should(BeTrue())
+		}, time.Second*20, time.Second).Should(BeTrue())
 	})
 
 	It("should succeed to remove the new helm releases on application rollback", func() {

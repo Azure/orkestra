@@ -29,6 +29,9 @@ spec:
     - jsonPath: .status.conditions[?(@.type=="Ready")].message
       name: Message
       type: string
+    - jsonPath: .status.conditions[?(@.type=="RollbackWorkflowSucceeded")].status
+      name: RolledBack
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
