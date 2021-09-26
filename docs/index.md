@@ -90,7 +90,7 @@ Source code for the Keptn executor is available [here](https://github.com/Azure/
 
 Network functions are not always operated, deployed, and managed in isolation of each other. Network functions implementing parts of a 3GPP release based 5G core often operate in conjunction with other network functions implementing other parts. For example, the deployment of a single Session Management Function might depend on foundational PaaS services, like a Service Mesh, Open Policy Agent (OPA), Cert Manager, etc being in place and functioning.
 
-[5G Dependency Layers](./assets/5g-workflow.png)
+![5G Dependency Layers](./assets/5g-workflow.png)
 
 ## Installation 🧰
 
