@@ -11,6 +11,7 @@ Orkestra is a cloud-native **Release Orchestration** and **Lifecycle Management 
 
 Orkestra is built on top of popular [CNCF](https://cncf.io/) tools and technologies like,
 
+- [Helm](https://helm.sh/)
 - [Argo Workflows](https://argoproj.github.io/workflows/),
 - [Flux Helm Controller](https://github.com/fluxcd/helm-controller),
 - [Chartmuseum](https://chartmuseum.com/)
@@ -46,13 +47,71 @@ The `ApplicationGroup` spec allows to structure an orchestrated set of releases 
 
 This gives you the ability to define a set of Helm releases that are orchestrated in a way that is easy to understand and to debug without having to modify the Helm release itself.
 
+
 ## Features 🌟
 
-- **Dependency management** - DAG-based workflows for groups of application charts and their sub-charts using Argo Workflows
+- **Layers** - Deploy and manage 'layers' on top of Kubernetes. Each layer is a collection of addons and can have dependencies established between the layers.
+
+![Layers](./assets/layers.png)
+
+- **Dependency management** - DAG-based workflows for groups of application charts and their sub-charts using Argo Workflows.
+
+![Subcharts](./assets/subchart-dag.png)
+
 - **Fail fast during in-service upgrades** - limits the blast radius for failures during in-service upgrade of critical components to the immediate components that are impacted by the upgrade.
 - **Failure Remediation** - rollback to last successful spec on encountering failures during in-service upgrades
 - **Built for Kubernetes** - custom controller built using  [kubebuilder](https://github.com/kubernetes-sigs/kubebuilder)
 - **Easy to use** - familiar declarative spec using Kubernetes [Custom Resource Definitions](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/)
+
+```yaml
+apiVersion: orkestra.azure.microsoft.com/v1alpha1
+kind: ApplicationGroup
+metadata:
+  name: bookinfo 
+spec:
+  applications:
+    - name: ambassador
+      dependencies: []
+      spec:
+        chart:
+          url: "https://nitishm.github.io/charts"
+          name: ambassador 
+          version: 6.6.0
+        release:
+          timeout: 10m
+          targetNamespace: ambassador 
+          values:
+            service:
+              type: ClusterIP
+    - name: bookinfo 
+      dependencies: [ambassador]
+      spec:
+        chart:
+          url: "https://nitishm.github.io/charts"
+          name: bookinfo 
+          version: v1
+        subcharts:
+        - name: productpage
+          dependencies: [reviews]
+        - name: reviews
+          dependencies: [details, ratings]
+        - name: ratings
+          dependencies: []
+        - name: details
+          dependencies: []
+        release:
+          targetNamespace: bookinfo 
+          values:
+            productpage:
+              replicaCount: 1
+            details:
+              replicaCount: 1
+            reviews:
+              replicaCount: 1
+            ratings:
+              replicaCount: 1
+```
+
 - **Works with any Continous Deployment system** - bring your own CD framework to deploy Orkestra Custom Resources. Works with any Kubernetes compatible Continuous Deployment framework like [FluxCD](https://fluxcd.io/) and [ArgoCD](https://argoproj.github.io/argo-cd/)
 - **Built for GitOps** - describe your desired set of applications (and dependencies) declaratively and manage them from a version-controlled git repository
 
@@ -80,7 +139,9 @@ Source code for the Keptn executor is available [here](https://github.com/Azure/
 
 ### 5G Network Functions 📱
 
-Network functions are not always operated, deployed, and managed in isolation of each other. Network functions implementing parts of a 3GPP release based 5G core often operate in conjunction with other network functions implementing other parts. For example, the deployment of a single Session Management Function might depend on foundational PaaS services, like a Service Mesh, Open Policy Agent (OPA), Cert Manager, etc being in place and functioning.
+![NetworkFunction](./assets/nf-paas-layers.png)
+
+[Network functions](https://en.wikipedia.org/wiki/Cloud-Native_Network_Function) are not always operated, deployed, and managed in isolation of each other. Network functions implementing parts of a 3GPP release based 5G core often operate in conjunction with other network functions implementing other parts. For example, the deployment of a single Session Management Function might depend on foundational PaaS services, like a Service Mesh, Open Policy Agent (OPA), Cert Manager, etc being in place and functioning.
 
 ## Installation 🧰
 
@@ -89,7 +150,7 @@ To get started you need the following:
 - A Kubernetes cluster (AKS, GKE, EKS, Kind, Minikube, etc)
 - [`kubectl`](https://kubernetes.io/docs/tasks/tools/)
 - [`helm`](https://helm.sh/docs/intro/install/)
-- [`argo`](https://github.com/argoproj/argo/releases)
+- [`argo`](https://github.com/argoproj/argo-workflows/releases)
 
 ### Using Helm
 
