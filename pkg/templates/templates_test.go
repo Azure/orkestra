@@ -22,7 +22,12 @@ func subChartHelper(values map[string]interface{}, subChartName string) *apiexte
 	return scValues
 }
 
-func Test_generateAppDAGTemplates(t *testing.T) {
+func wrappedTaskHelper(executorType executor.Executor, name string, dependencies []string, timeout, hrStr string, parameters *apiextensionsv1.JSON) v1alpha13.DAGTask {
+	task, _ := executorType.GetTask(name, dependencies, timeout, hrStr, parameters)
+	return task
+}
+
+func Test_GenerateTemplates(t *testing.T) {
 	type args struct {
 		graph       *graph.Graph
 		namespace   string
@@ -38,23 +43,25 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 	var p int64 = 0
 
 	tests := []struct {
-		name    string
-		args    args
-		want    map[string]v1alpha13.Template
-		wantErr bool
+		name string
+		args args
+		want []v1alpha13.Template
 	}{
 		{
-			name: "testing singleApplicationWithSubchartDAG",
+			name: "Test Single Application with Multiple Executors",
 			args: args{
 				graph: &graph.Graph{
-					Name:         "bookinfo",
-					AllExecutors: []executor.Executor{executor.DefaultForward{}},
+					Name: "bookinfo",
+					AllExecutors: map[string]executor.Executor{
+						executor.HelmReleaseForward{}.GetName(): executor.HelmReleaseForward{},
+						executor.KeptnForward{}.GetName():       executor.KeptnForward{},
+					},
 					Nodes: map[string]*graph.AppNode{
 						"ambassador": {
 							Name: "ambassador",
 							Tasks: map[string]*graph.TaskNode{
-								"ambassador": {
-									Name:         "ambassador",
+								"ambassador-ambassador": {
+									Name:         "ambassador-ambassador",
 									ChartName:    "ambassador",
 									ChartVersion: "1.0.0",
 									Release: &v1alpha1.Release{
@@ -62,7 +69,20 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 											Raw: bytesRelValues,
 										},
 									},
-									Executors: []executor.Executor{executor.DefaultForward{}},
+									Executors: map[string]*graph.ExecutorNode{
+										"helmrelease": {
+											Name:     "helmrelease",
+											Executor: executor.HelmReleaseForward{},
+										},
+										"keptn": {
+											Name:         "keptn",
+											Executor:     executor.KeptnForward{},
+											Dependencies: []string{"helmrelease"},
+											Params: &apiextensionsv1.JSON{
+												Raw: []byte(`{"configMapRef":{"name":"my-name","namespace":"my-namespace"}}`),
+											},
+										},
+									},
 								},
 							},
 						},
@@ -70,8 +90,8 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 							Name:         "bookinfo",
 							Dependencies: []string{"ambassador"},
 							Tasks: map[string]*graph.TaskNode{
-								"bookinfo": {
-									Name:         "bookinfo",
+								"bookinfo-bookinfo": {
+									Name:         "bookinfo-bookinfo",
 									ChartName:    "bookinfo",
 									ChartVersion: "0.1.6",
 									Release: &v1alpha1.Release{
@@ -79,39 +99,20 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 											Raw: bytesRelValues,
 										},
 									},
-									Dependencies: []string{"subchart-1", "subchart-2", "subchart-3"},
-									Executors:    []executor.Executor{executor.DefaultForward{}},
-								},
-								"subchart-1": {
-									Name:         "subchart-1",
-									ChartName:    utils.GetSubchartName("bookinfo", "subchart-1"),
-									ChartVersion: "0.1.0",
-									Parent:       "bookinfo",
-									Release: &v1alpha1.Release{
-										Values: subChartHelper(relValues, "subchart-1"),
+									Executors: map[string]*graph.ExecutorNode{
+										"helmrelease": {
+											Name:     "helmrelease",
+											Executor: executor.HelmReleaseForward{},
+										},
+										"keptn": {
+											Name:         "keptn",
+											Executor:     executor.KeptnForward{},
+											Dependencies: []string{"helmrelease"},
+											Params: &apiextensionsv1.JSON{
+												Raw: []byte(`{"configMapRef":{"name":"my-name","namespace":"my-namespace"}}`),
+											},
+										},
 									},
-									Executors: []executor.Executor{executor.DefaultForward{}},
-								},
-								"subchart-2": {
-									Name:         "subchart-2",
-									ChartName:    utils.GetSubchartName("bookinfo", "subchart-2"),
-									ChartVersion: "0.1.0",
-									Parent:       "bookinfo",
-									Release: &v1alpha1.Release{
-										Values: subChartHelper(relValues, "subchart-2"),
-									},
-									Executors: []executor.Executor{executor.DefaultForward{}},
-								},
-								"subchart-3": {
-									Name:         "subchart-3",
-									ChartName:    utils.GetSubchartName("bookinfo", "subchart-3"),
-									ChartVersion: "0.1.0",
-									Parent:       "bookinfo",
-									Release: &v1alpha1.Release{
-										Values: subChartHelper(relValues, "subchart-3"),
-									},
-									Dependencies: []string{"subchart-1", "subchart-2"},
-									Executors:    []executor.Executor{executor.DefaultForward{}},
 								},
 							},
 						},
@@ -120,12 +121,115 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 				namespace:   "testorkestra",
 				parallelism: &p,
 			},
-			want: map[string]v1alpha13.Template{
-				"bookinfo": {
-					Name: "bookinfo",
+			want: []v1alpha13.Template{
+				{
+					Name:        "bookinfo",
+					Parallelism: &p,
 					DAG: &v1alpha13.DAGTemplate{
 						Tasks: []v1alpha13.DAGTask{
-							executor.DefaultForward{}.GetTask("bookinfo", []string{"subchart-1", "subchart-2", "subchart-3"}, getTimeout(nil), utils.HrToB64AnyStringPtr(
+							{
+								Name:     "bookinfo-bookinfo",
+								Template: "bookinfo-bookinfo",
+							},
+						},
+					},
+				},
+				{
+					Name:        "ambassador",
+					Parallelism: &p,
+					DAG: &v1alpha13.DAGTemplate{
+						Tasks: []v1alpha13.DAGTask{
+							{
+								Name:     "ambassador-ambassador",
+								Template: "ambassador-ambassador",
+							},
+						},
+					},
+				},
+				{
+					Name:        "ambassador-ambassador",
+					Parallelism: &p,
+					DAG: &v1alpha13.DAGTemplate{
+						Tasks: []v1alpha13.DAGTask{
+							wrappedTaskHelper(executor.HelmReleaseForward{}, "helmrelease", nil, getTimeout(nil), utils.HrToB64(
+								&fluxhelmv2beta1.HelmRelease{
+									TypeMeta: v1.TypeMeta{
+										Kind:       "HelmRelease",
+										APIVersion: "helm.toolkit.fluxcd.io/v2beta1",
+									},
+									ObjectMeta: v1.ObjectMeta{
+										Name: "ambassador",
+										Labels: map[string]string{
+											v1alpha1.ChartLabel:     "ambassador",
+											v1alpha1.OwnershipLabel: "bookinfo",
+											v1alpha1.HeritageLabel:  "orkestra",
+										},
+									},
+									Spec: fluxhelmv2beta1.HelmReleaseSpec{
+										Chart: fluxhelmv2beta1.HelmChartTemplate{
+											Spec: fluxhelmv2beta1.HelmChartTemplateSpec{
+												Chart:   "ambassador",
+												Version: "1.0.0",
+												SourceRef: fluxhelmv2beta1.CrossNamespaceObjectReference{
+													Kind:      "HelmRepository",
+													Name:      "chartmuseum",
+													Namespace: "testorkestra",
+												},
+											},
+										},
+										ReleaseName: "ambassador",
+										Values: &apiextensionsv1.JSON{
+											Raw: []byte(`{"global":{"keyG":"valueG"},"subchart-1":{"sc1-key":"sc1-value"},"subchart-2":{"sc2-key":"sc2-value"},"subchart-3":{"sc3-key":"sc3-value"}}`),
+										},
+									},
+								}),
+								nil,
+							),
+							wrappedTaskHelper(executor.KeptnForward{}, "keptn", []string{"helmrelease"}, getTimeout(nil), utils.HrToB64(
+								&fluxhelmv2beta1.HelmRelease{
+									TypeMeta: v1.TypeMeta{
+										Kind:       "HelmRelease",
+										APIVersion: "helm.toolkit.fluxcd.io/v2beta1",
+									},
+									ObjectMeta: v1.ObjectMeta{
+										Name: "ambassador",
+										Labels: map[string]string{
+											v1alpha1.ChartLabel:     "ambassador",
+											v1alpha1.OwnershipLabel: "bookinfo",
+											v1alpha1.HeritageLabel:  "orkestra",
+										},
+									},
+									Spec: fluxhelmv2beta1.HelmReleaseSpec{
+										Chart: fluxhelmv2beta1.HelmChartTemplate{
+											Spec: fluxhelmv2beta1.HelmChartTemplateSpec{
+												Chart:   "ambassador",
+												Version: "1.0.0",
+												SourceRef: fluxhelmv2beta1.CrossNamespaceObjectReference{
+													Kind:      "HelmRepository",
+													Name:      "chartmuseum",
+													Namespace: "testorkestra",
+												},
+											},
+										},
+										ReleaseName: "ambassador",
+										Values: &apiextensionsv1.JSON{
+											Raw: []byte(`{"global":{"keyG":"valueG"},"subchart-1":{"sc1-key":"sc1-value"},"subchart-2":{"sc2-key":"sc2-value"},"subchart-3":{"sc3-key":"sc3-value"}}`),
+										},
+									},
+								}),
+								&apiextensionsv1.JSON{
+									Raw: []byte(`{"configMapRef":{"name":"my-name","namespace":"my-namespace"}}`),
+								},
+							),
+						},
+					},
+				},
+				{
+					Name:        "bookinfo-bookinfo",
+					Parallelism: &p,
+					DAG: &v1alpha13.DAGTemplate{
+						Tasks: []v1alpha13.DAGTask{
+							wrappedTaskHelper(executor.HelmReleaseForward{}, "helmrelease", nil, getTimeout(nil), utils.HrToB64(
 								&fluxhelmv2beta1.HelmRelease{
 									TypeMeta: v1.TypeMeta{
 										Kind:       "HelmRelease",
@@ -157,8 +261,196 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 										},
 									},
 								}),
+								nil,
 							),
-							executor.DefaultForward{}.GetTask("subchart-1", nil, getTimeout(nil), utils.HrToB64AnyStringPtr(
+							wrappedTaskHelper(executor.KeptnForward{}, "keptn", []string{"helmrelease"}, getTimeout(nil), utils.HrToB64(
+								&fluxhelmv2beta1.HelmRelease{
+									TypeMeta: v1.TypeMeta{
+										Kind:       "HelmRelease",
+										APIVersion: "helm.toolkit.fluxcd.io/v2beta1",
+									},
+									ObjectMeta: v1.ObjectMeta{
+										Name: "bookinfo",
+										Labels: map[string]string{
+											v1alpha1.ChartLabel:     "bookinfo",
+											v1alpha1.OwnershipLabel: "bookinfo",
+											v1alpha1.HeritageLabel:  "orkestra",
+										},
+									},
+									Spec: fluxhelmv2beta1.HelmReleaseSpec{
+										Chart: fluxhelmv2beta1.HelmChartTemplate{
+											Spec: fluxhelmv2beta1.HelmChartTemplateSpec{
+												Chart:   "bookinfo",
+												Version: "0.1.6",
+												SourceRef: fluxhelmv2beta1.CrossNamespaceObjectReference{
+													Kind:      "HelmRepository",
+													Name:      "chartmuseum",
+													Namespace: "testorkestra",
+												},
+											},
+										},
+										ReleaseName: "bookinfo",
+										Values: &apiextensionsv1.JSON{
+											Raw: []byte(`{"global":{"keyG":"valueG"},"subchart-1":{"sc1-key":"sc1-value"},"subchart-2":{"sc2-key":"sc2-value"},"subchart-3":{"sc3-key":"sc3-value"}}`),
+										},
+									},
+								}),
+								&apiextensionsv1.JSON{
+									Raw: []byte(`{"configMapRef":{"name":"my-name","namespace":"my-namespace"}}`),
+								},
+							),
+						},
+					},
+				},
+				executor.HelmReleaseForward{}.GetTemplate(),
+				executor.KeptnForward{}.GetTemplate(),
+			},
+		},
+		{
+			name: "Test Single Application with Sub-Charts",
+			args: args{
+				graph: &graph.Graph{
+					Name: "bookinfo",
+					AllExecutors: map[string]executor.Executor{
+						"helmrelease-forward-executor": executor.HelmReleaseForward{},
+					},
+					Nodes: map[string]*graph.AppNode{
+						"ambassador": {
+							Name: "ambassador",
+							Tasks: map[string]*graph.TaskNode{
+								"ambassador-ambassador": {
+									Name:         "ambassador-ambassador",
+									ChartName:    "ambassador",
+									ChartVersion: "1.0.0",
+									Release: &v1alpha1.Release{
+										Values: &apiextensionsv1.JSON{
+											Raw: bytesRelValues,
+										},
+									},
+									Executors: map[string]*graph.ExecutorNode{
+										"helmrelease": {
+											Name:     "helmrelease",
+											Executor: executor.HelmReleaseForward{},
+										},
+									},
+								},
+							},
+						},
+						"bookinfo": {
+							Name:         "bookinfo",
+							Dependencies: []string{"ambassador"},
+							Tasks: map[string]*graph.TaskNode{
+								"bookinfo-bookinfo": {
+									Name:         "bookinfo-bookinfo",
+									ChartName:    "bookinfo",
+									ChartVersion: "0.1.6",
+									Release: &v1alpha1.Release{
+										Values: &apiextensionsv1.JSON{
+											Raw: bytesRelValues,
+										},
+									},
+									Dependencies: []string{"bookinfo-subchart-1", "bookinfo-subchart-2", "bookinfo-subchart-3"},
+									Executors: map[string]*graph.ExecutorNode{
+										"helmrelease": {
+											Name:     "helmrelease",
+											Executor: executor.HelmReleaseForward{},
+										},
+									},
+								},
+								"bookinfo-subchart-1": {
+									Name:         "bookinfo-subchart-1",
+									ChartName:    utils.GetSubchartName("bookinfo", "subchart-1"),
+									ChartVersion: "0.1.0",
+									Parent:       "bookinfo",
+									Release: &v1alpha1.Release{
+										Values: subChartHelper(relValues, "subchart-1"),
+									},
+									Executors: map[string]*graph.ExecutorNode{
+										"helmrelease": {
+											Name:     "helmrelease",
+											Executor: executor.HelmReleaseForward{},
+										},
+									},
+								},
+								"bookinfo-subchart-2": {
+									Name:         "bookinfo-subchart-2",
+									ChartName:    utils.GetSubchartName("bookinfo", "subchart-2"),
+									ChartVersion: "0.1.0",
+									Parent:       "bookinfo",
+									Release: &v1alpha1.Release{
+										Values: subChartHelper(relValues, "subchart-2"),
+									},
+									Executors: map[string]*graph.ExecutorNode{
+										"helmrelease": {
+											Name:     "helmrelease",
+											Executor: executor.HelmReleaseForward{},
+										},
+									},
+								},
+								"bookinfo-subchart-3": {
+									Name:         "bookinfo-subchart-3",
+									ChartName:    utils.GetSubchartName("bookinfo", "subchart-3"),
+									ChartVersion: "0.1.0",
+									Parent:       "bookinfo",
+									Release: &v1alpha1.Release{
+										Values: subChartHelper(relValues, "subchart-3"),
+									},
+									Dependencies: []string{"bookinfo-subchart-1", "bookinfo-subchart-2"},
+									Executors: map[string]*graph.ExecutorNode{
+										"helmrelease": {
+											Name:     "helmrelease",
+											Executor: executor.HelmReleaseForward{},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				namespace:   "testorkestra",
+				parallelism: &p,
+			},
+			want: []v1alpha13.Template{
+				{
+					Name:        "bookinfo",
+					Parallelism: &p,
+					DAG: &v1alpha13.DAGTemplate{
+						Tasks: []v1alpha13.DAGTask{
+							wrappedTaskHelper(executor.HelmReleaseForward{}, "bookinfo-bookinfo", []string{"bookinfo-subchart-1", "bookinfo-subchart-2", "bookinfo-subchart-3"}, getTimeout(nil), utils.HrToB64(
+								&fluxhelmv2beta1.HelmRelease{
+									TypeMeta: v1.TypeMeta{
+										Kind:       "HelmRelease",
+										APIVersion: "helm.toolkit.fluxcd.io/v2beta1",
+									},
+									ObjectMeta: v1.ObjectMeta{
+										Name: "bookinfo",
+										Labels: map[string]string{
+											v1alpha1.ChartLabel:     "bookinfo",
+											v1alpha1.OwnershipLabel: "bookinfo",
+											v1alpha1.HeritageLabel:  "orkestra",
+										},
+									},
+									Spec: fluxhelmv2beta1.HelmReleaseSpec{
+										Chart: fluxhelmv2beta1.HelmChartTemplate{
+											Spec: fluxhelmv2beta1.HelmChartTemplateSpec{
+												Chart:   "bookinfo",
+												Version: "0.1.6",
+												SourceRef: fluxhelmv2beta1.CrossNamespaceObjectReference{
+													Kind:      "HelmRepository",
+													Name:      "chartmuseum",
+													Namespace: "testorkestra",
+												},
+											},
+										},
+										ReleaseName: "bookinfo",
+										Values: &apiextensionsv1.JSON{
+											Raw: []byte(`{"global":{"keyG":"valueG"},"subchart-1":{"sc1-key":"sc1-value"},"subchart-2":{"sc2-key":"sc2-value"},"subchart-3":{"sc3-key":"sc3-value"}}`),
+										},
+									},
+								}),
+								nil,
+							),
+							wrappedTaskHelper(executor.HelmReleaseForward{}, "bookinfo-subchart-1", nil, getTimeout(nil), utils.HrToB64(
 								&fluxhelmv2beta1.HelmRelease{
 									TypeMeta: v1.TypeMeta{
 										Kind:       "HelmRelease",
@@ -193,8 +485,9 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 										},
 									},
 								}),
+								nil,
 							),
-							executor.DefaultForward{}.GetTask("subchart-2", nil, getTimeout(nil), utils.HrToB64AnyStringPtr(
+							wrappedTaskHelper(executor.HelmReleaseForward{}, "bookinfo-subchart-2", nil, getTimeout(nil), utils.HrToB64(
 								&fluxhelmv2beta1.HelmRelease{
 									TypeMeta: v1.TypeMeta{
 										Kind:       "HelmRelease",
@@ -229,8 +522,9 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 										},
 									},
 								}),
+								nil,
 							),
-							executor.DefaultForward{}.GetTask("subchart-3", []string{"subchart-1", "subchart-2"}, getTimeout(nil), utils.HrToB64AnyStringPtr(
+							wrappedTaskHelper(executor.HelmReleaseForward{}, "bookinfo-subchart-3", []string{"bookinfo-subchart-1", "bookinfo-subchart-2"}, getTimeout(nil), utils.HrToB64(
 								&fluxhelmv2beta1.HelmRelease{
 									TypeMeta: v1.TypeMeta{
 										Kind:       "HelmRelease",
@@ -265,16 +559,17 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 										},
 									},
 								}),
+								nil,
 							),
 						},
 					},
-					Parallelism: &p,
 				},
-				"ambassador": {
-					Name: "ambassador",
+				{
+					Name:        "ambassador",
+					Parallelism: &p,
 					DAG: &v1alpha13.DAGTemplate{
 						Tasks: []v1alpha13.DAGTask{
-							executor.DefaultForward{}.GetTask("ambassador", nil, getTimeout(nil), utils.HrToB64AnyStringPtr(
+							wrappedTaskHelper(executor.HelmReleaseForward{}, "ambassador-ambassador", nil, getTimeout(nil), utils.HrToB64(
 								&fluxhelmv2beta1.HelmRelease{
 									TypeMeta: v1.TypeMeta{
 										Kind:       "HelmRelease",
@@ -306,26 +601,28 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 										},
 									},
 								}),
+								nil,
 							),
 						},
 					},
-					Parallelism: &p,
 				},
+				executor.HelmReleaseForward{}.GetTemplate(),
 			},
-			wantErr: false,
 		},
 		{
-			name: "testing singleApplicationWithoutSubchartDAG",
+			name: "Test Single Application without Sub-chart",
 			args: args{
 				graph: &graph.Graph{
-					Name:         "bookinfo",
-					AllExecutors: []executor.Executor{executor.DefaultForward{}},
+					Name: "bookinfo",
+					AllExecutors: map[string]executor.Executor{
+						"helmrelease-forward-executor": executor.HelmReleaseForward{},
+					},
 					Nodes: map[string]*graph.AppNode{
 						"bookinfo": {
 							Name: "bookinfo",
 							Tasks: map[string]*graph.TaskNode{
-								"bookinfo": {
-									Name:         "bookinfo",
+								"bookinfo-bookinfo": {
+									Name:         "bookinfo-bookinfo",
 									ChartName:    "bookinfo",
 									ChartVersion: "0.1.6",
 									Release: &v1alpha1.Release{
@@ -333,7 +630,12 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 											Raw: bytesRelValues,
 										},
 									},
-									Executors: []executor.Executor{executor.DefaultForward{}},
+									Executors: map[string]*graph.ExecutorNode{
+										"helmrelease": {
+											Name:     "helmrelease",
+											Executor: executor.HelmReleaseForward{},
+										},
+									},
 								},
 							},
 						},
@@ -342,19 +644,20 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 				namespace:   "testorkestra",
 				parallelism: &p,
 			},
-			want: map[string]v1alpha13.Template{
-				"bookinfo": {
-					Name: "bookinfo",
+			want: []v1alpha13.Template{
+				{
+					Name:        "bookinfo",
+					Parallelism: &p,
 					DAG: &v1alpha13.DAGTemplate{
 						Tasks: []v1alpha13.DAGTask{
 							{
-								Name:     "bookinfo",
+								Name:     "bookinfo-bookinfo",
 								Template: "helmrelease-forward-executor",
 								Arguments: v1alpha13.Arguments{
 									Parameters: []v1alpha13.Parameter{
 										{
 											Name: "helmrelease",
-											Value: utils.HrToB64AnyStringPtr(&fluxhelmv2beta1.HelmRelease{
+											Value: utils.ToAnyStringPtr(utils.HrToB64(&fluxhelmv2beta1.HelmRelease{
 												TypeMeta: v1.TypeMeta{
 													Kind:       "HelmRelease",
 													APIVersion: "helm.toolkit.fluxcd.io/v2beta1",
@@ -384,130 +687,56 @@ func Test_generateAppDAGTemplates(t *testing.T) {
 														Raw: []byte(`{"global":{"keyG":"valueG"},"subchart-1":{"sc1-key":"sc1-value"},"subchart-2":{"sc2-key":"sc2-value"},"subchart-3":{"sc3-key":"sc3-value"}}`),
 													},
 												},
-											}),
+											})),
 										},
 										{
 											Name:  "timeout",
-											Value: getTimeout(nil),
+											Value: utils.ToAnyStringPtr(getTimeout(nil)),
 										},
 									},
 								},
 							},
 						},
 					},
-					Parallelism: &p,
 				},
-			},
-			wantErr: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := generateAppDAGTemplates(tt.args.graph, tt.args.namespace, tt.args.parallelism)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("generateAppDAGTemplates() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			for _, tpl := range got {
-				sort.Slice(tpl.DAG.Tasks, func(i, j int) bool {
-					return tpl.DAG.Tasks[i].Name < tpl.DAG.Tasks[j].Name
-				})
-			}
-			for _, tpl := range tt.want {
-				sort.Slice(tpl.DAG.Tasks, func(i, j int) bool {
-					return tpl.DAG.Tasks[i].Name < tpl.DAG.Tasks[j].Name
-				})
-			}
-			if !cmp.Equal(got, tt.want) {
-				t.Errorf("generateAppDAGTemplates() = %v", cmp.Diff(got, tt.want))
-			}
-		})
-	}
-}
-
-func Test_appDAGTaskBuilder(t *testing.T) {
-	type args struct {
-		name         string
-		dependencies []string
-		timeout      *v1alpha13.AnyString
-		hrStr        *v1alpha13.AnyString
-	}
-	tests := []struct {
-		name string
-		args args
-		want v1alpha13.DAGTask
-	}{
-		{
-			name: "testing with nil pointer args",
-			args: args{
-				name:         "myApp",
-				dependencies: nil,
-				timeout:      nil,
-				hrStr:        nil,
-			},
-			want: v1alpha13.DAGTask{
-				Name:     "myapp",
-				Template: "helmrelease-executor",
-				Arguments: v1alpha13.Arguments{
-					Parameters: []v1alpha13.Parameter{
-						{
-							Name:  "helmrelease",
-							Value: nil,
-						},
-						{
-							Name:  "timeout",
-							Value: nil,
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "testing with valid args",
-			args: args{
-				name:         "myApp",
-				dependencies: []string{"dependency1", "dependency2"},
-				timeout:      utils.ToAnyStringPtr("5m"),
-				hrStr:        utils.ToAnyStringPtr("empty"),
-			},
-			want: v1alpha13.DAGTask{
-				Name:     "myapp",
-				Template: "helmrelease-executor",
-				Arguments: v1alpha13.Arguments{
-					Parameters: []v1alpha13.Parameter{
-						{
-							Name:  "helmrelease",
-							Value: utils.ToAnyStringPtr("empty"),
-						},
-						{
-							Name:  "timeout",
-							Value: utils.ToAnyStringPtr("5m"),
-						},
-					},
-				},
-				Dependencies: []string{"dependency1", "dependency2"},
+				executor.HelmReleaseForward{}.GetTemplate(),
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := appDAGTaskBuilder(tt.args.name, tt.args.dependencies, tt.args.timeout, tt.args.hrStr)
-			if !cmp.Equal(got, tt.want) {
-				t.Errorf("appDAGTaskBuilder() = %v", cmp.Diff(got, tt.want))
+			tg := NewTemplateGenerator(tt.args.namespace, tt.args.parallelism)
+			_ = tg.GenerateTemplates(tt.args.graph)
+
+			// Sort all the lists so that comparison is consistent
+			for _, item := range [][]v1alpha13.Template{tg.Templates, tt.want} {
+				for _, tpl := range item {
+					if tpl.DAG != nil {
+						sort.Slice(tpl.DAG.Tasks, func(i, j int) bool {
+							return tpl.DAG.Tasks[i].Name < tpl.DAG.Tasks[j].Name
+						})
+					}
+				}
+				sort.Slice(item, func(i, j int) bool {
+					return item[i].Name < item[j].Name
+				})
+			}
+			if !cmp.Equal(tg.Templates, tt.want) {
+				t.Errorf("GenerateTemplates() = %v", cmp.Diff(tg.Templates, tt.want))
 			}
 		})
 	}
 }
 
-func Test_helmReleaseBuilder(t *testing.T) {
+func Test_createHelmRelease(t *testing.T) {
 	type args struct {
-		r         *v1alpha1.Release
-		namespace string
-		name      string
-		version   string
+		taskNode    *graph.TaskNode
+		graphName   string
+		namespace   string
+		parallelism *int64
 	}
+	var p int64 = 0
 	tests := []struct {
 		name string
 		args args
@@ -516,12 +745,17 @@ func Test_helmReleaseBuilder(t *testing.T) {
 		{
 			name: "testing with valid release",
 			args: args{
-				r: &v1alpha1.Release{
-					TargetNamespace: "targetOrkestra",
+				taskNode: &graph.TaskNode{
+					Name:         "myAppChart",
+					ChartName:    "myAppChart",
+					ChartVersion: "0.1.0",
+					Release: &v1alpha1.Release{
+						TargetNamespace: "targetOrkestra",
+					},
 				},
-				namespace: "testorkestra",
-				name:      "myAppChart",
-				version:   "0.1.0",
+				graphName:   "mygraph",
+				parallelism: &p,
+				namespace:   "testorkestra",
 			},
 			want: &fluxhelmv2beta1.HelmRelease{
 				TypeMeta: v1.TypeMeta{
@@ -531,6 +765,11 @@ func Test_helmReleaseBuilder(t *testing.T) {
 				ObjectMeta: v1.ObjectMeta{
 					Name:      "myappchart",
 					Namespace: "targetOrkestra",
+					Labels: map[string]string{
+						v1alpha1.ChartLabel:     "myAppChart",
+						v1alpha1.HeritageLabel:  v1alpha1.HeritageValue,
+						v1alpha1.OwnershipLabel: "mygraph",
+					},
 				},
 				Spec: fluxhelmv2beta1.HelmReleaseSpec{
 					Chart: fluxhelmv2beta1.HelmChartTemplate{
@@ -553,9 +792,10 @@ func Test_helmReleaseBuilder(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := createHelmRelease(tt.args.r, tt.args.namespace, tt.args.name, tt.args.version)
+			tg := NewTemplateGenerator(tt.args.namespace, tt.args.parallelism)
+			got := tg.createHelmRelease(tt.args.taskNode, tt.args.graphName)
 			if !cmp.Equal(got, tt.want) {
-				t.Errorf("helmReleaseBuilder() = %v", cmp.Diff(got, tt.want))
+				t.Errorf("createHelmRelease() = %v", cmp.Diff(got, tt.want))
 			}
 		})
 	}

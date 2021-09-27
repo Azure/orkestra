@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	v1alpha13 "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
+
 	"github.com/Azure/Orkestra/api/v1alpha1"
 	"github.com/Azure/Orkestra/pkg/meta"
 	"github.com/Azure/Orkestra/pkg/workflow"
@@ -11,66 +13,54 @@ import (
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type StatusHelper struct {
 	client.Client
 	logr.Logger
-	PatchFrom             client.Patch
-	WorkflowClientBuilder *workflow.Builder
-	Recorder              record.EventRecorder
+	PatchFrom client.Patch
+	Recorder  record.EventRecorder
 }
 
-func (helper *StatusHelper) UpdateStatus(ctx context.Context, instance *v1alpha1.ApplicationGroup) (ctrl.Result, error) {
-	chartConditionMap, subChartConditionMap, err := helper.marshallChartStatus(ctx, instance)
+func (helper *StatusHelper) UpdateStatus(ctx context.Context, parent *v1alpha1.ApplicationGroup, instance *v1alpha13.Workflow, wfType v1alpha1.WorkflowType) error {
+	chartConditionMap, subChartConditionMap, err := helper.marshallChartStatus(ctx, parent)
 	if err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
-	instance.Status.Applications = getAppStatus(instance, chartConditionMap, subChartConditionMap)
-
-	// update the workflow status
-	result, err := helper.updateWorkflowStatus(ctx, instance)
-	if err != nil {
-		return result, err
+	parent.Status.Applications = getAppStatus(parent, chartConditionMap, subChartConditionMap)
+	if wfType == v1alpha1.Forward {
+		if workflow.ToConditionReason(instance.Status.Phase) == meta.FailedReason {
+			helper.Info("workflow rollout is in a failed state")
+			helper.MarkFailed(parent, fmt.Errorf("workflow in failed state"))
+		} else if workflow.ToConditionReason(instance.Status.Phase) == meta.SucceededReason {
+			helper.Info("workflow rollout is in a succeeded state")
+			return helper.MarkSucceeded(ctx, parent)
+		}
 	}
-	return result, nil
+	return nil
 }
 
-func (helper *StatusHelper) updateWorkflowStatus(ctx context.Context, instance *v1alpha1.ApplicationGroup) (ctrl.Result, error) {
-	forwardClient := helper.WorkflowClientBuilder.Forward(instance).Build()
-	reverseClient := helper.WorkflowClientBuilder.Reverse(instance).Build()
-	rollbackClient := helper.WorkflowClientBuilder.Rollback(instance).Build()
-
-	for _, wfClient := range []workflow.Client{forwardClient, reverseClient, rollbackClient} {
-		if err := workflow.UpdateStatus(ctx, wfClient); err != nil {
-			return ctrl.Result{}, err
-		}
+func (helper *StatusHelper) UpdateFromWorkflowStatus(parent *v1alpha1.ApplicationGroup, instance *v1alpha13.Workflow, wfType v1alpha1.WorkflowType) error {
+	switch workflow.ToConditionReason(instance.Status.Phase) {
+	case meta.FailedReason:
+		helper.Logger.Info("workflow node is in failed state")
+		workflow.SetFailed(parent, wfType, "workflow node is in failed state")
+	case meta.SucceededReason:
+		helper.Logger.Info("workflow has succeeded")
+		workflow.SetSucceeded(parent, wfType)
+	default:
+		helper.Logger.Info("workflow is still progressing")
+		workflow.SetProgressing(parent, wfType)
 	}
-	if isFailed, err := workflow.IsFailed(ctx, forwardClient); err != nil {
-		return ctrl.Result{}, err
-	} else if isFailed {
-		// TODO: make this error come from the node itself
-		helper.MarkFailed(instance, fmt.Errorf("workflow in failed state"))
-		return ctrl.Result{RequeueAfter: v1alpha1.GetInterval(instance)}, nil
-	}
-	if isSucceeded, err := workflow.IsSucceeded(ctx, forwardClient); err != nil {
-		return ctrl.Result{}, err
-	} else if isSucceeded {
-		if err := helper.MarkSucceeded(ctx, instance); err != nil {
-			return ctrl.Result{}, err
-		}
-		return ctrl.Result{RequeueAfter: v1alpha1.GetInterval(instance)}, nil
-	}
-	return ctrl.Result{RequeueAfter: v1alpha1.DefaultProgressingRequeue}, nil
+	return nil
 }
 
 func (helper *StatusHelper) MarkSucceeded(ctx context.Context, instance *v1alpha1.ApplicationGroup) error {
 	// Set the last successful annotation for rollback scenarios
-	instanceCopy := instance.DeepCopy()
-	instanceCopy.SetLastSuccessful()
-	if err := helper.Patch(ctx, instanceCopy, helper.PatchFrom); err != nil {
+	patch := client.MergeFrom(instance.DeepCopy())
+	instance.SetLastSuccessful()
+	if err := helper.Patch(ctx, instance, patch); err != nil {
 		helper.V(1).Error(err, "failed to patch the application group annotations")
 		return err
 	}
@@ -84,18 +74,14 @@ func (helper *StatusHelper) MarkSucceeded(ctx context.Context, instance *v1alpha
 // MarkProgressing resets the conditions of the ApplicationGroup to
 // metav1.Condition of type meta.ReadyCondition with status 'Unknown' and
 // meta.StartingReason reason and message.
-func (helper *StatusHelper) MarkProgressing(ctx context.Context, instance *v1alpha1.ApplicationGroup) error {
-	instance.Status.Conditions = []metav1.Condition{}
-	instance.Status.ObservedGeneration = instance.Generation
-	meta.SetResourceCondition(instance, meta.ReadyCondition, metav1.ConditionUnknown, meta.ProgressingReason, "workflow is reconciling...")
-
-	return helper.PatchStatus(ctx, instance)
+func (helper *StatusHelper) MarkProgressing(instance *v1alpha1.ApplicationGroup) {
+	instance.ReadyProgressing()
 }
 
 // MarkTerminating sets the meta.ReadyCondition to 'False', with the given
 // meta.Terminating reason and message
 func (helper *StatusHelper) MarkTerminating(instance *v1alpha1.ApplicationGroup) {
-	meta.SetResourceCondition(instance, meta.ReadyCondition, metav1.ConditionFalse, meta.TerminatingReason, "application group is terminating...")
+	instance.ReadyTerminating()
 }
 
 // MarkFailed sets the meta.ReadyCondition to 'False', with a failed reason
@@ -156,9 +142,9 @@ func (helper *StatusHelper) marshallChartStatus(ctx context.Context, appGroup *v
 
 	for _, hr := range helmReleases.Items {
 		parent := hr.Name
-		if v, ok := hr.GetAnnotations()["orkestra/parent-chart"]; ok {
+		if annotation, ok := hr.GetAnnotations()[v1alpha1.ParentChartAnnotation]; ok {
 			// Use the parent charts name
-			parent = v
+			parent = annotation
 		}
 
 		// Add the associated conditions for that helm chart to the helm chart condition

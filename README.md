@@ -3,105 +3,107 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/Azure/Orkestra.svg)](https://pkg.go.dev/github.com/Azure/Orkestra)
 [![GitHub Workflow Status](https://img.shields.io/github/workflow/status/azure/orkestra/E2E%20Testing?label=e2e)](https://github.com/Azure/orkestra/actions)
 [![Docker Pulls](https://img.shields.io/docker/pulls/azureorkestra/orkestra)](https://hub.docker.com/r/azureorkestra/orkestra)
-<!-- [![Docker Image Version (latest by date)](https://img.shields.io/docker/v/azureorkestra/orkestra)](https://hub.docker.com/r/azureorkestra/orkestra/tags?page=1&ordering=last_updated) -->
 [![codecov](https://codecov.io/gh/Azure/orkestra/branch/main/graph/badge.svg?token=7zcSfCKZSw)](https://codecov.io/gh/Azure/orkestra)
 ![GitHub commits since latest release (by SemVer)](https://img.shields.io/github/commits-since/azure/orkestra/latest)
 [![GitHub contributors](https://img.shields.io/github/contributors/azure/orkestra)](https://github.com/Azure/orkestra/graphs/contributors)
 
+Orkestra is a cloud-native **Release Orchestration** and **Lifecycle Management (LCM)** platform for a related group of [Helm](https://helm.sh/) releases and their subcharts.
+
+Orkestra is built on top of popular [CNCF](https://cncf.io/) tools and technologies like,
+
+- [Argo Workflows](https://argoproj.github.io/workflows/),
+- [Flux Helm Controller](https://github.com/fluxcd/helm-controller),
+- [Chartmuseum](https://chartmuseum.com/)
+- [Keptn](https://keptn.sh)
+
 <p align="center"><img src="./assets/orkestra-core.png" width="750x" /></p>
 
-Orkestra is a cloud-native release orchestration and lifecycle management (LCM) platform for fine-grained orchestration a group of inter-dependent *"Applications"* (and their inter-dependent subcharts). An *"Application"* may be defined as a [Helm](https://helm.sh/) chart or artifact, with or without [subchart](https://helm.sh/docs/helm/helm_dependency) dependencies.
+## Background and Motivation
 
-Sophisticated applications require **intelligent** release orchestration and lifecycle management that is not supported by Helm.
+### Dependency Management in Helm
 
-Orkestra works by generating a [DAG](https://en.wikipedia.org/wiki/Directed_acyclic_graph) workflow from the `ApplicationGroup` spec. to orchestrate the **deployment** and in-service **upgrades** of multiple applications within a Kubernetes cluster. At a finer-grain, Orkestra can also order the deployment of subcharts within an application chart by generating an embedded DAG workflow.
+While **Helm** can model dependencies using **subcharts**, this dependency relation at Helm release time is not very sophisticated. Moreover Helm does not support a way to specify a dependency relation between a parent chart and its subchart.
 
-Orkestra leverages popular and mature open-source frameworks like [Argo](https://argoproj.github.io/argo/) (Workflows), [Flux Helm Operator](https://github.com/fluxcd/helm-operator) and [Chartmuseum](https://chartmuseum.com/)
+A Helm release for Helm is really a true atomic unit wherein in the Helm package dependency tree gets flattened by resource type and is not treated as a node in a dependency graph at all.
 
-## Use Cases 💼
+In the **ideal** world, pods and their replica sets are either perfectly **stateless** and don’t care about release state of other components to come up correctly. However, in the real world, there are many components that are not stateless and need to be aware of the state of other components to come up correctly.
 
-### Reliable (continuous) "Deployment" and in-service "Upgrades" of mission-critical applications
+Using **Helm Hooks**, **Kubernetes Jobs** and **Init Containers**, you might end up with a carefully crafted and working Helm release for a specific combination of components and conditions but it requires changes to the Helm release to be able to handle these dependencies.
 
-📱 *5G Core* [Network Functions](https://www.sdxcentral.com/resources/glossary/network-function/) (NFs)📱 are 5G applications that rely on a rich ecosystem of **infrastructure** and **PaaS** (platform-as-a-service) components to be up and ready before the Network Functions can be successfully started. This establishes a hard dependency between the NFs and the infra/paas applications. Orkestra solves the dependency problem by honoring these dependencies by using a DAG workflow to deploy the infra/paas components prior to starting the NF application. This also allows for the independent lifecycle management of the infra/paas components and groups of NFs.
+To manage a group of Helm releases with a parent/subchart relationship or using a dependency relation, you need to use a dependency relation at Helm release time and not a dependency relation at Helm package time.
+
+## What is Orkestra?
+
+Orkestra is one solution to introduce Helm release orchestration. Orkestra provides this by building on top of **Argo Workflows**, a workflow engine on top of Kubernetes for workflow orchestration, where each step in a workflow is executed by a Pod. As such, Argo Workflow engine is a more powerful, more flexible adaptation of what **Init Containers** and **Kubernetes Jobs** provide without the orchestration.
+
+Argo enables a DAG based dependency graph with defined workflow steps and conditions to transition through the graph, as well as detailed insight into the graph and its state. Helm releases matching transitions in the graph are executed by the FluxCD Helm controller operator. The FluxCD Helm controller operator is a Kubernetes operator that is responsible for executing Helm releases in a consistent manner.
+
+### How it works
+
+The unit of deployment for Orkestra based Helm releases is based on a workflow definition with a custom resource type that models the relationship between individual Helm releases making up the whole. The workflow definition is a **DAG** with defined workflow steps and conditions.
+
+The `ApplicationGroup` spec allows to structure an orchestrated set of releases through grouping Helm releases into an group, either through defining a sequence on non-related charts and/or charts with subcharts, where subcharts are not merged into a single release but are executed as a release of their own inside a workflow step. The `ApplicationGroup` spec also allows to define a set of conditions that are evaluated at the beginning of the workflow and if any of the conditions fail, the whole workflow is aborted.
+
+This gives you the ability to define a set of Helm releases that are orchestrated in a way that is easy to understand and to debug without having to modify the Helm release itself.
+
+## Features 🌟
+
+- **Dependency management** - DAG-based workflows for groups of application charts and their sub-charts using Argo Workflows
+- **Fail fast during in-service upgrades** - limits the blast radius for failures during in-service upgrade of critical components to the immediate components that are impacted by the upgrade.
+- **Failure Remediation** - rollback to last successful spec on encountering failures during in-service upgrades
+- **Built for Kubernetes** - custom controller built using  [kubebuilder](https://github.com/kubernetes-sigs/kubebuilder)
+- **Easy to use** - familiar declarative spec using Kubernetes [Custom Resource Definitions](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/)
+- **Works with any Continous Deployment system** - bring your own CD framework to deploy Orkestra Custom Resources. Works with any Kubernetes compatible Continuous Deployment framework like [FluxCD](https://fluxcd.io/) and [ArgoCD](https://argoproj.github.io/argo-cd/)
+- **Built for GitOps** - describe your desired set of applications (and dependencies) declaratively and manage them from a version-controlled git repository
 
 ## Architecture 🏗
 
 To learn more about how Orkestra works see the [architecture](./docs/architecture.md) docs
 
+## Executors 🏃‍♂️
+
+### Helmrelease Executor
+
+The default executor is responsible for deploying the HelmRelease object passed in as an input parameter to the docker container. The HelmRelease is represented by a base64 encoded YAML string. The executor deploys, watches and polls for the status of the deployed HelmRelease until it either succeeds/fails or it times out.
+
+Source code for the HelmRelease executor is available [here](https://github.com/Azure/helmrelease-workflow-executor)
+
+### Keptn Executor (Work in progress)
+
+The Keptn executor is an evaluation executor responsible for running tests on the deployed helm release using the Keptn API and Keptn evaluations engine. The Keptn executor is a custom executor that is chained to the default HelmRelease executor. This allows each release to be evaluated against a set of SLOs/SLIs before it is deployed/updated.
+
+Source code for the Keptn executor is available [here](https://github.com/Azure/keptn-workflow-executor)
+
+![Orkestra workflow](./assets/orkestra-gif.gif)
+
+## Use Cases 💼
+
+### 5G Network Functions 📱
+
+Network functions are not always operated, deployed, and managed in isolation of each other. Network functions implementing parts of a 3GPP release based 5G core often operate in conjunction with other network functions implementing other parts. For example, the deployment of a single Session Management Function might depend on foundational PaaS services, like a Service Mesh, Open Policy Agent (OPA), Cert Manager, etc being in place and functioning.
+
 ## Installation 🧰
 
-For getting started you will need,
+To get started you need the following:
 
-- A Kubernetes cluster
-- `kubectl` - Kubernetes client
-- `helm` - Helm client
-- `kubebuilder` - [installation](https://book.kubebuilder.io/quick-start.html#installation)
-- `controller-gen` - `GO111MODULE=on go get -v -u sigs.k8s.io/controller-tools/cmd/controller-gen@v0.5.0` (this should be run from outside the Orkestra (go module) repo for it to be installed to your `$GOBIN`)
-- (_optional_) `argo` - Argo workflow client (follow the instructions to install the binary from [releases](https://github.com/argoproj/argo/releases)
+- A Kubernetes cluster (AKS, GKE, EKS, Kind, Minikube, etc)
+- [`kubectl`](https://kubernetes.io/docs/tasks/tools/)
+- [`helm`](https://helm.sh/docs/intro/install/)
+- [`argo`](https://github.com/argoproj/argo/releases)
 
-Install the `ApplicationGroup` and custom resource definitions (CRDs)
-
-Install the orkestra controller and supporting services like, Argo Workflow, Flux Helm-operator and Chartmuseum using the provided helm chart
+### Using Helm
 
 ```shell
-helm install orkestra chart/orkestra/  --namespace orkestra --create-namespace
+helm upgrade --install orkestra chart/orkestra/ --namespace orkestra --create-namespace
 ```
 
-You should see resources spin up in the _orkestra_ namespace as shown below,
+### Argo Workflow Dashboard
 
 ```shell
-> kubectl get all -n orkestra
-
-NAME                                               READY   STATUS      RESTARTS   AGE
-pod/orkestra-5fdbb5f777-pnbrx                      1/1     Running     1          167m
-pod/orkestra-argo-server-597455875f-d7ldz          1/1     Running     0          167m
-pod/orkestra-chartmuseum-7f78f54f5-sq6b7           1/1     Running     0          167m
-pod/orkestra-helm-operator-6498c6655-4vn2s         1/1     Running     0          167m
-pod/orkestra-workflow-controller-688bc7677-k9hxm   1/1     Running     0          167m
-
-NAME                             TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)    AGE
-service/orkestra-argo-server     ClusterIP   10.96.78.145    <none>        2746/TCP   167m
-service/orkestra-chartmuseum     ClusterIP   10.96.222.214   <none>        8080/TCP   167m
-service/orkestra-helm-operator   ClusterIP   10.96.192.118   <none>        3030/TCP   167m
-
-NAME                                           READY   UP-TO-DATE   AVAILABLE   AGE
-deployment.apps/orkestra                       1/1     1            1           167m
-deployment.apps/orkestra-argo-server           1/1     1            1           167m
-deployment.apps/orkestra-chartmuseum           1/1     1            1           167m
-deployment.apps/orkestra-helm-operator         1/1     1            1           167m
-deployment.apps/orkestra-workflow-controller   1/1     1            1           167m
-
-NAME                                                     DESIRED   CURRENT   READY   AGE
-replicaset.apps/orkestra-5fdbb5f777                      1         1         1       167m
-replicaset.apps/orkestra-argo-server-597455875f          1         1         1       167m
-replicaset.apps/orkestra-chartmuseum-7f78f54f5           1         1         1       167m
-replicaset.apps/orkestra-helm-operator-6498c6655         1         1         1       167m
-replicaset.apps/orkestra-workflow-controller-688bc7677   1         1         1       167m
+argo server
 ```
 
-**(_optional_) Argo Workflow Dashboard**
-
-Start the Argo Workflow Dashboard at http://localhost:2476.
-
-```shell
-argo server --browser
-...
-INFO[2021-02-03T01:02:15.840Z] config map                                    name=workflow-controller-configmap
-INFO[2021-02-03T01:02:15.851Z] Starting Argo Server                          instanceID= version=v2.12.6
-INFO[2021-02-03T01:02:15.851Z] Creating event controller                     operationQueueSize=16 workerCount=4
-INFO[2021-02-03T01:02:15.852Z] Argo Server started successfully on http://localhost:2746
-INFO[2021-02-03T01:02:15.852Z] Argo UI is available at http://localhost:2746
-```
-
-## Features 🌟
-
-- **Dependency management** - DAG-based workflows for groups of application charts and their sub-charts using Argo Workflow
-- **Fail fast during in-service upgrades** - limits the blast radius for failures during in-service upgrade of critical components.
-- **Failure Remediation** - rollback to last successful spec on encountering failures during in-service upgrades.
-- **Built for Kubernetes** - custom controller built using  [kubebuilder](https://github.com/kubernetes-sigs/kubebuilder)
-- **Easy to use** - familiar declarative spec using Kubernetes [Custom Resource Definitions](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/)
-- **Works with any Continous Deployment system** - bring your own CD framework to deploy Orkestra Custom Resources. Works with any Kubernetes compatible Continuous Deployment framework like [FluxCD](https://fluxcd.io/) and [ArgoCD](https://argoproj.github.io/argo-cd/).
-- **Built for GitOps** - describe your desired set of applications (and dependencies) declaratively and manage them from a version-controlled git repository.
+and then open the dashboard at [`http://localhost:2746`](http://localhost:2746)
 
 ## Developers 👩‍💻
 

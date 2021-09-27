@@ -3,6 +3,10 @@ package workflow
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"strconv"
+
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/Azure/Orkestra/pkg/meta"
@@ -13,8 +17,6 @@ import (
 	"github.com/Azure/Orkestra/api/v1alpha1"
 	"github.com/go-logr/logr"
 )
-
-type ClientType string
 
 var _ = ForwardWorkflowClient{}
 var _ = ReverseWorkflowClient{}
@@ -45,6 +47,9 @@ type Client interface {
 	// GetClient returns the k8s client associated with the workflow
 	GetClient() client.Client
 
+	// GetWorkflow returns the workflow associated with the client
+	GetWorkflow() *v1alpha13.Workflow
+
 	// GetAppGroup returns the app group from the workflow client
 	GetAppGroup() *v1alpha1.ApplicationGroup
 }
@@ -56,10 +61,9 @@ type ClientOptions struct {
 }
 
 type Builder struct {
-	client     client.Client
-	clientType v1alpha1.WorkflowType
-	options    ClientOptions
-	logger     logr.Logger
+	client  client.Client
+	options ClientOptions
+	logger  logr.Logger
 
 	workflow *v1alpha13.Workflow
 	appGroup *v1alpha1.ApplicationGroup
@@ -100,31 +104,13 @@ func NewBuilder(client client.Client, logger logr.Logger) *Builder {
 	}
 }
 
-func NewBuilderFromClient(client Client) *Builder {
-	return &Builder{
-		client:   client.GetClient(),
-		options:  client.GetOptions(),
-		appGroup: client.GetAppGroup(),
-		logger:   client.GetLogger(),
+func NewClientFromClient(client Client, clientType v1alpha1.WorkflowType) Client {
+	builder := &Builder{
+		client:  client.GetClient(),
+		options: client.GetOptions(),
+		logger:  client.GetLogger(),
 	}
-}
-
-func (builder *Builder) Forward(appGroup *v1alpha1.ApplicationGroup) *Builder {
-	builder.clientType = v1alpha1.Forward
-	builder.appGroup = appGroup
-	return builder
-}
-
-func (builder *Builder) Reverse(appGroup *v1alpha1.ApplicationGroup) *Builder {
-	builder.clientType = v1alpha1.Reverse
-	builder.appGroup = appGroup
-	return builder
-}
-
-func (builder *Builder) Rollback(appGroup *v1alpha1.ApplicationGroup) *Builder {
-	builder.clientType = v1alpha1.Rollback
-	builder.appGroup = appGroup
-	return builder
+	return builder.Build(clientType, client.GetAppGroup())
 }
 
 func (builder *Builder) WithParallelism(numNodes int64) *Builder {
@@ -142,14 +128,14 @@ func (builder *Builder) InNamespace(namespace string) *Builder {
 	return builder
 }
 
-func (builder *Builder) Build() Client {
-	switch builder.clientType {
+func (builder *Builder) Build(clientType v1alpha1.WorkflowType, appGroup *v1alpha1.ApplicationGroup) Client {
+	switch clientType {
 	case v1alpha1.Forward:
 		forwardClient := &ForwardWorkflowClient{
 			Client:        builder.client,
 			Logger:        builder.logger,
 			ClientOptions: builder.options,
-			appGroup:      builder.appGroup,
+			appGroup:      appGroup,
 		}
 		return forwardClient
 	case v1alpha1.Reverse:
@@ -157,7 +143,7 @@ func (builder *Builder) Build() Client {
 			Client:        builder.client,
 			Logger:        builder.logger,
 			ClientOptions: builder.options,
-			appGroup:      builder.appGroup,
+			appGroup:      appGroup,
 		}
 		return reverseClient
 	default:
@@ -165,7 +151,7 @@ func (builder *Builder) Build() Client {
 			Client:        builder.client,
 			Logger:        builder.logger,
 			ClientOptions: builder.options,
-			appGroup:      builder.appGroup,
+			appGroup:      appGroup,
 		}
 		return rollbackClient
 	}
@@ -178,6 +164,30 @@ func Run(ctx context.Context, wfClient Client) error {
 	}
 	if err := wfClient.Submit(ctx); err != nil {
 		return fmt.Errorf("failed to submit workflow: %w", err)
+	}
+	return nil
+}
+
+// Submit calls the base submit function for the workflow client
+func Submit(ctx context.Context, wfClient Client) error {
+	controllerutil.AddFinalizer(wfClient.GetWorkflow(), v1alpha1.AppGroupFinalizer)
+	wfClient.GetWorkflow().GetLabels()[v1alpha1.OwnershipLabel] = wfClient.GetAppGroup().Name
+	wfClient.GetWorkflow().GetLabels()[v1alpha1.WorkflowAppGroupGenerationLabel] = strconv.FormatInt(wfClient.GetAppGroup().Generation, 10)
+
+	if err := wfClient.GetClient().Create(ctx, wfClient.GetWorkflow()); !errors.IsAlreadyExists(err) && err != nil {
+		return fmt.Errorf("failed to CREATE argo workflow object: %w", err)
+	} else if errors.IsAlreadyExists(err) {
+		// If the workflow needs an update, delete the previous workflow and apply the new one
+		// Argo Workflow does not rerun the workflow on UPDATE, so instead we cleanup and re-apply
+		if err := DeleteWorkflow(ctx, wfClient); err != nil {
+			return fmt.Errorf("failed to DELETE argo workflow object: %w", err)
+		}
+		if err := controllerutil.SetControllerReference(wfClient.GetAppGroup(), wfClient.GetWorkflow(), wfClient.GetClient().Scheme()); err != nil {
+			return fmt.Errorf("unable to set ApplicationGroup as owner of Argo Workflow: %w", err)
+		}
+		if err := wfClient.GetClient().Create(ctx, wfClient.GetWorkflow()); err != nil {
+			return fmt.Errorf("failed to CREATE argo workflow object: %w", err)
+		}
 	}
 	return nil
 }
@@ -196,7 +206,6 @@ func Suspend(ctx context.Context, wfClient Client) error {
 	if workflow.Spec.Suspend == nil || !*workflow.Spec.Suspend {
 		wfClient.GetLogger().Info("suspending the workflow")
 		patch := client.MergeFrom(workflow.DeepCopy())
-
 		suspend := true
 		workflow.Spec.Suspend = &suspend
 		if err := wfClient.GetClient().Patch(ctx, workflow, patch); err != nil {
@@ -216,57 +225,32 @@ func GetWorkflow(ctx context.Context, wc Client) (*v1alpha13.Workflow, error) {
 // DeleteWorkflow removes the workflow from the api server associated with
 // the workflow client
 func DeleteWorkflow(ctx context.Context, wfClient Client) error {
-	workflow, err := GetWorkflow(ctx, wfClient)
-	if client.IgnoreNotFound(err) != nil {
+	workflow := &v1alpha13.Workflow{}
+	if err := wfClient.GetClient().Get(ctx, types.NamespacedName{Name: wfClient.GetName(), Namespace: wfClient.GetNamespace()}, workflow); err != nil {
 		return err
-	} else if err != nil {
-		return nil
 	}
-	return wfClient.GetClient().Delete(ctx, workflow)
-}
-
-// UpdateStatus updates the status of the owning appGroup with the workflow condition type
-// of the workflow client
-func UpdateStatus(ctx context.Context, wfClient Client) error {
-	wf, err := GetWorkflow(ctx, wfClient)
-	if client.IgnoreNotFound(err) != nil {
-		return err
-	} else if err != nil {
-		// We just return and don't update if we don't find the workflow
-		return nil
-	}
-	switch toConditionReason(wf.Status.Phase) {
-	case meta.FailedReason:
-		wfClient.GetLogger().Info("workflow node is in failed state")
-		SetFailed(wfClient, "workflow node is in failed state")
-	case meta.SucceededReason:
-		wfClient.GetLogger().Info("workflow has succeeded")
-		SetSucceeded(wfClient)
-	default:
-		wfClient.GetLogger().Info("workflow is still progressing")
-		SetProgressing(wfClient)
-	}
-	return nil
+	deletePropagation := metav1.DeletePropagationForeground
+	return wfClient.GetClient().Delete(ctx, workflow, &client.DeleteOptions{PropagationPolicy: &deletePropagation})
 }
 
 // SetProgressing sets one of the workflow conditions in the progressing state
-func SetProgressing(wfClient Client) {
-	if condition, ok := v1alpha1.WorkflowConditionMap[wfClient.GetType()]; ok {
-		meta.SetResourceCondition(wfClient.GetAppGroup(), condition, metav1.ConditionUnknown, meta.ProgressingReason, "workflow is progressing...")
+func SetProgressing(parent *v1alpha1.ApplicationGroup, wfType v1alpha1.WorkflowType) {
+	if condition, ok := v1alpha1.WorkflowConditionMap[wfType]; ok {
+		meta.SetResourceCondition(parent, condition, metav1.ConditionUnknown, meta.ProgressingReason, "workflow is progressing...")
 	}
 }
 
 // SetSucceeded sets one of the workflow conditions in the succeeded state
-func SetSucceeded(wfClient Client) {
-	if condition, ok := v1alpha1.WorkflowConditionMap[wfClient.GetType()]; ok {
-		meta.SetResourceCondition(wfClient.GetAppGroup(), condition, metav1.ConditionTrue, meta.SucceededReason, "workflow succeeded")
+func SetSucceeded(parent *v1alpha1.ApplicationGroup, wfType v1alpha1.WorkflowType) {
+	if condition, ok := v1alpha1.WorkflowConditionMap[wfType]; ok {
+		meta.SetResourceCondition(parent, condition, metav1.ConditionTrue, meta.SucceededReason, "workflow succeeded")
 	}
 }
 
 // SetFailed sets one of the workflow conditions in the failed state
-func SetFailed(wfClient Client, message string) {
-	if condition, ok := v1alpha1.WorkflowConditionMap[wfClient.GetType()]; ok {
-		meta.SetResourceCondition(wfClient.GetAppGroup(), condition, metav1.ConditionFalse, meta.FailedReason, message)
+func SetFailed(parent *v1alpha1.ApplicationGroup, wfType v1alpha1.WorkflowType, message string) {
+	if condition, ok := v1alpha1.WorkflowConditionMap[wfType]; ok {
+		meta.SetResourceCondition(parent, condition, metav1.ConditionFalse, meta.FailedReason, message)
 	}
 }
 
@@ -283,7 +267,7 @@ func IsFailed(ctx context.Context, wfClient Client) (bool, error) {
 	if client.IgnoreNotFound(err) != nil {
 		return false, fmt.Errorf("failed to get workflow: %w", err)
 	}
-	if toConditionReason(wf.Status.Phase) == meta.FailedReason {
+	if ToConditionReason(wf.Status.Phase) == meta.FailedReason {
 		return true, nil
 	}
 	return false, nil
@@ -295,13 +279,13 @@ func IsSucceeded(ctx context.Context, wfClient Client) (bool, error) {
 	if client.IgnoreNotFound(err) != nil {
 		return false, fmt.Errorf("failed to get workflow: %w", err)
 	}
-	if toConditionReason(wf.Status.Phase) == meta.SucceededReason {
+	if ToConditionReason(wf.Status.Phase) == meta.SucceededReason {
 		return true, nil
 	}
 	return false, nil
 }
 
-func toConditionReason(nodePhase v1alpha13.WorkflowPhase) string {
+func ToConditionReason(nodePhase v1alpha13.WorkflowPhase) string {
 	switch nodePhase {
 	case v1alpha13.WorkflowFailed:
 		return meta.FailedReason
