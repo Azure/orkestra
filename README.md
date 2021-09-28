@@ -17,7 +17,7 @@ Orkestra is built on top of popular [CNCF](https://cncf.io/) tools and technolog
 - [Chartmuseum](https://chartmuseum.com/)
 - [Keptn](https://keptn.sh)
 
-<p align="center"><img src="./assets/orkestra-core.png" width="750x" /></p>
+<p align="center"><img src="./docs/assets/orkestra-core.png" width="750x" /></p>
 
 ## Background and Motivation
 
@@ -52,11 +52,11 @@ This gives you the ability to define a set of Helm releases that are orchestrate
 
 - **Layers** - Deploy and manage 'layers' on top of Kubernetes. Each layer is a collection of addons and can have dependencies established between the layers.
 
-![Layers](./assets/layers.png)
+![Layers](./docs/assets/layers.png)
 
 - **Dependency management** - DAG-based workflows for groups of application charts and their sub-charts using Argo Workflows.
 
-![Subcharts](./assets/subchart-dag.png)
+![Subcharts](./docs/assets/subchart-dag.png)
 
 - **Fail fast during in-service upgrades** - limits the blast radius for failures during in-service upgrade of critical components to the immediate components that are impacted by the upgrade.
 - **Failure Remediation** - rollback to last successful spec on encountering failures during in-service upgrades
@@ -133,13 +133,13 @@ The Keptn executor is an evaluation executor responsible for running tests on th
 
 Source code for the Keptn executor is available [here](https://github.com/Azure/keptn-workflow-executor)
 
-![Orkestra workflow](./assets/orkestra-gif.gif)
+![Orkestra workflow](./docs/assets/orkestra-gif.gif)
 
 ## Use Cases 💼
 
 ### 5G Network Functions 📱
 
-![NetworkFunction](./assets/nf-paas-layers.png)
+![NetworkFunction](./docs/assets/nf-paas-layers.png)
 
 [Network functions](https://en.wikipedia.org/wiki/Cloud-Native_Network_Function) are not always operated, deployed, and managed in isolation of each other. Network functions implementing parts of a 3GPP release based 5G core often operate in conjunction with other network functions implementing other parts. For example, the deployment of a single Session Management Function might depend on foundational PaaS services, like a Service Mesh, Open Policy Agent (OPA), Cert Manager, etc being in place and functioning.
 
