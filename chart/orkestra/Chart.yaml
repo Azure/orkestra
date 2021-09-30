@@ -28,14 +28,14 @@ dependencies:
   condition: helm-controller.enabled
   version: "0.1.1"
   repository: "https://nitishm.github.io/charts"
-- name: gitea
-  condition: plugins.keptn.enabled
-  version: "3.1.4"
-  repository: "https://dl.gitea.io/charts/"
 - name: keptn
-  condition: plugins.keptn.enabled
+  condition: keptn.enabled
   version: "0.8.6"
   repository: "https://storage.googleapis.com/keptn-installer"
+- name: keptn-addons
+  condition: keptn-addons.enabled
+  version: "0.1.0"
+  repository: "https://nitishm.github.io/charts"
 
 keywords:
 - helmops

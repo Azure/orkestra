@@ -8,5 +8,11 @@ dependencies:
 - name: helm-controller
   repository: https://nitishm.github.io/charts
   version: 0.1.1
-digest: sha256:a80ce307816cb3fe933327638e8fb094e1b69bc779157b0165ff5c9ca4cd7398
-generated: "2021-06-14T00:24:33.898916-07:00"
+- name: keptn
+  repository: https://storage.googleapis.com/keptn-installer
+  version: 0.8.6
+- name: keptn-addons
+  repository: https://nitishm.github.io/charts
+  version: 0.1.0
+digest: sha256:6ad307ffa17440e76db1de3631fd1ac331c6963ff5ec78f2faac0cda04989d9f
+generated: "2021-09-28T17:37:51.415157-07:00"

@@ -1,0 +1,78 @@
+apiVersion: orkestra.azure.microsoft.com/v1alpha1
+kind: ApplicationGroup
+metadata:
+  name: bookinfo-with-keptn
+spec:
+  applications:
+    - name: istio-base
+      dependencies: []
+      spec:
+        chart:
+          url: "https://istio-release.storage.googleapis.com/charts"
+          name: base
+          version: 1.12.0-alpha.1
+        release:
+          targetNamespace: istio-system
+    - name: prometheus
+      dependencies: []
+      spec:
+        chart:
+          url: "https://nitishm.github.io/charts"
+          name: prometheus
+          version: 14.8.0
+        release:
+          targetNamespace: istio-system
+    - name: istiod
+      dependencies: [istio-base, prometheus]
+      # dependencies: [istio-base]
+      spec:
+        chart:
+          url: "https://istio-release.storage.googleapis.com/charts"
+          name: istiod
+          version: 1.12.0-alpha.1
+        release:
+          targetNamespace: istio-system
+          timeout: 10m
+          values:
+            service:
+              type: ClusterIP
+    - name: istio-ingressgateway
+      dependencies: [istiod]
+      spec:
+        chart:
+          url: "https://istio-release.storage.googleapis.com/charts"
+          name: gateway
+          version: 1.12.0-alpha.1
+        release:
+          targetNamespace: istio-system
+          timeout: 10m
+    - name: bookinfo
+      dependencies: [istio-ingressgateway]
+      spec:
+        chart:
+          url: "https://nitishm.github.io/charts"
+          name: bookinfo
+          version: v3
+        release:
+          targetNamespace: bookinfo
+          values:
+            istio:
+              enabled: true
+              fault:
+                enabled: false
+            ambassador:
+              enabled: false
+        # workflow:
+        #   - name: helmrelease
+        #     dependencies: []
+        #     type: helmrelease
+        #     params: nil
+          # - name: keptn
+          #   dependencies: ["helmrelease"]
+          #   type: keptn
+          #   params:
+          #     configmapRef:
+          #       name: keptn-config
+          #       namespace: bookinfo
+
+

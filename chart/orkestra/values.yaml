@@ -101,28 +101,18 @@ helm-controller:
       create: false
       name: *serviceAccount
 
-plugins:
-  keptn:
-    enabled: &keptnEnabled false
-    git:
-      service:
-        type: &gitServiceType LoadBalancer
-    api-gateway:
-      service:
-        type: &apiGWServiceType LoadBalancer
-# Keptn plugin component default values
-# DO NOT MODIFY DIRECTLY
-# USE plugins.keptn to configure these values
-gitea:
-  enabled: *keptnEnabled
-  service:
-    http:
-      type: *gitServiceType
-
 keptn:
-  enabled: *keptnEnabled
+  enabled: false
   continuous-delivery:
     enabled: true
   control-plane:
     apiGatewayNginx:
-      type: *apiGWServiceType
+      type: LoadBalancer
+
+keptn-addons:
+  enabled: false
+  prometheus:
+    namespace: prometheus
+    server:
+      name: prometheus-server
+      port: 80
