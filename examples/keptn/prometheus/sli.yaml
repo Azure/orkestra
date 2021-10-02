@@ -1,0 +1,3 @@
+spec_version: "1.0"
+indicators:
+  error_percentage: sum(rate(istio_requests_total{app="gateway", response_code="500"}[$DURATION_SECONDS])) / sum(rate(istio_requests_total{app="gateway"}[$DURATION_SECONDS])) * 100

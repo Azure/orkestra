@@ -112,7 +112,7 @@ keptn:
 keptn-addons:
   enabled: false
   prometheus:
-    namespace: prometheus
+    namespace: istio-system 
     server:
       name: prometheus-server
       port: 80

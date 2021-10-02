@@ -1,0 +1,11 @@
+{
+	"type": "sh.keptn.event.test.triggered",
+	"specversion": "1.0",
+	"source": "test-events",
+	"contenttype": "application/json",
+	"data": {
+		"project": "hey",
+		"stage": "dev",
+		"service": "bookinfo"
+	}
+}

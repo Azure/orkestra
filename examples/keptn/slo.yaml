@@ -1,0 +1,16 @@
+spec_version: '1.0'
+comparison:
+  compare_with: "single_result"
+  include_result_with_score: "pass"
+  aggregate_function: avg
+objectives:
+  - sli: error_percentage
+    pass:
+      - criteria:
+        - "<10"
+    warning:
+      - criteria:
+        - "<=5"
+total_score:
+  pass: "100%"
+  warning: "75%"

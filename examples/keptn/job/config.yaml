@@ -1,0 +1,11 @@
+apiVersion: v2
+actions:
+  - name: "Run hey"
+    events:
+      - name: "sh.keptn.event.test.triggered"
+    tasks:
+      - name: "Run hey load tests"
+        image: "azureorkestra/hey"
+        cmd: ["hey"]
+        args: ["-host", "example.com", "-z", "5m", "http://gateway.istio-system.svc.cluster.local/productpage"]
+        maxPollDuration: 10000
