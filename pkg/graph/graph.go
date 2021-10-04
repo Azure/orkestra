@@ -124,6 +124,7 @@ func (executorNode *ExecutorNode) DeepCopy() *ExecutorNode {
 	return &ExecutorNode{
 		Name:     executorNode.Name,
 		Executor: executorNode.Executor,
+		Params:   executorNode.Params,
 	}
 }
 
@@ -225,7 +226,7 @@ func (g *Graph) Reverse() *Graph {
 						node.Dependencies = append(node.Dependencies, executor.Name)
 					}
 				}
-				subChartNode.Executors[executor.Name].Executor = subChartNode.Executors[executor.Name].Executor.Reverse()
+				subChartNode.Executors[executor.Name].Executor = subTask.Executors[executor.Name].Executor.Reverse()
 				reverseGraph.addExecutorIfNotExist(subChartNode.Executors[executor.Name].Executor)
 			}
 		}
