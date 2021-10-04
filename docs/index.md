@@ -135,11 +135,27 @@ The default executor is responsible for deploying the HelmRelease object passed 
 
 Source code for the HelmRelease executor is available [here](https://github.com/Azure/helmrelease-workflow-executor)
 
-### Keptn Executor (Work in progress)
+### Keptn Executor
 
 The Keptn executor is an evaluation executor responsible for running tests on the deployed helm release using the Keptn API and Keptn evaluations engine. The Keptn executor is a custom executor that is chained to the default HelmRelease executor. This allows each release to be evaluated against a set of SLOs/SLIs before it is deployed/updated.
 
 Source code for the Keptn executor is available [here](https://github.com/Azure/keptn-workflow-executor)
+
+#### Argo workflow dashboard
+
+![Keptn Workflow](./assets/keptn-executor.png)
+
+#### Keptn dashboard - Success
+
+> ⚠️ monitoring failed is a known, benign issue when submitting the `ApplicationGroup` multiple times.
+
+![Keptn Dashboard](./assets/keptn-dashboard.png)
+
+#### Keptn dashboard - Failed
+
+![Keptn Dashboard](./assets/keptn-dashboard-failed.png)
+
+#### Keptn Workflow
 
 ![Orkestra workflow](./assets/orkestra-gif.gif)
 

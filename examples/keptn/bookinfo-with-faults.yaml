@@ -60,7 +60,7 @@ spec:
             istio:
               enabled: true
               fault:
-                enabled: false
+                enabled: true 
             ambassador:
               enabled: false
         workflow:
