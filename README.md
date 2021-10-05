@@ -7,7 +7,7 @@
 ![GitHub commits since latest release (by SemVer)](https://img.shields.io/github/commits-since/azure/orkestra/latest)
 [![GitHub contributors](https://img.shields.io/github/contributors/azure/orkestra)](https://github.com/Azure/orkestra/graphs/contributors)
 
-Orkestra is a cloud-native **Release Orchestration** and **Lifecycle Management (LCM)** platform for a related group of [Helm](https://helm.sh/) releases and their subcharts.
+Orkestra is a cloud-native **Release Orchestration** and **Lifecycle Management (LCM)** platform for a related group of [Helm](https://helm.sh/) releases and their subcharts
 
 Orkestra is built on top of popular [CNCF](https://cncf.io/) tools and technologies like,
 
@@ -17,7 +17,47 @@ Orkestra is built on top of popular [CNCF](https://cncf.io/) tools and technolog
 - [Chartmuseum](https://chartmuseum.com/)
 - [Keptn](https://keptn.sh)
 
-<p align="center"><img src="./docs/assets/orkestra-core.png" width="750x" /></p>
+![Orkestra Core](docs/assets/orkestra-core.png)
+
+## Table of Contents
+
+- [Orkestra](#orkestra)
+  - [Overview](#overview)
+    - [How it works](#how-it-works)
+  - [Background and Motivation](#background-and-motivation)
+    - [Dependency Management in Helm](#dependency-management-in-helm)
+  - [Features <g-emoji class="g-emoji" alias="star2" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f31f.png">🌟</g-emoji>](#features-)
+  - [Architecture <g-emoji class="g-emoji" alias="building_construction" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f3d7.png">🏗</g-emoji>](#architecture-)
+  - [Executors <g-emoji class="g-emoji" alias="running_man" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f3c3-2642.png">🏃‍♂️</g-emoji>](#executors-️)
+    - [Helmrelease Executor](#helmrelease-executor)
+    - [Keptn Executor](#keptn-executor)
+      - [Argo workflow dashboard](#argo-workflow-dashboard)
+      - [Keptn dashboard - Success](#keptn-dashboard---success)
+      - [Keptn dashboard - Failed](#keptn-dashboard---failed)
+      - [Keptn Workflow](#keptn-workflow)
+  - [Use Cases <g-emoji class="g-emoji" alias="briefcase" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f4bc.png">💼</g-emoji>](#use-cases-)
+    - [5G Network Functions <g-emoji class="g-emoji" alias="iphone" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f4f1.png">📱</g-emoji>](#5g-network-functions-)
+  - [Installation <g-emoji class="g-emoji" alias="toolbox" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f9f0.png">🧰</g-emoji>](#installation-)
+    - [Using Helm](#using-helm)
+    - [Argo Workflow Dashboard](#argo-workflow-dashboard-1)
+  - [Developers <g-emoji class="g-emoji" alias="woman_technologist" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f469-1f4bb.png">👩‍💻</g-emoji>](#developers-)
+  - [Community <g-emoji class="g-emoji" alias="people_holding_hands" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f9d1-1f91d-1f9d1.png">🧑‍🤝‍🧑</g-emoji>](#community-)
+  - [Contributing <g-emoji class="g-emoji" alias="gift" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f381.png">🎁</g-emoji>](#contributing-)
+    - [Reporting security issues and security bugs](#reporting-security-issues-and-security-bugs)
+
+## Overview
+
+Orkestra is one solution to introduce Helm release orchestration. Orkestra provides this by building on top of **Argo Workflows**, a workflow engine on top of Kubernetes for workflow orchestration, where each step in a workflow is executed by a Pod. As such, Argo Workflow engine is a more powerful, more flexible adaptation of what **Init Containers** and **Kubernetes Jobs** provide without the orchestration.
+
+Argo enables a DAG based dependency graph with defined workflow steps and conditions to transition through the graph, as well as detailed insight into the graph and its state. Helm releases matching transitions in the graph are executed by the FluxCD Helm controller operator. The FluxCD Helm controller operator is a Kubernetes operator that is responsible for executing Helm releases in a consistent manner.
+
+### How it works
+
+The unit of deployment for Orkestra based Helm releases is based on a workflow definition with a custom resource type that models the relationship between individual Helm releases making up the whole. The workflow definition is a **DAG** with defined workflow steps and conditions.
+
+The `ApplicationGroup` spec allows to structure an orchestrated set of releases through grouping Helm releases into an group, either through defining a sequence on non-related charts and/or charts with subcharts, where subcharts are not merged into a single release but are executed as a release of their own inside a workflow step. The `ApplicationGroup` spec also allows to define a set of conditions that are evaluated at the beginning of the workflow and if any of the conditions fail, the whole workflow is aborted.
+
+This gives you the ability to define a set of Helm releases that are orchestrated in a way that is easy to understand and to debug without having to modify the Helm release itself.
 
 ## Background and Motivation
 
@@ -32,21 +72,6 @@ In the **ideal** world, pods and their replica sets are either perfectly **state
 Using **Helm Hooks**, **Kubernetes Jobs** and **Init Containers**, you might end up with a carefully crafted and working Helm release for a specific combination of components and conditions but it requires changes to the Helm release to be able to handle these dependencies.
 
 To manage a group of Helm releases with a parent/subchart relationship or using a dependency relation, you need to use a dependency relation at Helm release time and not a dependency relation at Helm package time.
-
-## What is Orkestra?
-
-Orkestra is one solution to introduce Helm release orchestration. Orkestra provides this by building on top of **Argo Workflows**, a workflow engine on top of Kubernetes for workflow orchestration, where each step in a workflow is executed by a Pod. As such, Argo Workflow engine is a more powerful, more flexible adaptation of what **Init Containers** and **Kubernetes Jobs** provide without the orchestration.
-
-Argo enables a DAG based dependency graph with defined workflow steps and conditions to transition through the graph, as well as detailed insight into the graph and its state. Helm releases matching transitions in the graph are executed by the FluxCD Helm controller operator. The FluxCD Helm controller operator is a Kubernetes operator that is responsible for executing Helm releases in a consistent manner.
-
-### How it works
-
-The unit of deployment for Orkestra based Helm releases is based on a workflow definition with a custom resource type that models the relationship between individual Helm releases making up the whole. The workflow definition is a **DAG** with defined workflow steps and conditions.
-
-The `ApplicationGroup` spec allows to structure an orchestrated set of releases through grouping Helm releases into an group, either through defining a sequence on non-related charts and/or charts with subcharts, where subcharts are not merged into a single release but are executed as a release of their own inside a workflow step. The `ApplicationGroup` spec also allows to define a set of conditions that are evaluated at the beginning of the workflow and if any of the conditions fail, the whole workflow is aborted.
-
-This gives you the ability to define a set of Helm releases that are orchestrated in a way that is easy to understand and to debug without having to modify the Helm release itself.
-
 
 ## Features 🌟
 
@@ -67,7 +92,7 @@ This gives you the ability to define a set of Helm releases that are orchestrate
 apiVersion: orkestra.azure.microsoft.com/v1alpha1
 kind: ApplicationGroup
 metadata:
-  name: bookinfo 
+  name: bookinfo
 spec:
   applications:
     - name: ambassador
@@ -75,20 +100,20 @@ spec:
       spec:
         chart:
           url: "https://nitishm.github.io/charts"
-          name: ambassador 
+          name: ambassador
           version: 6.6.0
         release:
           timeout: 10m
-          targetNamespace: ambassador 
+          targetNamespace: ambassador
           values:
             service:
               type: ClusterIP
-    - name: bookinfo 
+    - name: bookinfo
       dependencies: [ambassador]
       spec:
         chart:
           url: "https://nitishm.github.io/charts"
-          name: bookinfo 
+          name: bookinfo
           version: v1
         subcharts:
         - name: productpage
@@ -100,7 +125,7 @@ spec:
         - name: details
           dependencies: []
         release:
-          targetNamespace: bookinfo 
+          targetNamespace: bookinfo
           values:
             productpage:
               replicaCount: 1
@@ -127,11 +152,27 @@ The default executor is responsible for deploying the HelmRelease object passed 
 
 Source code for the HelmRelease executor is available [here](https://github.com/Azure/helmrelease-workflow-executor)
 
-### Keptn Executor (Work in progress)
+### Keptn Executor
 
 The Keptn executor is an evaluation executor responsible for running tests on the deployed helm release using the Keptn API and Keptn evaluations engine. The Keptn executor is a custom executor that is chained to the default HelmRelease executor. This allows each release to be evaluated against a set of SLOs/SLIs before it is deployed/updated.
 
 Source code for the Keptn executor is available [here](https://github.com/Azure/keptn-workflow-executor)
+
+#### Argo workflow dashboard
+
+![Keptn Workflow](./docs/assets/keptn-executor.png)
+
+#### Keptn dashboard - Success
+
+> ⚠️ monitoring failed is a known, benign issue when submitting the `ApplicationGroup` multiple times.
+
+![Keptn Dashboard](./docs/assets/keptn-dashboard.png)
+
+#### Keptn dashboard - Failed
+
+![Keptn Dashboard](./docs/assets/keptn-dashboard-failed.png)
+
+#### Keptn Workflow
 
 ![Orkestra workflow](./docs/assets/orkestra-gif.gif)
 

@@ -3,6 +3,7 @@ package executor
 import (
 	"encoding/json"
 	"fmt"
+
 	"github.com/Azure/Orkestra/pkg/utils"
 	v1alpha13 "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -56,7 +57,7 @@ func (exec KeptnReverse) GetTask(name string, dependencies []string, timeout, hr
 }
 
 func keptnBaseTemplate(executorName string, action Action) v1alpha13.Template {
-	executorArgs := []string{"--spec", "{{inputs.parameters.helmrelease}}", "--action", string(action), "--configmap-name", "{{inputs.parameters.configMapName}}", "configmap-namespace", "{{inputs.parameters.configMapNamespace}}", "--timeout", "{{inputs.parameters.timeout}}", "--interval", "1s"}
+	executorArgs := []string{"--spec", "{{inputs.parameters.helmrelease}}", "--action", string(action), "--configmap-name", "{{inputs.parameters.configMapName}}", "--configmap-namespace", "{{inputs.parameters.configMapNamespace}}", "--timeout", "{{inputs.parameters.timeout}}", "--interval", "1s"}
 	return v1alpha13.Template{
 		Name:               executorName,
 		ServiceAccountName: workflowServiceAccountName(),
