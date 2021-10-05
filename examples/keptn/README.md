@@ -45,11 +45,6 @@ helm upgrade --install orkestra chart/orkestra -n orkestra --create-namespace --
 
 The *bookinfo* application is deployed using the following Kubernetes manifests:
 
-```shell
-kubectl create -f bookinfo.yaml -n orkestra
-kubectl create -f bookinfo-keptn-cm.yaml -n orkestra
-```
-
 The ConfigMap is used to configure the Keptn executor and contains the following:
 
 - *keptn-config.yaml* - This file contains the Keptn configuration.

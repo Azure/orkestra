@@ -73,7 +73,7 @@ spec:
             params: nil
           - name: keptn
             dependencies: 
-            - "helmrelease"
+            - helmrelease
             type: keptn
             params:
               configmapRef:
