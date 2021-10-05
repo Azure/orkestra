@@ -7,6 +7,8 @@
 ![GitHub commits since latest release (by SemVer)](https://img.shields.io/github/commits-since/azure/orkestra/latest)
 [![GitHub contributors](https://img.shields.io/github/contributors/azure/orkestra)](https://github.com/Azure/orkestra/graphs/contributors)
 
+Orkestra is a cloud-native **Release Orchestration** and **Lifecycle Management (LCM)** platform for a related group of [Helm](https://helm.sh/) releases and their subcharts
+
 Orkestra is built on top of popular [CNCF](https://cncf.io/) tools and technologies like,
 
 - [Helm](https://helm.sh/)
@@ -20,10 +22,10 @@ Orkestra is built on top of popular [CNCF](https://cncf.io/) tools and technolog
 ## Table of Contents
 
 - [Orkestra](#orkestra)
+  - [Overview](#overview)
+    - [How it works](#how-it-works)
   - [Background and Motivation](#background-and-motivation)
     - [Dependency Management in Helm](#dependency-management-in-helm)
-  - [What is Orkestra?](#what-is-orkestra)
-    - [How it works](#how-it-works)
   - [Features <g-emoji class="g-emoji" alias="star2" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f31f.png">🌟</g-emoji>](#features-)
   - [Architecture <g-emoji class="g-emoji" alias="building_construction" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f3d7.png">🏗</g-emoji>](#architecture-)
   - [Executors <g-emoji class="g-emoji" alias="running_man" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f3c3-2642.png">🏃‍♂️</g-emoji>](#executors-️)
@@ -45,21 +47,7 @@ Orkestra is built on top of popular [CNCF](https://cncf.io/) tools and technolog
 
 Orkestra is a cloud-native **Release Orchestration** and **Lifecycle Management (LCM)** platform for a related group of [Helm](https://helm.sh/) releases and their subcharts.
 
-## Background and Motivation
-
-### Dependency Management in Helm
-
-While **Helm** can model dependencies using **subcharts**, this dependency relation at Helm release time is not very sophisticated. Moreover Helm does not support a way to specify a dependency relation between a parent chart and its subchart.
-
-A Helm release for Helm is really a true atomic unit wherein in the Helm package dependency tree gets flattened by resource type and is not treated as a node in a dependency graph at all.
-
-In the **ideal** world, pods and their replica sets are either perfectly **stateless** and don’t care about release state of other components to come up correctly. However, in the real world, there are many components that are not stateless and need to be aware of the state of other components to come up correctly.
-
-Using **Helm Hooks**, **Kubernetes Jobs** and **Init Containers**, you might end up with a carefully crafted and working Helm release for a specific combination of components and conditions but it requires changes to the Helm release to be able to handle these dependencies.
-
-To manage a group of Helm releases with a parent/subchart relationship or using a dependency relation, you need to use a dependency relation at Helm release time and not a dependency relation at Helm package time.
-
-## What is Orkestra?
+## Overview
 
 Orkestra is one solution to introduce Helm release orchestration. Orkestra provides this by building on top of **Argo Workflows**, a workflow engine on top of Kubernetes for workflow orchestration, where each step in a workflow is executed by a Pod. As such, Argo Workflow engine is a more powerful, more flexible adaptation of what **Init Containers** and **Kubernetes Jobs** provide without the orchestration.
 
@@ -73,6 +61,19 @@ The `ApplicationGroup` spec allows to structure an orchestrated set of releases 
 
 This gives you the ability to define a set of Helm releases that are orchestrated in a way that is easy to understand and to debug without having to modify the Helm release itself.
 
+## Background and Motivation
+
+### Dependency Management in Helm
+
+While **Helm** can model dependencies using **subcharts**, this dependency relation at Helm release time is not very sophisticated. Moreover Helm does not support a way to specify a dependency relation between a parent chart and its subchart.
+
+A Helm release for Helm is really a true atomic unit wherein in the Helm package dependency tree gets flattened by resource type and is not treated as a node in a dependency graph at all.
+
+In the **ideal** world, pods and their replica sets are either perfectly **stateless** and don’t care about release state of other components to come up correctly. However, in the real world, there are many components that are not stateless and need to be aware of the state of other components to come up correctly.
+
+Using **Helm Hooks**, **Kubernetes Jobs** and **Init Containers**, you might end up with a carefully crafted and working Helm release for a specific combination of components and conditions but it requires changes to the Helm release to be able to handle these dependencies.
+
+To manage a group of Helm releases with a parent/subchart relationship or using a dependency relation, you need to use a dependency relation at Helm release time and not a dependency relation at Helm package time.
 
 ## Features 🌟
 
