@@ -23,8 +23,9 @@ spec:
         release:
           targetNamespace: istio-system
     - name: istiod
-      dependencies: [istio-base, prometheus]
-      # dependencies: [istio-base]
+      dependencies: 
+      - istio-base
+      - prometheus
       spec:
         chart:
           url: "https://istio-release.storage.googleapis.com/charts"
@@ -37,7 +38,8 @@ spec:
             service:
               type: ClusterIP
     - name: istio-ingressgateway
-      dependencies: [istiod]
+      dependencies: 
+      - istiod
       spec:
         chart:
           url: "https://istio-release.storage.googleapis.com/charts"
@@ -47,7 +49,8 @@ spec:
           targetNamespace: istio-system
           timeout: 10m
     - name: bookinfo
-      dependencies: [istio-ingressgateway]
+      dependencies: 
+      - istio-ingressgateway
       spec:
         chart:
           url: "https://nitishm.github.io/charts"
@@ -69,7 +72,8 @@ spec:
             type: helmrelease
             params: nil
           - name: keptn
-            dependencies: ["helmrelease"]
+            dependencies: 
+            - "helmrelease"
             type: keptn
             params:
               configmapRef:

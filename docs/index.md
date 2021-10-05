@@ -25,7 +25,33 @@ Orkestra is built on top of popular [CNCF](https://cncf.io/) tools and technolog
 - [Chartmuseum](https://chartmuseum.com/)
 - [Keptn](https://keptn.sh)
 
-<p align="center"><img src="./assets/orkestra-core.png" width="750x" /></p>
+![Orkestra Core](assets/orkestra-core.png)
+
+## Table of Contents
+
+- [Orkestra](#orkestra)
+  - [Background and Motivation](#background-and-motivation)
+    - [Dependency Management in Helm](#dependency-management-in-helm)
+  - [What is Orkestra?](#what-is-orkestra)
+    - [How it works](#how-it-works)
+  - [Features <g-emoji class="g-emoji" alias="star2" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f31f.png">🌟</g-emoji>](#features-)
+  - [Architecture <g-emoji class="g-emoji" alias="building_construction" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f3d7.png">🏗</g-emoji>](#architecture-)
+  - [Executors <g-emoji class="g-emoji" alias="running_man" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f3c3-2642.png">🏃‍♂️</g-emoji>](#executors-️)
+    - [Helmrelease Executor](#helmrelease-executor)
+    - [Keptn Executor](#keptn-executor)
+      - [Argo workflow dashboard](#argo-workflow-dashboard)
+      - [Keptn dashboard - Success](#keptn-dashboard---success)
+      - [Keptn dashboard - Failed](#keptn-dashboard---failed)
+      - [Keptn Workflow](#keptn-workflow)
+  - [Use Cases <g-emoji class="g-emoji" alias="briefcase" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f4bc.png">💼</g-emoji>](#use-cases-)
+    - [5G Network Functions <g-emoji class="g-emoji" alias="iphone" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f4f1.png">📱</g-emoji>](#5g-network-functions-)
+  - [Installation <g-emoji class="g-emoji" alias="toolbox" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f9f0.png">🧰</g-emoji>](#installation-)
+    - [Using Helm](#using-helm)
+    - [Argo Workflow Dashboard](#argo-workflow-dashboard-1)
+  - [Developers <g-emoji class="g-emoji" alias="woman_technologist" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f469-1f4bb.png">👩‍💻</g-emoji>](#developers-)
+  - [Community <g-emoji class="g-emoji" alias="people_holding_hands" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f9d1-1f91d-1f9d1.png">🧑‍🤝‍🧑</g-emoji>](#community-)
+  - [Contributing <g-emoji class="g-emoji" alias="gift" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f381.png">🎁</g-emoji>](#contributing-)
+    - [Reporting security issues and security bugs](#reporting-security-issues-and-security-bugs)
 
 ## Background and Motivation
 
@@ -75,7 +101,7 @@ This gives you the ability to define a set of Helm releases that are orchestrate
 apiVersion: orkestra.azure.microsoft.com/v1alpha1
 kind: ApplicationGroup
 metadata:
-  name: bookinfo 
+  name: bookinfo
 spec:
   applications:
     - name: ambassador
@@ -83,20 +109,20 @@ spec:
       spec:
         chart:
           url: "https://nitishm.github.io/charts"
-          name: ambassador 
+          name: ambassador
           version: 6.6.0
         release:
           timeout: 10m
-          targetNamespace: ambassador 
+          targetNamespace: ambassador
           values:
             service:
               type: ClusterIP
-    - name: bookinfo 
+    - name: bookinfo
       dependencies: [ambassador]
       spec:
         chart:
           url: "https://nitishm.github.io/charts"
-          name: bookinfo 
+          name: bookinfo
           version: v1
         subcharts:
         - name: productpage
@@ -108,7 +134,7 @@ spec:
         - name: details
           dependencies: []
         release:
-          targetNamespace: bookinfo 
+          targetNamespace: bookinfo
           values:
             productpage:
               replicaCount: 1

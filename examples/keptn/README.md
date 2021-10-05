@@ -58,7 +58,7 @@ The ConfigMap is used to configure the Keptn executor and contains the following
 - *config.yaml* - This file contains the configuration for the `hey` load generator.
 
 ```shell
-kubectl create -f bookinfo.yaml -n orkestra
+kubectl create -f bookinfo.yaml -n orkestra \
 kubectl create -f bookinfo-keptn-cm.yaml -n orkestra
 ```
 
