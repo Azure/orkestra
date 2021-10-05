@@ -21,12 +21,19 @@ type Graph struct {
 
 func (g *Graph) DeepCopy() *Graph {
 	newGraph := &Graph{
-		Name:         g.Name,
-		Nodes:        make(map[string]*AppNode),
-		AllExecutors: g.AllExecutors,
+		Name: g.Name,
 	}
-	for name, appNode := range g.Nodes {
-		newGraph.Nodes[name] = appNode.DeepCopy()
+	if g.Nodes != nil {
+		newGraph.Nodes = make(map[string]*AppNode)
+		for name, appNode := range g.Nodes {
+			newGraph.Nodes[name] = appNode.DeepCopy()
+		}
+	}
+	if g.AllExecutors != nil {
+		newGraph.AllExecutors = make(map[string]executorpkg.Executor)
+		for name, executor := range g.AllExecutors {
+			newGraph.AllExecutors[name] = executor
+		}
 	}
 	return newGraph
 }
@@ -40,7 +47,7 @@ type AppNode struct {
 func NewAppNode(application *v1alpha1.Application) *AppNode {
 	return &AppNode{
 		Name:         application.Name,
-		Dependencies: application.Dependencies,
+		Dependencies: append([]string{}, application.Dependencies...),
 		Tasks:        make(map[string]*TaskNode),
 	}
 }
@@ -48,7 +55,7 @@ func NewAppNode(application *v1alpha1.Application) *AppNode {
 func (appNode *AppNode) DeepCopy() *AppNode {
 	newAppNode := &AppNode{
 		Name:         appNode.Name,
-		Dependencies: appNode.Dependencies,
+		Dependencies: append([]string{}, appNode.Dependencies...),
 	}
 	if appNode.Tasks != nil {
 		newAppNode.Tasks = make(map[string]*TaskNode)
@@ -75,6 +82,7 @@ func NewTaskNode(application *v1alpha1.Application) *TaskNode {
 		ChartName:    application.Spec.Chart.Name,
 		ChartVersion: application.Spec.Chart.Version,
 		Release:      application.Spec.Release,
+		Dependencies: []string{},
 		Executors:    make(map[string]*ExecutorNode),
 	}
 }
@@ -86,7 +94,7 @@ func (taskNode *TaskNode) DeepCopy() *TaskNode {
 		ChartVersion: taskNode.ChartVersion,
 		Parent:       taskNode.Parent,
 		Release:      taskNode.Release.DeepCopy(),
-		Dependencies: taskNode.Dependencies,
+		Dependencies: append([]string{}, taskNode.Dependencies...),
 	}
 	if taskNode.Executors != nil {
 		newTaskNode.Executors = make(map[string]*ExecutorNode)
@@ -107,7 +115,7 @@ type ExecutorNode struct {
 func NewExecutorNode(executor *v1alpha1.Executor) *ExecutorNode {
 	return &ExecutorNode{
 		Name:         executor.Name,
-		Dependencies: executor.Dependencies,
+		Dependencies: append([]string{}, executor.Dependencies...),
 		Executor:     executorpkg.ForwardFactory(executor.Type),
 		Params:       executor.Params,
 	}
@@ -115,15 +123,18 @@ func NewExecutorNode(executor *v1alpha1.Executor) *ExecutorNode {
 
 func NewDefaultExecutorNode() *ExecutorNode {
 	return &ExecutorNode{
-		Name:     string(v1alpha1.HelmReleaseExecutor),
-		Executor: executorpkg.ForwardFactory(v1alpha1.HelmReleaseExecutor),
+		Name:         string(v1alpha1.HelmReleaseExecutor),
+		Executor:     executorpkg.ForwardFactory(v1alpha1.HelmReleaseExecutor),
+		Dependencies: []string{},
 	}
 }
 
 func (executorNode *ExecutorNode) DeepCopy() *ExecutorNode {
 	return &ExecutorNode{
-		Name:     executorNode.Name,
-		Executor: executorNode.Executor,
+		Name:         executorNode.Name,
+		Executor:     executorNode.Executor,
+		Dependencies: append([]string{}, executorNode.Dependencies...),
+		Params:       executorNode.Params.DeepCopy(),
 	}
 }
 
@@ -165,6 +176,7 @@ func NewForwardGraph(appGroup *v1alpha1.ApplicationGroup) *Graph {
 					ChartVersion: subChartVersion,
 					Release:      release,
 					Parent:       application.Name,
+					Dependencies: []string{},
 					Executors:    make(map[string]*ExecutorNode),
 				}
 				for _, dep := range subChart.Dependencies {

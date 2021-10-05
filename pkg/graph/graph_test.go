@@ -80,7 +80,8 @@ func Test_NewForwardGraph(t *testing.T) {
 				},
 				Nodes: map[string]*AppNode{
 					"application1": {
-						Name: "application1",
+						Name:         "application1",
+						Dependencies: []string{},
 						Tasks: map[string]*TaskNode{
 							"application1-application1": {
 								Name:         "application1-application1",
@@ -91,10 +92,12 @@ func Test_NewForwardGraph(t *testing.T) {
 										Raw: []byte(`{}`),
 									},
 								},
+								Dependencies: []string{},
 								Executors: map[string]*ExecutorNode{
 									"helmrelease": {
-										Name:     "helmrelease",
-										Executor: executor.HelmReleaseForward{},
+										Name:         "helmrelease",
+										Executor:     executor.HelmReleaseForward{},
+										Dependencies: []string{},
 									},
 								},
 							},
@@ -113,10 +116,12 @@ func Test_NewForwardGraph(t *testing.T) {
 										Raw: []byte(`{}`),
 									},
 								},
+								Dependencies: []string{},
 								Executors: map[string]*ExecutorNode{
 									"helmrelease": {
-										Name:     "helmrelease",
-										Executor: executor.HelmReleaseForward{},
+										Name:         "helmrelease",
+										Executor:     executor.HelmReleaseForward{},
+										Dependencies: []string{},
 									},
 								},
 							},
@@ -135,10 +140,12 @@ func Test_NewForwardGraph(t *testing.T) {
 										Raw: []byte(`{}`),
 									},
 								},
+								Dependencies: []string{},
 								Executors: map[string]*ExecutorNode{
 									"helmrelease": {
-										Name:     "helmrelease",
-										Executor: executor.HelmReleaseForward{},
+										Name:         "helmrelease",
+										Executor:     executor.HelmReleaseForward{},
+										Dependencies: []string{},
 									},
 								},
 							},
@@ -247,7 +254,8 @@ func Test_NewForwardGraph(t *testing.T) {
 				},
 				Nodes: map[string]*AppNode{
 					"application1": {
-						Name: "application1",
+						Name:         "application1",
+						Dependencies: []string{},
 						Tasks: map[string]*TaskNode{
 							"application1-application1": {
 								Name:         "application1-application1",
@@ -261,8 +269,9 @@ func Test_NewForwardGraph(t *testing.T) {
 								Dependencies: []string{"application1-subchart1", "application1-subchart2", "application1-subchart3"},
 								Executors: map[string]*ExecutorNode{
 									"helmrelease": {
-										Name:     "helmrelease",
-										Executor: executor.HelmReleaseForward{},
+										Name:         "helmrelease",
+										Executor:     executor.HelmReleaseForward{},
+										Dependencies: []string{},
 									},
 								},
 							},
@@ -279,8 +288,9 @@ func Test_NewForwardGraph(t *testing.T) {
 								Dependencies: []string{"application1-subchart2"},
 								Executors: map[string]*ExecutorNode{
 									"helmrelease": {
-										Name:     "helmrelease",
-										Executor: executor.HelmReleaseForward{},
+										Name:         "helmrelease",
+										Executor:     executor.HelmReleaseForward{},
+										Dependencies: []string{},
 									},
 								},
 							},
@@ -293,11 +303,13 @@ func Test_NewForwardGraph(t *testing.T) {
 										Raw: []byte(`{}`),
 									},
 								},
-								Parent: "application1",
+								Parent:       "application1",
+								Dependencies: []string{},
 								Executors: map[string]*ExecutorNode{
 									"helmrelease": {
-										Name:     "helmrelease",
-										Executor: executor.HelmReleaseForward{},
+										Name:         "helmrelease",
+										Executor:     executor.HelmReleaseForward{},
+										Dependencies: []string{},
 									},
 								},
 							},
@@ -314,8 +326,9 @@ func Test_NewForwardGraph(t *testing.T) {
 								Dependencies: []string{"application1-subchart1", "application1-subchart2"},
 								Executors: map[string]*ExecutorNode{
 									"helmrelease": {
-										Name:     "helmrelease",
-										Executor: executor.HelmReleaseForward{},
+										Name:         "helmrelease",
+										Executor:     executor.HelmReleaseForward{},
+										Dependencies: []string{},
 									},
 								},
 							},
@@ -337,8 +350,9 @@ func Test_NewForwardGraph(t *testing.T) {
 								Dependencies: []string{"application2-subchart1"},
 								Executors: map[string]*ExecutorNode{
 									"helmrelease": {
-										Name:     "helmrelease",
-										Executor: executor.HelmReleaseForward{},
+										Name:         "helmrelease",
+										Executor:     executor.HelmReleaseForward{},
+										Dependencies: []string{},
 									},
 								},
 							},
@@ -351,11 +365,13 @@ func Test_NewForwardGraph(t *testing.T) {
 										Raw: []byte(`{}`),
 									},
 								},
-								Parent: "application2",
+								Parent:       "application2",
+								Dependencies: []string{},
 								Executors: map[string]*ExecutorNode{
 									"helmrelease": {
-										Name:     "helmrelease",
-										Executor: executor.HelmReleaseForward{},
+										Name:         "helmrelease",
+										Executor:     executor.HelmReleaseForward{},
+										Dependencies: []string{},
 									},
 								},
 							},
@@ -374,10 +390,12 @@ func Test_NewForwardGraph(t *testing.T) {
 										Raw: []byte(`{}`),
 									},
 								},
+								Dependencies: []string{},
 								Executors: map[string]*ExecutorNode{
 									"helmrelease": {
-										Name:     "helmrelease",
-										Executor: executor.HelmReleaseForward{},
+										Name:         "helmrelease",
+										Executor:     executor.HelmReleaseForward{},
+										Dependencies: []string{},
 									},
 								},
 							},
@@ -827,10 +845,12 @@ func Test_Diff(t *testing.T) {
 				Name: "firstGraph",
 				Nodes: map[string]*AppNode{
 					"application1": {
-						Name: "application1",
+						Name:         "application1",
+						Dependencies: []string{},
 						Tasks: map[string]*TaskNode{
 							"application1": {
-								Name: "application1",
+								Name:         "application1",
+								Dependencies: []string{},
 							},
 						},
 					},
@@ -879,10 +899,12 @@ func Test_Diff(t *testing.T) {
 				Name: "firstGraph",
 				Nodes: map[string]*AppNode{
 					"application1": {
-						Name: "application1",
+						Name:         "application1",
+						Dependencies: []string{},
 						Tasks: map[string]*TaskNode{
 							"application1": {
-								Name: "application1",
+								Name:         "application1",
+								Dependencies: []string{},
 							},
 						},
 					},
@@ -937,21 +959,26 @@ func Test_Diff(t *testing.T) {
 				Name: "firstGraph",
 				Nodes: map[string]*AppNode{
 					"application1": {
-						Name: "application1",
+						Name:         "application1",
+						Dependencies: []string{},
 						Tasks: map[string]*TaskNode{
 							"application1": {
-								Name: "application1",
+								Name:         "application1",
+								Dependencies: []string{},
 							},
 						},
 					},
 					"application2": {
-						Name: "application2",
+						Name:         "application2",
+						Dependencies: []string{},
 						Tasks: map[string]*TaskNode{
 							"subtask1": {
-								Name: "subtask1",
+								Name:         "subtask1",
+								Dependencies: []string{},
 							},
 							"subtask2": {
-								Name: "subtask2",
+								Name:         "subtask2",
+								Dependencies: []string{},
 							},
 						},
 					},
@@ -1013,18 +1040,22 @@ func Test_Combine(t *testing.T) {
 				Name: "firstGraph",
 				Nodes: map[string]*AppNode{
 					"application1": {
-						Name: "application1",
+						Name:         "application1",
+						Dependencies: []string{},
 						Tasks: map[string]*TaskNode{
 							"application1": {
-								Name: "application1",
+								Name:         "application1",
+								Dependencies: []string{},
 							},
 						},
 					},
 					"application2": {
-						Name: "application2",
+						Name:         "application2",
+						Dependencies: []string{},
 						Tasks: map[string]*TaskNode{
 							"application2": {
-								Name: "application2",
+								Name:         "application2",
+								Dependencies: []string{},
 							},
 						},
 					},
@@ -1085,38 +1116,48 @@ func Test_Combine(t *testing.T) {
 				Name: "firstGraph",
 				Nodes: map[string]*AppNode{
 					"application1": {
-						Name: "application1",
+						Name:         "application1",
+						Dependencies: []string{},
 						Tasks: map[string]*TaskNode{
 							"application1": {
-								Name: "application1",
+								Name:         "application1",
+								Dependencies: []string{},
 							},
 						},
 					},
 					"application2": {
-						Name: "application2",
+						Name:         "application2",
+						Dependencies: []string{},
 						Tasks: map[string]*TaskNode{
 							"application2": {
-								Name: "application2",
+								Name:         "application2",
+								Dependencies: []string{},
 							},
 							"subtask1": {
-								Name: "subtask1",
+								Name:         "subtask1",
+								Dependencies: []string{},
 							},
 							"subtask2": {
-								Name: "subtask2",
+								Name:         "subtask2",
+								Dependencies: []string{},
 							},
 						},
 					},
 					"application3": {
-						Name: "application3",
+						Name:         "application3",
+						Dependencies: []string{},
 						Tasks: map[string]*TaskNode{
 							"application3": {
-								Name: "application3",
+								Name:         "application3",
+								Dependencies: []string{},
 							},
 							"subtask1": {
-								Name: "subtask1",
+								Name:         "subtask1",
+								Dependencies: []string{},
 							},
 							"subtask2": {
-								Name: "subtask2",
+								Name:         "subtask2",
+								Dependencies: []string{},
 							},
 						},
 					},
