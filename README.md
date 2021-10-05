@@ -45,8 +45,6 @@ Orkestra is built on top of popular [CNCF](https://cncf.io/) tools and technolog
   - [Contributing <g-emoji class="g-emoji" alias="gift" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f381.png">🎁</g-emoji>](#contributing-)
     - [Reporting security issues and security bugs](#reporting-security-issues-and-security-bugs)
 
-Orkestra is a cloud-native **Release Orchestration** and **Lifecycle Management (LCM)** platform for a related group of [Helm](https://helm.sh/) releases and their subcharts.
-
 ## Overview
 
 Orkestra is one solution to introduce Helm release orchestration. Orkestra provides this by building on top of **Argo Workflows**, a workflow engine on top of Kubernetes for workflow orchestration, where each step in a workflow is executed by a Pod. As such, Argo Workflow engine is a more powerful, more flexible adaptation of what **Init Containers** and **Kubernetes Jobs** provide without the orchestration.

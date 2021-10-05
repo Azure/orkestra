@@ -27,6 +27,8 @@ Orkestra is built on top of popular [CNCF](https://cncf.io/) tools and technolog
 
 ![Orkestra Core](assets/orkestra-core.png)
 
+Orkestra is a cloud-native **Release Orchestration** and **Lifecycle Management (LCM)** platform for a related group of [Helm](https://helm.sh/) releases and their subcharts.
+
 ## Table of Contents
 
 - [Orkestra](#orkestra)
@@ -52,8 +54,6 @@ Orkestra is built on top of popular [CNCF](https://cncf.io/) tools and technolog
   - [Community <g-emoji class="g-emoji" alias="people_holding_hands" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f9d1-1f91d-1f9d1.png">🧑‍🤝‍🧑</g-emoji>](#community-)
   - [Contributing <g-emoji class="g-emoji" alias="gift" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f381.png">🎁</g-emoji>](#contributing-)
     - [Reporting security issues and security bugs](#reporting-security-issues-and-security-bugs)
-
-Orkestra is a cloud-native **Release Orchestration** and **Lifecycle Management (LCM)** platform for a related group of [Helm](https://helm.sh/) releases and their subcharts.
 
 ## Overview
 
