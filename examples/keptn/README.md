@@ -68,14 +68,14 @@ The ConfigMap is used to configure the Keptn executor and contains the following
 - *config.yaml* - This file contains the configuration for the `hey` load generator.
 
 ```shell
-kubectl create -f bookinfo.yaml -n orkestra \
-kubectl create -f bookinfo-keptn-cm.yaml -n orkestra
+kubectl create -f examples/keptn/bookinfo.yaml -n orkestra \
+kubectl create -f examples/keptn/bookinfo-keptn-cm.yaml -n orkestra
 ```
 
 ### Scenario 2 : Failed Reconciliation leading to Rollback
 
 ```shell
-kubectl apply -f bookinfo-with-faults.yaml -n orkestra
+kubectl apply -f examples/keptn/bookinfo-with-faults.yaml -n orkestra
 ```
 
 ## Cleanup
@@ -83,7 +83,7 @@ kubectl apply -f bookinfo-with-faults.yaml -n orkestra
 1. Delete the *bookinfo* `ApplicationGroup` and wait for the reverse workflow to complete
 
 ```shell
-kubectl delete -f bookinfo.yaml -n orkestra
+kubectl delete -f examples/keptn/bookinfo.yaml -n orkestra
 ```
 
 2. Once the `ApplicationGroup` is deleted, delete the Keptn configuration configMap
@@ -91,11 +91,10 @@ kubectl delete -f bookinfo.yaml -n orkestra
 > ⚠️ Deleting the Keptn ConfigMap before the `ApplicationGroup` will cause the reverse `Workflow` to fail causing cleanup to fail.
 
 ```shell
-kubectl delete -f bookinfo-keptn-cm.yaml -n orkestra
+kubectl delete -f examples/keptn/bookinfo-keptn-cm.yaml -n orkestra
 ```
 
 <!-- ## Manual Testing
-
 
 ### Authenticate with keptn
 
