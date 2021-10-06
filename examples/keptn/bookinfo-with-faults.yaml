@@ -21,7 +21,7 @@ spec:
           name: prometheus
           version: 14.8.0
         release:
-          targetNamespace: istio-system
+          targetNamespace: orkestra 
     - name: istiod
       dependencies:
       - istio-base

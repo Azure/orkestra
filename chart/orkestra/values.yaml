@@ -112,7 +112,7 @@ keptn:
 keptn-addons:
   enabled: false
   prometheus:
-    namespace: istio-system 
+    namespace: orkestra 
     server:
       name: prometheus-server
       port: 80
