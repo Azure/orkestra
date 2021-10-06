@@ -1,5 +1,11 @@
 # Evaluation & Quality Gate based promotions using Keptn
 
+## Prequisites
+
+- A Kubernetes cluster with sufficient resources to run the Keptn Controller
+
+> ⚠️ Avoid using a cluster with a low number of nodes and low CPU/RAM or a KinD, Minikube or microk8s cluster
+
 ## Description
 
 In this example we will show how to use Keptn to perform a promotion based on the evaluation of a Quality Gate.
@@ -15,6 +21,8 @@ The Application Group deploys an application that relies on multiple supporting 
 The scenarios that we will use in this example are:
 
 The *bookinfo* application is deployed with the Istio sidecar injection enabled. The application is configured to use the Keptn executor to perform evaluation of the Quality Gate.
+
+![Orkestra Workflow](keptn-executor.png)
 
 1. The *productpage* sidecar is configured to serve traffic without any issues.
 We expect the `Workflow` and subsequently the `ApplicationGroup` to succeed.
@@ -38,8 +46,15 @@ We expect the `Workflow` and subsequently the `ApplicationGroup` to succeed.
 From the root directory of the repository, run:
 
 ```shell
-helm upgrade --install orkestra chart/orkestra -n orkestra --create-namespace --set=keptn.enabled=true --set=keptn-addons.enabled=true  
+helm upgrade --install orkestra chart/orkestra -n orkestra --create-namespace --set=keptn.enabled=true --set=keptn-addons.enabled=true
 ```
+
+> 💡 Note: If prometheus is expected to run in a different namespace the user must specify the namespace in the `--set` option as follows,
+>
+> ```shell
+> export PROM_NS=prometheus
+> helm upgrade --install orkestra chart/orkestra -n orkestra --create-namespace --set=keptn.enabled=true --set=keptn-addons.enabled=true --set=keptn-addons.prometheus.namespace=$PROM_NS
+> ```
 
 ### Scenario 1 : Successful Reconciliation
 
@@ -99,7 +114,7 @@ Successfully authenticated against the Keptn cluster http://20.72.120.233/api
 ### Retrieve username and password for Keptn bridge (dashboard)
 
 ```terminal
-keptn configure bridge --output   
+keptn configure bridge --output
 ```
 
 ### Trigger evaluation
