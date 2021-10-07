@@ -1,0 +1,7 @@
+apiVersion: v2
+appVersion: 1.0.0
+description: A Helm chart for Keptn add-ons like Keptn job-executor-service, prometheus-service,
+  etc.
+name: keptn-addons
+type: application
+version: 0.1.0

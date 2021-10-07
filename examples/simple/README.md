@@ -12,7 +12,7 @@ In this example we deploy an application group consisting of two demo applicatio
 
 Install the `ApplicationGroup`:
 
-```terminal
+```shell
 kubectl apply -f examples/simple/bookinfo.yaml
 
 applicationgroup.orkestra.azure.microsoft.com/bookinfo created
@@ -53,7 +53,7 @@ reviews         bookinfo        1               2021-03-23 08:03:36.9634599 +000
 
 ## Send request to `productpage` via Ambassador gateway/proxy
 
-```terminal
+```shell
 kubectl -n default exec curl -- curl -ksS https://ambassador.ambassador:443/bookinfo/ | grep -o "<title>.*</title>"
 <title>Simple Bookstore App</title>
 ```
