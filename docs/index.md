@@ -199,8 +199,8 @@ Source code for the Keptn executor is available [here](https://github.com/Azure/
 To get started you need the following:
 
 - A Kubernetes cluster (AKS, GKE, EKS, Kind, Minikube, etc)
-- [`kubectl`](https://kubernetes.io/docs/tasks/tools/)
-- [`helm`](https://helm.sh/docs/intro/install/)
+- [kubectl](https://kubernetes.io/docs/tasks/tools/)
+- [helm](https://helm.sh/docs/intro/install/)
 - [`argo`](https://github.com/argoproj/argo-workflows/releases)
 
 ### Using Helm
