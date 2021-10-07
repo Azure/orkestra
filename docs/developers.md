@@ -19,8 +19,8 @@ For getting started, you will need:
     - [AKS](https://azure.microsoft.com/en-us/services/kubernetes-service/)
     - [GKE](https://cloud.google.com/kubernetes-engine)
     - [EKS](https://aws.amazon.com/eks/)
-- `kubectl` *v1.18* or higher - see this [Getting started](https://kubernetes.io/docs/tasks/tools/) guide for `kubectl`.
-- `helm` *v3.5.2* or higher - see this [Getting started](https://helm.sh/docs/intro/install/) guide for `helm`.
+- kubectl *v1.18* or higher - see this [Getting started](https://kubernetes.io/docs/tasks/tools/) guide for kubectl.
+- helm *v3.5.2* or higher - see this [Getting started](https://helm.sh/docs/intro/install/) guide for helm.
 - `kubebuilder` *v2.3.1* or higher - Install using `make setup-kubebuilder`.
 - `controller-gen` *v0.5.0* or higher - Install using `make controller-gen`. This is required to generate the ApplicationGroup CRDS.
 

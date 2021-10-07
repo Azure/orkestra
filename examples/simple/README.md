@@ -7,7 +7,8 @@ In this example we deploy an application group consisting of two demo applicatio
 
 ## Prerequisites
 
-- `kubectl`
+- [kubectl](https://kubernetes.io/docs/tasks/tools/)
+- [helm](https://helm.sh/docs/intro/install/)
 
 Install the `ApplicationGroup`:
 

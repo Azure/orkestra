@@ -6,6 +6,11 @@
 
 > ⚠️ Avoid using a cluster with a low number of nodes and low CPU/RAM or a KinD, Minikube or microk8s cluster
 
+- [kubectl](https://kubernetes.io/docs/tasks/tools/)
+- [helm](https://helm.sh/docs/intro/install/)
+- [Argo Workflow CLI](https://github.com/argoproj/argo-workflows/releases/tag/v3.0.0)
+- [Keptn CLI](https://keptn.sh/docs/0.9.x/operate/install/)
+
 ## Description
 
 In this example we will show how to use Keptn to perform a promotion based on the evaluation of a Quality Gate.
@@ -30,6 +35,27 @@ We expect the `Workflow` and subsequently the `ApplicationGroup` to succeed.
 ### Keptn dashboard - Success
 
 > ⚠️ monitoring failed is a known, benign issue when submitting the `ApplicationGroup` multiple times.
+
+Authenticate with Keptn Controller for the dashboard:
+
+```shell
+export KEPTN_ENDPOINT=http://$(kubectl get svc api-gateway-nginx -n orkestra -ojsonpath='{.status.loadBalancer.ingress[0].ip}')/api \
+export KEPTN_ENDPOINT=http://$(kubectl get svc api-gateway-nginx -n orkestra -ojsonpath='{.status.loadBalancer.ingress[0].ip}')/api \
+keptn auth --endpoint=$KEPTN_ENDPOINT --api-token=$KEPTN_API_TOKEN
+```
+
+Retrieve the dashboard URL, Username and Password:
+
+> The IPs and password will differ for each cluster.
+
+```shell
+keptn configure bridge --output
+Your Keptn Bridge is available under: http://20.75.119.32/bridge
+
+These are your credentials
+user: keptn
+password: UxUqN6XvWMpsrLqp6BeL
+```
 
 ![Keptn Dashboard](./keptn-dashboard.png)
 
@@ -56,7 +82,7 @@ helm upgrade --install orkestra chart/orkestra -n orkestra --create-namespace --
 > helm upgrade --install orkestra chart/orkestra -n orkestra --create-namespace --set=keptn.enabled=true --set=keptn-addons.enabled=true --set=keptn-addons.prometheus.namespace=$PROM_NS
 > ```
 
-### Scenario 1 : Successful Reconciliation
+## Scenario 1 : Successful Reconciliation
 
 The *bookinfo* application is deployed using the following Kubernetes manifests:
 
@@ -72,7 +98,7 @@ kubectl create -f examples/keptn/bookinfo.yaml -n orkestra \
 kubectl create -f examples/keptn/bookinfo-keptn-cm.yaml -n orkestra
 ```
 
-### Scenario 2 : Failed Reconciliation leading to Rollback
+## Scenario 2 : Failed Reconciliation leading to Rollback
 
 ```shell
 kubectl apply -f examples/keptn/bookinfo-with-faults.yaml -n orkestra
@@ -119,11 +145,11 @@ keptn configure bridge --output
 ### Trigger evaluation
 
 ```terminal
-keptn create project hey --shipyard=./shipyard.yaml
-keptn create service bookinfo --project=hey
-keptn configure monitoring prometheus --project=hey --service=bookinfo
-keptn add-resource --project=hey --service=bookinfo --resource=slo.yaml --resourceUri=slo.yaml --stage=dev
-keptn add-resource --project=hey --service=bookinfo --resource=prometheus/sli.yaml  --resourceUri=prometheus/sli.yaml --stage=dev
-keptn add-resource --project=hey --service=bookinfo --resource=job/config.yaml  --resourceUri=job/config.yaml --stage=dev
-keptn trigger evaluation --project=hey --service=bookinfo --timeframe=5m --stage dev --start $(date -u +"%Y-%m-%dT%T")
+keptn create project bookinfo --shipyard=./shipyard.yaml
+keptn create service bookinfo --project=bookinfo
+keptn configure monitoring prometheus --project=bookinfo --service=bookinfo
+keptn add-resource --project=bookinfo --service=bookinfo --resource=slo.yaml --resourceUri=slo.yaml --stage=dev
+keptn add-resource --project=bookinfo --service=bookinfo --resource=prometheus/sli.yaml  --resourceUri=prometheus/sli.yaml --stage=dev
+keptn add-resource --project=bookinfo --service=bookinfo --resource=job/config.yaml  --resourceUri=job/config.yaml --stage=dev
+keptn trigger evaluation --project=bookinfo --service=bookinfo --timeframe=5m --stage dev --start $(date -u +"%Y-%m-%dT%T")
 ``` -->

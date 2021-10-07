@@ -1,8 +1,0 @@
-registries:
-  bitnami:
-    url: "https://charts.bitnami.com/bitnami"
-    insecureSkipVerify: true
-
-  staging:
-    url: "http://localhost:8080"
-    path: "charts/"

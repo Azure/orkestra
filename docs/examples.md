@@ -8,7 +8,10 @@ nav_order: 3
 
 ## Prerequisites
 
-- `kubectl`
+- [kubectl](https://kubernetes.io/docs/tasks/tools/)
+- [helm](https://helm.sh/docs/intro/install/)
+- [Argo Workflow CLI](https://github.com/argoproj/argo-workflows/releases/tag/v3.0.0)
+- [Keptn CLI](https://keptn.sh/docs/0.9.x/operate/install/)
 
 ## 1. [Bookinfo](https://github.com/Azure/orkestra/tree/main/examples/simple) without Quality Gates
 
@@ -103,6 +106,26 @@ We expect the `Workflow` and subsequently the `ApplicationGroup` to succeed.
 #### Keptn dashboard - Success
 
 > ⚠️ monitoring failed is a known, benign issue when submitting the `ApplicationGroup` multiple times.
+Authenticate with Keptn Controller for the dashboard:
+
+```shell
+export KEPTN_ENDPOINT=http://$(kubectl get svc api-gateway-nginx -n orkestra -ojsonpath='{.status.loadBalancer.ingress[0].ip}')/api \
+export KEPTN_ENDPOINT=http://$(kubectl get svc api-gateway-nginx -n orkestra -ojsonpath='{.status.loadBalancer.ingress[0].ip}')/api \
+keptn auth --endpoint=$KEPTN_ENDPOINT --api-token=$KEPTN_API_TOKEN
+```
+
+Retrieve the dashboard URL, Username and Password:
+
+> The IPs and password will differ for each cluster.
+
+```shell
+keptn configure bridge --output
+Your Keptn Bridge is available under: http://20.75.119.32/bridge
+
+These are your credentials
+user: keptn
+password: UxUqN6XvWMpsrLqp6BeL
+```
 
 ![Keptn Dashboard](./assets/keptn-dashboard.png)
 
@@ -129,7 +152,7 @@ helm upgrade --install orkestra chart/orkestra -n orkestra --create-namespace --
 > helm upgrade --install orkestra chart/orkestra -n orkestra --create-namespace --set=keptn.enabled=true --set=keptn-addons.enabled=true --set=keptn-addons.prometheus.namespace=$PROM_NS
 > ```
 
-#### Scenario 1 : Successful Reconciliation
+### Scenario 1 : Successful Reconciliation
 
 The *bookinfo* application is deployed using the following Kubernetes manifests:
 
@@ -145,7 +168,7 @@ kubectl create -f examples/keptn/bookinfo.yaml -n orkestra \
 kubectl create -f examples/keptn/bookinfo-keptn-cm.yaml -n orkestra
 ```
 
-#### Scenario 2 : Failed Reconciliation leading to Rollback
+### Scenario 2 : Failed Reconciliation leading to Rollback
 
 ```shell
 kubectl apply -f examples/keptn/bookinfo-with-faults.yaml -n orkestra
@@ -173,38 +196,14 @@ kubectl delete -f examples/keptn/bookinfo-keptn-cm.yaml -n orkestra
 
 ### Manual Testing
 
-#### Prerequisites
-
-- keptn [CLI](https://keptn.sh/docs/0.9.x/operate/install/)
-
-#### Authenticate with keptn
-
-```terminal
-export KEPTN_API_TOKEN=$(kubectl get secret keptn-api-token -n orkestra -ojsonpath='{.data.keptn-api-token}' | base64 --decode)
-export KEPTN_ENDPOINT=http://$(kubectl get svc api-gateway-nginx -n orkestra -ojsonpath='{.status.loadBalancer.ingress[0].ip}')/api
-```
-
-```terminal
-keptn auth --endpoint=$KEPTN_ENDPOINT --api-token=$KEPTN_API_TOKEN
-
-Starting to authenticate
-Successfully authenticated against the Keptn cluster http://20.72.120.233/api
-```
-
-#### Retrieve username and password for Keptn bridge (dashboard)
-
-```terminal
-keptn configure bridge --output
-```
-
 #### Trigger evaluation
 
 ```terminal
-keptn create project hey --shipyard=./shipyard.yaml
-keptn create service bookinfo --project=hey
-keptn configure monitoring prometheus --project=hey --service=bookinfo
-keptn add-resource --project=hey --service=bookinfo --resource=slo.yaml --resourceUri=slo.yaml --stage=dev
-keptn add-resource --project=hey --service=bookinfo --resource=prometheus/sli.yaml  --resourceUri=prometheus/sli.yaml --stage=dev
-keptn add-resource --project=hey --service=bookinfo --resource=job/config.yaml  --resourceUri=job/config.yaml --stage=dev
-keptn trigger evaluation --project=hey --service=bookinfo --timeframe=5m --stage dev --start $(date -u +"%Y-%m-%dT%T")
+keptn create project bookinfo --shipyard=./shipyard.yaml
+keptn create service bookinfo --project=bookinfo
+keptn configure monitoring prometheus --project=bookinfo --service=bookinfo
+keptn add-resource --project=bookinfo --service=bookinfo --resource=slo.yaml --resourceUri=slo.yaml --stage=dev
+keptn add-resource --project=bookinfo --service=bookinfo --resource=prometheus/sli.yaml  --resourceUri=prometheus/sli.yaml --stage=dev
+keptn add-resource --project=bookinfo --service=bookinfo --resource=job/config.yaml  --resourceUri=job/config.yaml --stage=dev
+keptn trigger evaluation --project=bookinfo --service=bookinfo --timeframe=5m --stage dev --start $(date -u +"%Y-%m-%dT%T")
 ```
