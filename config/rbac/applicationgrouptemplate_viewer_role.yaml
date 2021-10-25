@@ -1,0 +1,20 @@
+# permissions for end users to view applicationgrouptemplates.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: applicationgrouptemplate-viewer-role
+rules:
+- apiGroups:
+  - orkestra.azure.microsoft.com
+  resources:
+  - applicationgrouptemplates
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - orkestra.azure.microsoft.com
+  resources:
+  - applicationgrouptemplates/status
+  verbs:
+  - get

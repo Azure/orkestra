@@ -4,4 +4,10 @@ resources:
 - group: orkestra
   kind: ApplicationGroup
   version: v1alpha1
+- group: orkestra
+  kind: Pipeline
+  version: v1alpha1
+- group: orkestra
+  kind: ApplicationGroupTemplate
+  version: v1alpha1
 version: "2"

@@ -1,0 +1,24 @@
+# permissions for end users to edit applicationgrouptemplates.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: applicationgrouptemplate-editor-role
+rules:
+- apiGroups:
+  - orkestra.azure.microsoft.com
+  resources:
+  - applicationgrouptemplates
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - orkestra.azure.microsoft.com
+  resources:
+  - applicationgrouptemplates/status
+  verbs:
+  - get

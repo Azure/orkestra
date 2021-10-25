@@ -1,0 +1,7 @@
+apiVersion: orkestra.azure.microsoft.com/v1alpha1
+kind: ApplicationGroupTemplate
+metadata:
+  name: applicationgrouptemplate-sample
+spec:
+  # Add fields here
+  foo: bar

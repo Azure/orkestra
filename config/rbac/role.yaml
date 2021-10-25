@@ -46,3 +46,23 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - orkestra.azure.microsoft.com
+  resources:
+  - pipelines
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - orkestra.azure.microsoft.com
+  resources:
+  - pipelines/status
+  verbs:
+  - get
+  - patch
+  - update
