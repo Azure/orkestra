@@ -214,7 +214,8 @@ ApplicationGroupStatus
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#orkestra.azure.microsoft.com/v1alpha1.ApplicationGroup">ApplicationGroup</a>)
+<a href="#orkestra.azure.microsoft.com/v1alpha1.ApplicationGroup">ApplicationGroup</a>, 
+<a href="#orkestra.azure.microsoft.com/v1alpha1.ApplicationGroupTemplateSpec">ApplicationGroupTemplateSpec</a>)
 </p>
 <p>ApplicationGroupSpec defines the desired state of ApplicationGroup</p>
 <div class="md-typeset__scrollwrap">
@@ -328,6 +329,100 @@ that has successfully completed a full workflow rollout of the application group
 <td>
 <em>(Optional)</em>
 <p>Conditions holds the conditions of the ApplicationGroup</p>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<h3 id="orkestra.azure.microsoft.com/v1alpha1.ApplicationGroupTemplate">ApplicationGroupTemplate
+</h3>
+<p>ApplicationGroupTemplate is the Schema for the applicationgrouptemplates API</p>
+<div class="md-typeset__scrollwrap">
+<div class="md-typeset__table">
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>metadata</code><br>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br>
+<em>
+<a href="#orkestra.azure.microsoft.com/v1alpha1.ApplicationGroupTemplateSpec">
+ApplicationGroupTemplateSpec
+</a>
+</em>
+</td>
+<td>
+<br/>
+<br/>
+<table>
+<tr>
+<td>
+<code>template</code><br>
+<em>
+<a href="#orkestra.azure.microsoft.com/v1alpha1.ApplicationGroupSpec">
+ApplicationGroupSpec
+</a>
+</em>
+</td>
+<td>
+<p>ApplicationGroupTemplateSpec defines the desired state of ApplicationGroupTemplate</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<h3 id="orkestra.azure.microsoft.com/v1alpha1.ApplicationGroupTemplateSpec">ApplicationGroupTemplateSpec
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#orkestra.azure.microsoft.com/v1alpha1.ApplicationGroupTemplate">ApplicationGroupTemplate</a>)
+</p>
+<p>ApplicationGroupTemplateSpec defines the desired state of ApplicationGroupTemplate</p>
+<div class="md-typeset__scrollwrap">
+<div class="md-typeset__table">
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>template</code><br>
+<em>
+<a href="#orkestra.azure.microsoft.com/v1alpha1.ApplicationGroupSpec">
+ApplicationGroupSpec
+</a>
+</em>
+</td>
+<td>
+<p>ApplicationGroupTemplateSpec defines the desired state of ApplicationGroupTemplate</p>
 </td>
 </tr>
 </tbody>
@@ -622,7 +717,8 @@ staging helm repo</p>
 (<em>Appears on:</em>
 <a href="#orkestra.azure.microsoft.com/v1alpha1.Application">Application</a>, 
 <a href="#orkestra.azure.microsoft.com/v1alpha1.ApplicationSpec">ApplicationSpec</a>, 
-<a href="#orkestra.azure.microsoft.com/v1alpha1.Executor">Executor</a>)
+<a href="#orkestra.azure.microsoft.com/v1alpha1.Executor">Executor</a>, 
+<a href="#orkestra.azure.microsoft.com/v1alpha1.PipelineTask">PipelineTask</a>)
 </p>
 <p>DAG contains the dependency information</p>
 <div class="md-typeset__scrollwrap">
@@ -746,6 +842,224 @@ Kubernetes pkg/apis/apiextensions/v1.JSON
 </p>
 <p>ExecutorType can either refer to a native executor (helmrelease and/or keptn) or
 be a custom executor defined by the end-user</p>
+<h3 id="orkestra.azure.microsoft.com/v1alpha1.Pipeline">Pipeline
+</h3>
+<p>Pipeline is the Schema for the pipelines API</p>
+<div class="md-typeset__scrollwrap">
+<div class="md-typeset__table">
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>metadata</code><br>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br>
+<em>
+<a href="#orkestra.azure.microsoft.com/v1alpha1.PipelineSpec">
+PipelineSpec
+</a>
+</em>
+</td>
+<td>
+<br/>
+<br/>
+<table>
+<tr>
+<td>
+<code>preFlight</code><br>
+<em>
+<a href="#orkestra.azure.microsoft.com/v1alpha1.PipelineTask">
+[]PipelineTask
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Preflight is a list of preflight checks to run before the pipeline runs.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>applicationGroup</code><br>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#objectreference-v1-core">
+Kubernetes core/v1.ObjectReference
+</a>
+</em>
+</td>
+<td>
+<p>ApplicationGroup is the name of the application group to run the pipeline in.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>postFlight</code><br>
+<em>
+<a href="#orkestra.azure.microsoft.com/v1alpha1.PipelineTask">
+[]PipelineTask
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Postflight is a list of postflight checks to run after the pipeline runs.</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+<tr>
+<td>
+<code>status</code><br>
+<em>
+<a href="#orkestra.azure.microsoft.com/v1alpha1.PipelineStatus">
+PipelineStatus
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<h3 id="orkestra.azure.microsoft.com/v1alpha1.PipelineSpec">PipelineSpec
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#orkestra.azure.microsoft.com/v1alpha1.Pipeline">Pipeline</a>)
+</p>
+<p>PipelineSpec defines the desired state of Pipeline</p>
+<div class="md-typeset__scrollwrap">
+<div class="md-typeset__table">
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>preFlight</code><br>
+<em>
+<a href="#orkestra.azure.microsoft.com/v1alpha1.PipelineTask">
+[]PipelineTask
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Preflight is a list of preflight checks to run before the pipeline runs.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>applicationGroup</code><br>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#objectreference-v1-core">
+Kubernetes core/v1.ObjectReference
+</a>
+</em>
+</td>
+<td>
+<p>ApplicationGroup is the name of the application group to run the pipeline in.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>postFlight</code><br>
+<em>
+<a href="#orkestra.azure.microsoft.com/v1alpha1.PipelineTask">
+[]PipelineTask
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Postflight is a list of postflight checks to run after the pipeline runs.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<h3 id="orkestra.azure.microsoft.com/v1alpha1.PipelineStatus">PipelineStatus
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#orkestra.azure.microsoft.com/v1alpha1.Pipeline">Pipeline</a>)
+</p>
+<p>PipelineStatus defines the observed state of Pipeline</p>
+<h3 id="orkestra.azure.microsoft.com/v1alpha1.PipelineTask">PipelineTask
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#orkestra.azure.microsoft.com/v1alpha1.PipelineSpec">PipelineSpec</a>)
+</p>
+<div class="md-typeset__scrollwrap">
+<div class="md-typeset__table">
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>DAG</code><br>
+<em>
+<a href="#orkestra.azure.microsoft.com/v1alpha1.DAG">
+DAG
+</a>
+</em>
+</td>
+<td>
+<p>
+(Members of <code>DAG</code> are embedded into this type.)
+</p>
+<p>DAG contains the dependency information</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>container</code><br>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#container-v1-core">
+Kubernetes core/v1.Container
+</a>
+</em>
+</td>
+<td>
+<p>Container is the container to run the task in.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
 <h3 id="orkestra.azure.microsoft.com/v1alpha1.Release">Release
 </h3>
 <p>
