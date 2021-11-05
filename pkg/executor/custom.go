@@ -1,6 +1,8 @@
 package executor
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 
 	"github.com/Azure/Orkestra/pkg/utils"
@@ -9,13 +11,8 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
-const (
-	data = "data"
-)
-
 type CustomForward struct {
-	ImageName string `json:"imageName,omitempty"`
-	ImageTag  string `json:"imageTag,omitempty"`
+	Image *corev1.Container
 }
 
 func (exec CustomForward) Reverse() Executor {
@@ -23,20 +20,19 @@ func (exec CustomForward) Reverse() Executor {
 }
 
 func (exec CustomForward) GetName() string {
-	return "helmrelease-forward-executor"
+	return "custom-forward-executor"
 }
 
 func (exec CustomForward) GetTemplate() v1alpha13.Template {
-	return customBaseTemplate(exec.GetName(), Install, exec.ImageName, exec.ImageTag)
+	return customBaseTemplate(exec.GetName(), Install, exec.Image)
 }
 
 func (exec CustomForward) GetTask(name string, dependencies []string, timeout, hrStr string, taskParams *apiextensionsv1.JSON) (v1alpha13.DAGTask, error) {
-	return customBaseTask(exec.GetName(), name, dependencies, timeout, hrStr), nil
+	return customBaseTask(exec.GetName(), name, dependencies, timeout, hrStr, taskParams)
 }
 
 type CustomReverse struct {
-	ImageName string
-	ImageTag  string
+	Image *corev1.Container
 }
 
 func (exec CustomReverse) Reverse() Executor {
@@ -44,18 +40,18 @@ func (exec CustomReverse) Reverse() Executor {
 }
 
 func (exec CustomReverse) GetName() string {
-	return "helmrelease-reverse-executor"
+	return "custom-reverse-executor"
 }
 
 func (exec CustomReverse) GetTemplate() v1alpha13.Template {
-	return customBaseTemplate(exec.GetName(), Delete, exec.ImageName, exec.ImageTag)
+	return customBaseTemplate(exec.GetName(), Delete, exec.Image)
 }
 
 func (exec CustomReverse) GetTask(name string, dependencies []string, timeout, hrStr string, taskParams *apiextensionsv1.JSON) (v1alpha13.DAGTask, error) {
-	return customBaseTask(exec.GetName(), name, dependencies, timeout, hrStr), nil
+	return customBaseTask(exec.GetName(), name, dependencies, timeout, hrStr, taskParams)
 }
 
-func customBaseTemplate(executorName string, action Action, imageName string, imageTag string) v1alpha13.Template {
+func customBaseTemplate(executorName string, action Action, image *corev1.Container) v1alpha13.Template {
 	executorArgs := []string{"--spec", "{{inputs.parameters.helmrelease}}", "--action", string(action), "--data", "{{inputs.parameters.data}}", "--timeout", "{{inputs.parameters.timeout}}", "--interval", "1s"}
 	return v1alpha13.Template{
 		Name:               executorName,
@@ -78,14 +74,27 @@ func customBaseTemplate(executorName string, action Action, imageName string, im
 			ServiceAccountName: workflowServiceAccountName(),
 		},
 		Container: &corev1.Container{
-			Name:  ExecutorName,
-			Image: fmt.Sprintf("%s:%s", imageName, imageTag),
+			Name:  image.Name,
+			Image: image.Image,
 			Args:  executorArgs,
 		},
 	}
 }
 
-func customBaseTask(executorName, name string, dependencies []string, timeout, hrStr string) v1alpha13.DAGTask {
+func customBaseTask(executorName, name string, dependencies []string, timeout, hrStr string, taskParams *apiextensionsv1.JSON) (v1alpha13.DAGTask, error) {
+	expectedParameters := &CustomParameters{}
+	if taskParams == nil {
+		return v1alpha13.DAGTask{}, fmt.Errorf("task parameters are required for the custom executor task")
+	}
+	if err := json.Unmarshal(taskParams.Raw, expectedParameters); err != nil {
+		return v1alpha13.DAGTask{}, err
+	}
+
+	// Data must always be base64 encoded for the custom executor
+	b64Data := base64.StdEncoding.EncodeToString(expectedParameters.Data.Raw)
+
+	data := string(b64Data)
+
 	return v1alpha13.DAGTask{
 		Name:     utils.ConvertToDNS1123(name),
 		Template: executorName,
@@ -99,8 +108,16 @@ func customBaseTask(executorName, name string, dependencies []string, timeout, h
 					Name:  TimeoutArg,
 					Value: utils.ToAnyStringPtr(timeout),
 				},
+				{
+					Name:  OpaqueDataArg,
+					Value: utils.ToAnyStringPtr(data),
+				},
 			},
 		},
 		Dependencies: dependencies,
-	}
+	}, nil
+}
+
+type CustomParameters struct {
+	Data apiextensionsv1.JSON
 }

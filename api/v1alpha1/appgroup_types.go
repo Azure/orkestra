@@ -107,7 +107,7 @@ type Executor struct {
 	// Image allows the end user to specify the docker image name and tag
 	// to be executed by the workflow node
 	// +optional
-	Image string `json:"image,omitempty"`
+	Image *corev1.Container `json:"image,omitempty"`
 
 	// Params hold executor specific properties
 	// +optional

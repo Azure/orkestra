@@ -10,8 +10,8 @@ package v1alpha1
 
 import (
 	"github.com/fluxcd/helm-controller/api/v2beta1"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
@@ -215,7 +215,7 @@ func (in *ChartRef) DeepCopyInto(out *ChartRef) {
 	*out = *in
 	if in.AuthSecretRef != nil {
 		in, out := &in.AuthSecretRef, &out.AuthSecretRef
-		*out = new(corev1.ObjectReference)
+		*out = new(v1.ObjectReference)
 		**out = **in
 	}
 }
@@ -276,9 +276,14 @@ func (in *DAG) DeepCopy() *DAG {
 func (in *Executor) DeepCopyInto(out *Executor) {
 	*out = *in
 	in.DAG.DeepCopyInto(&out.DAG)
+	if in.Image != nil {
+		in, out := &in.Image, &out.Image
+		*out = new(v1.Container)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.Params != nil {
 		in, out := &in.Params, &out.Params
-		*out = new(v1.JSON)
+		*out = new(apiextensionsv1.JSON)
 		(*in).DeepCopyInto(*out)
 	}
 }
@@ -304,7 +309,7 @@ func (in *Release) DeepCopyInto(out *Release) {
 	}
 	if in.Values != nil {
 		in, out := &in.Values, &out.Values
-		*out = new(v1.JSON)
+		*out = new(apiextensionsv1.JSON)
 		(*in).DeepCopyInto(*out)
 	}
 	if in.Install != nil {

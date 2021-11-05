@@ -711,7 +711,9 @@ ExecutorType
 <td>
 <code>image</code><br>
 <em>
-string
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#container-v1-core">
+Kubernetes core/v1.Container
+</a>
 </em>
 </td>
 <td>
