@@ -1,9 +1,10 @@
 package executor
 
 import (
+	"os"
+
 	"github.com/Azure/Orkestra/api/v1alpha1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	"os"
 
 	v1alpha13 "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
 )
@@ -22,6 +23,9 @@ const (
 
 	HelmReleaseArg = "helmrelease"
 	TimeoutArg     = "timeout"
+
+	// OpaqueDataArg is a base64 encoded string containing the data to be passed to the executor
+	OpaqueDataArg = "data"
 )
 
 func workflowServiceAccountName() string {
@@ -42,6 +46,8 @@ func ForwardFactory(executorType v1alpha1.ExecutorType) Executor {
 	switch executorType {
 	case v1alpha1.KeptnExecutor:
 		return KeptnForward{}
+	case v1alpha1.CustomExecutor:
+		return CustomForward{}
 	default:
 		return HelmReleaseForward{}
 	}
