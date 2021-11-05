@@ -3,7 +3,7 @@ package registry
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 
@@ -66,7 +66,7 @@ func (c *Client) PushChart(l logr.Logger, repoKey, pkgPath string, ch *chart.Cha
 
 func handlePushResponse(resp *http.Response) error {
 	if resp.StatusCode != 201 {
-		b, err := ioutil.ReadAll(resp.Body)
+		b, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return err
 		}
