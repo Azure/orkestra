@@ -116,7 +116,7 @@ func NewExecutorNode(executor *v1alpha1.Executor) *ExecutorNode {
 	return &ExecutorNode{
 		Name:         executor.Name,
 		Dependencies: append([]string{}, executor.Dependencies...),
-		Executor:     executorpkg.ForwardFactory(executor.Type),
+		Executor:     executorpkg.ForwardFactory(executor.Type, executor.Image),
 		Params:       executor.Params,
 	}
 }
@@ -124,7 +124,7 @@ func NewExecutorNode(executor *v1alpha1.Executor) *ExecutorNode {
 func NewDefaultExecutorNode() *ExecutorNode {
 	return &ExecutorNode{
 		Name:         string(v1alpha1.HelmReleaseExecutor),
-		Executor:     executorpkg.ForwardFactory(v1alpha1.HelmReleaseExecutor),
+		Executor:     executorpkg.ForwardFactory(v1alpha1.HelmReleaseExecutor, nil),
 		Dependencies: []string{},
 	}
 }
@@ -310,11 +310,11 @@ func getTaskName(appName, taskName string) string {
 func (g *Graph) assignExecutorsToTask(taskNode *TaskNode, workflow []v1alpha1.Executor) {
 	if len(workflow) == 0 {
 		taskNode.Executors[string(v1alpha1.HelmReleaseExecutor)] = NewDefaultExecutorNode()
-		g.addExecutorIfNotExist(executorpkg.ForwardFactory(v1alpha1.HelmReleaseExecutor))
+		g.addExecutorIfNotExist(executorpkg.ForwardFactory(v1alpha1.HelmReleaseExecutor, nil))
 	} else {
 		for _, item := range workflow {
 			taskNode.Executors[item.Name] = NewExecutorNode(&item)
-			g.addExecutorIfNotExist(executorpkg.ForwardFactory(item.Type))
+			g.addExecutorIfNotExist(executorpkg.ForwardFactory(item.Type, item.Image))
 		}
 	}
 }
