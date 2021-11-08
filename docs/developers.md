@@ -138,7 +138,7 @@ ok  	github.com/Azure/Orkestra/pkg/workflow	0.044s	coverage: 3.3% of statements
           "program": "${workspaceFolder}",
           "args": [
             "--debug",
-            "--log-level", "3", 
+            "--log-level", "3",
             // "--disable-remediation"
           ]
         }
@@ -177,3 +177,9 @@ The code for the *default* workflow executor container can be found at [Orkestra
 ### Keptn Workflow Executor Repository
 
 The code for the *keptn* workflow executor container can be found at [Orkestra Keptn Workflow Executor](https://github.com/Azure/keptn-workflow-executor).
+
+### Custom Workflow Executor Repository
+
+A *custom* workflow executor can be used to run a custom workflow node as part of the generated Orkestra workflow. This comes in handy when you want to run a workflow node that is not part of the Orkestra workflow. For example, you might want to run your own deployment executor to deploy an application. Or you might wish to chain the Orkestra workflow with a custom workflow node, in addition to the default and/or keptn workflow nodes.
+
+The code for a *custom* workflow executor container, that prints the payload passed via input arguments to the executor, can be found at [Orkestra Generic Workflow Executor](https://github.com/nitishm/generic-workflow-executor).
