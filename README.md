@@ -47,7 +47,7 @@ Orkestra is built on top of popular [CNCF](https://cncf.io/) tools and technolog
 
 ## Overview
 
-Orkestra is one solution to introduce Helm release orchestration. Orkestra provides this by building on top of **Argo Workflows**, a workflow engine on top of Kubernetes for workflow orchestration, where each step in a workflow is executed by a Pod. As such, Argo Workflow engine is a more powerful, more flexible adaptation of what **Init Containers** and **Kubernetes Jobs** provide without the orchestration.
+Orkestra provides Helm release orchestration by building on top of **Argo Workflows**, a workflow engine on top of Kubernetes for workflow orchestration, where each step in a workflow is executed by a Pod. As such, Argo Workflow engine is a more powerful, more flexible adaptation of what **Init Containers** and **Kubernetes Jobs** provide without the orchestration.
 
 Argo enables a DAG based dependency graph with defined workflow steps and conditions to transition through the graph, as well as detailed insight into the graph and its state. Helm releases matching transitions in the graph are executed by the FluxCD Helm controller operator. The FluxCD Helm controller operator is a Kubernetes operator that is responsible for executing Helm releases in a consistent manner.
 
