@@ -1,0 +1,25 @@
+apiVersion: orkestra.azure.microsoft.com/v1alpha1
+kind: ApplicationGroup
+metadata:
+  name: bookinfo 
+spec:
+  applications:
+    - name: bookinfo 
+      spec:
+        chart:
+          url: "https://nitishm.github.io/charts"
+          name: bookinfo 
+          version: v1
+        release:
+          targetNamespace: bookinfo 
+        workflow:
+          - name: generic-executor
+            type: custom
+            image:
+              name: generic-executor
+              image: nmalhotra/generic:latest
+            params:
+              data:
+                foo: bar
+
+
