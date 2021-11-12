@@ -16,7 +16,7 @@ type CustomForward struct {
 }
 
 func (exec CustomForward) Reverse() Executor {
-	return CustomReverse{}
+	return CustomReverse{exec.Image}
 }
 
 func (exec CustomForward) GetName() string {
@@ -36,7 +36,7 @@ type CustomReverse struct {
 }
 
 func (exec CustomReverse) Reverse() Executor {
-	return CustomForward{}
+	return CustomForward{exec.Image}
 }
 
 func (exec CustomReverse) GetName() string {
