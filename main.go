@@ -12,17 +12,19 @@ import (
 	"github.com/Azure/Orkestra/pkg/utils"
 	"github.com/Azure/Orkestra/pkg/workflow"
 
-	"github.com/Azure/Orkestra/pkg/registry"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	orkestrav1alpha1 "github.com/Azure/Orkestra/api/v1alpha1"
-	"github.com/Azure/Orkestra/controllers"
+	"github.com/Azure/Orkestra/pkg/registry"
+
 	v1alpha13 "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
 	fluxhelmv2beta1 "github.com/fluxcd/helm-controller/api/v2beta1"
+
+	orkestrav1alpha1 "github.com/Azure/Orkestra/api/v1alpha1"
+	"github.com/Azure/Orkestra/controllers"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -186,6 +188,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err = (&controllers.PipelineReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("Pipeline"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Pipeline")
+		os.Exit(1)
+	}
 	// +kubebuilder:scaffold:builder
 
 	setupLog.Info("starting manager")

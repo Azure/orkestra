@@ -7,14 +7,15 @@ import (
 	"testing"
 	"time"
 
-	v1alpha1 "github.com/Azure/Orkestra/api/v1alpha1"
-	"github.com/Azure/Orkestra/controllers"
-	"github.com/Azure/Orkestra/pkg/registry"
-	"github.com/Azure/Orkestra/pkg/workflow"
 	v1alpha13 "github.com/argoproj/argo-workflows/v3/pkg/apis/workflow/v1alpha1"
 	fluxhelmv2beta1 "github.com/fluxcd/helm-controller/api/v2beta1"
 	"github.com/onsi/ginkgo/config"
 	"github.com/onsi/gomega/gexec"
+
+	v1alpha1 "github.com/Azure/Orkestra/api/v1alpha1"
+	"github.com/Azure/Orkestra/controllers"
+	"github.com/Azure/Orkestra/pkg/registry"
+	"github.com/Azure/Orkestra/pkg/workflow"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -27,6 +28,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	orkestrav1alpha1 "github.com/Azure/Orkestra/api/v1alpha1"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -81,6 +84,9 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	err = fluxhelmv2beta1.AddToScheme(scheme.Scheme)
 	Expect(err).ToNot(HaveOccurred())
+
+	err = orkestrav1alpha1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
 
 	// +kubebuilder:scaffold:scheme
 
